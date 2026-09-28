@@ -27,6 +27,7 @@ export function normalizeBatchDetail(body: unknown): IntakeBatchDetail {
     drafts: [...(inner.drafts ?? [])].sort((a, b) => a.position - b.position),
     parser: inner.parser ?? batch.parser,
     attachments: inner.attachments ?? [],
+    aiRefine: inner.aiRefine ?? false,
   };
 }
 
@@ -91,6 +92,26 @@ export async function saveIntakeDrafts(
     path: `np/intake/batches/${id(batchId)}/drafts`,
     method: 'PUT',
     json: { drafts },
+  });
+  return unwrapList<IntakeDraft>(body, 'drafts').sort(
+    (a, b) => a.position - b.position,
+  );
+}
+
+/** NP-120: AI revises the drafts (the current table, unsaved edits included) by one instruction. */
+export async function refineIntakeDrafts(
+  api: ApiClient,
+  batchId: string,
+  instruction: string,
+  drafts: readonly IntakeDraftInput[],
+): Promise<IntakeDraft[]> {
+  const body = await api.request<
+    unknown,
+    { instruction: string; drafts: readonly IntakeDraftInput[] }
+  >({
+    path: `np/intake/batches/${id(batchId)}/refine`,
+    method: 'POST',
+    json: { instruction, drafts },
   });
   return unwrapList<IntakeDraft>(body, 'drafts').sort(
     (a, b) => a.position - b.position,

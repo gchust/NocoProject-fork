@@ -43,7 +43,8 @@ export interface DraftContext {
   readonly underIssue: boolean;
 }
 
-function structure(value: unknown): IntakeDraftInput[] {
+/** The structural check alone (400 `INVALID_DRAFTS`); NP-120's refine runs it before asking the model. */
+export function draftStructure(value: unknown): IntakeDraftInput[] {
   if (!isArrayValue(value) || (value as unknown[]).length > MAX_DRAFTS)
     throw invalid(
       'INVALID_DRAFTS',
@@ -187,7 +188,7 @@ export async function validateDrafts(
   ctx: DraftContext,
   value: unknown,
 ): Promise<ValidatedDraft[]> {
-  const drafts = structure(value).sort((a, b) => a.position - b.position);
+  const drafts = draftStructure(value).sort((a, b) => a.position - b.position);
   const positions = new Set(drafts.map((draft) => draft.position));
   const result: ValidatedDraft[] = [];
   for (const draft of drafts) {

@@ -59,6 +59,26 @@ const npIter4EnUS = {
     parse: 'Draft issues',
     parsing: 'Drafting…',
   },
+  /** NP-120: revising AI 整理 drafts by an instruction. */
+  intakeRefine: {
+    title: 'Ask AI to revise',
+    label: 'What to change',
+    placeholder:
+      'Say what to change, e.g. "split these finer" or "move row 3 under row 1"',
+    submit: 'Revise',
+    submitting: 'Revising…',
+    revised: 'Drafts revised',
+    revisedTag: 'Revised',
+    undo: 'Undo',
+    undone: 'Revision undone',
+    undoneTag: 'Undone',
+    history: 'Revisions',
+    tooLong: 'Use at most {{max}} characters.',
+    failed: 'Could not revise the drafts. Try again.',
+    timeout:
+      'AI did not answer in time. With many drafts, ask for smaller changes.',
+    unavailable: 'AI is not available.',
+  },
   process: {
     label: 'Process',
     choices: {

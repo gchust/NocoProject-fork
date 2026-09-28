@@ -51,6 +51,23 @@ const npIter4ZhCN: NpIter4Resource = {
     parse: '整理',
     parsing: '整理中…',
   },
+  intakeRefine: {
+    title: '让 AI 修改',
+    label: '要改什么',
+    placeholder: '说说哪里要改，例如"拆细一点""第 3 条放到第 1 条下面"',
+    submit: '修改',
+    submitting: '修改中…',
+    revised: '已按要求修改草稿',
+    revisedTag: '已修改',
+    undo: '撤销',
+    undone: '已撤销这次修改',
+    undoneTag: '已撤销',
+    history: '修改记录',
+    tooLong: '最多 {{max}} 字。',
+    failed: '修改失败，请重试。',
+    timeout: 'AI 没有及时回复。草稿较多时可以分几次改。',
+    unavailable: 'AI 当前不可用。',
+  },
   process: {
     label: '流程',
     choices: {
