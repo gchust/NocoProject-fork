@@ -5,12 +5,13 @@
  * routes, and any actor that is not a member is refused here too. An issue the caller cannot see is 404.
  *
  * Both calls read the pull request and its checks from GitHub first (never the stored snapshot) and store what they
- * saw — except a move out of `open`, which stays the webhook's (`upsertPullRequest` `keepOpenState`). The merge is
- * always a squash of the head the member confirmed (`sha`), titled `<title> (#<number>)`. The issue status is not
- * touched: GitHub's `pull_request closed` webhook runs the merge flow (`merge-flow.ts`), as for a merge on GitHub.
+ * saw; when that is a move out of `open` the webhook never delivered, the check runs the merge / close flow itself
+ * (`storeSnapshot`, NP-122). The merge is always a squash of the head the member confirmed (`sha`),
+ * titled `<title> (#<number>)`. The merge call does not touch the issue status: GitHub's `pull_request closed`
+ * webhook runs the merge flow (`merge-flow.ts`), as for a merge on GitHub — or the next refresh or merge check does.
  * Errors never carry GitHub's text or the token.
  */
-import type { Actor, ActivityRecorder } from '../shared/activity.js';
+import type { Actor } from '../shared/activity.js';
 import {
   canMergePullRequest,
   forbid,
@@ -32,12 +33,10 @@ import {
   type PullRequestMergeBlocker,
   type PullRequestMergePreflight,
 } from '../shared/protocol.js';
-import type { SettingsService } from '../system/settings.service.js';
-import type { WorkflowService } from '../workflow/workflow.service.js';
 import { githubError } from './connection.service.js';
 import { GitHubApiError, type GitHubClient } from './github-client.js';
-import { findPullRequestById, upsertPullRequest } from './git.records.js';
-import { mergeOutcome } from './merge-flow.js';
+import { findPullRequestById } from './git.records.js';
+import { mergeOutcome, storeSnapshot, type GitFlowDeps } from './merge-flow.js';
 import { mergeBlockerOf, mergeCommitTitle } from './merge-rules.js';
 import { fetchSnapshot } from './pull-request.service.js';
 
@@ -55,14 +54,11 @@ export interface PullRequestMergeService {
   ): Promise<MergePullRequestResponse>;
 }
 
-export interface PullRequestMergeDeps {
+export interface PullRequestMergeDeps extends GitFlowDeps {
   readonly tx: TxRunner;
   readonly ids: IdSource;
-  readonly activity: ActivityRecorder;
   readonly secrets: SecretBox;
   readonly github: GitHubClient;
-  readonly settings: SettingsService;
-  readonly workflows: WorkflowService;
 }
 
 interface Checked {
@@ -175,12 +171,11 @@ async function check(
     throw error;
   }
   const stored = await deps.tx.run(async (tx) => {
-    const { pr: saved } = await upsertPullRequest(
+    const saved = await storeSnapshot(
+      deps,
       tx,
-      deps.ids,
       fresh.snapshot,
       fresh.connectionId,
-      { keepOpenState: true },
     );
     tx.emit({ type: 'issue.changed', issueId: issue.id });
     return saved;

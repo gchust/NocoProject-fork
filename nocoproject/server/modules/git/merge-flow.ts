@@ -6,6 +6,9 @@
  *   transition limit. Activity `pr_merged` either way; subscribers get `pr_merged`; `pr_review` cards resolve.
  * - Closed without merge: `pr_review` cards resolve.
  * - Ready (open, not draft) on an issue executed by an agent: the owner gets the `pr_review` decision.
+ *
+ * Merged and closed run on the stored state's change, whoever sees it first: the webhook, or a REST read (link,
+ * refresh, merge check) when the repository has no webhook or a delivery was lost (`storeSnapshot`, NP-122).
  */
 import type { ActivityRecorder } from '../shared/activity.js';
 import { SYSTEM_ACTOR } from '../shared/activity.js';
@@ -21,7 +24,13 @@ import type { SettingsService } from '../system/settings.service.js';
 import type { WorkflowService } from '../workflow/workflow.service.js';
 import type { IssueService } from '../issue/issue.service.js';
 import { findIssue, issuesByIds } from '../issue/issue.records.js';
-import { linksOfPullRequest, mapPullRequest } from './git.records.js';
+import type { IdSource } from '../shared/ids.js';
+import type { PullRequestSnapshot } from './github-client.js';
+import {
+  linksOfPullRequest,
+  mapPullRequest,
+  upsertPullRequest,
+} from './git.records.js';
 
 export interface GitFlowDeps {
   readonly activity: ActivityRecorder;
@@ -146,6 +155,45 @@ export async function onPullRequestClosed(
   for (const issueId of issueIds) tx.emit({ type: 'issue.changed', issueId });
   if (issueIds.length > 0)
     tx.emit({ type: 'pr.closed', issueIds, merged: false });
+}
+
+/**
+ * Runs the flow of a PR that just left `open` (or changed between merged and closed): `previous` is the stored row
+ * before the write. The webhook calls it, and so do REST reads that find the PR merged or closed on GitHub, so a
+ * repository without the webhook still completes its issues and resolves its cards (NP-122). Returns whether a flow
+ * ran.
+ */
+export async function onPullRequestStateChanged(
+  deps: GitFlowDeps,
+  tx: Tx,
+  pr: PullRequest,
+  previous: PullRequest | null,
+): Promise<boolean> {
+  if (pr.state === previous?.state) return false;
+  if (pr.state === 'merged') await onPullRequestMerged(deps, tx, pr);
+  else if (pr.state === 'closed') await onPullRequestClosed(tx, pr);
+  else return false;
+  return true;
+}
+
+/**
+ * Stores a snapshot read from GitHub's REST API and runs the flow of its state change for the issues already linked
+ * (link it to a new issue afterwards: linking a merged PR does not complete that issue).
+ */
+export async function storeSnapshot(
+  deps: GitFlowDeps & { readonly ids: IdSource },
+  tx: Tx,
+  snapshot: PullRequestSnapshot,
+  connectionId: string | null,
+): Promise<PullRequest> {
+  const { pr, previous } = await upsertPullRequest(
+    tx,
+    deps.ids,
+    snapshot,
+    connectionId,
+  );
+  await onPullRequestStateChanged(deps, tx, pr, previous);
+  return pr;
 }
 
 /** Asks the owners of agent-executed issues to review a ready pull request. */

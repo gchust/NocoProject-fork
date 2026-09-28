@@ -93,18 +93,12 @@ export async function findPullRequestById(
 function snapshotValues(
   snapshot: PullRequestSnapshot,
   connectionId: string | null,
-  kept: PullRequest | null,
 ) {
-  // A REST read that sees the PR leave `open` leaves the state to the webhook, whose open → merged transition is
-  // what moves the issues (merge-flow.ts); writing it here first would make the webhook see no transition.
-  const state = kept
-    ? { state: kept.state, mergedAt: kept.mergedAt, closedAt: kept.closedAt }
-    : snapshot;
   return {
     connectionId,
     url: snapshot.url,
     title: snapshot.title,
-    state: state.state,
+    state: snapshot.state,
     draft: snapshot.draft,
     headRef: snapshot.headRef,
     baseRef: snapshot.baseRef,
@@ -114,8 +108,8 @@ function snapshotValues(
     deletions: snapshot.deletions,
     changedFiles: snapshot.changedFiles,
     mergeableState: snapshot.mergeableState,
-    mergedAt: toDate(state.mergedAt),
-    closedAt: toDate(state.closedAt),
+    mergedAt: toDate(snapshot.mergedAt),
+    closedAt: toDate(snapshot.closedAt),
     ...(snapshot.ciState !== undefined ? { ciState: snapshot.ciState } : {}),
     ...(snapshot.ciRunUrl !== undefined ? { ciRunUrl: snapshot.ciRunUrl } : {}),
     ...(snapshot.screenshotsUrl !== undefined
@@ -126,40 +120,40 @@ function snapshotValues(
 }
 
 /**
- * Inserts or refreshes a pull request from a full snapshot; returns it with the state it had before. `keepOpenState`
- * (REST refreshes): a stored open PR stays open even when GitHub says merged or closed — the webhook moves it.
+ * Inserts or refreshes a pull request from a full snapshot; returns it with the state it had before. The webhook and
+ * REST reads (refresh, merge check) both write here, and the caller runs the flow of a state change
+ * (`onPullRequestStateChanged`). A state change is written only over the state it was read with, so when two writers
+ * race the second one retries, sees the new state as `previous` and runs no flow twice.
  */
 export async function upsertPullRequest(
   tx: Tx,
   ids: IdSource,
   snapshot: PullRequestSnapshot,
   connectionId: string | null,
-  options: { readonly keepOpenState?: boolean } = {},
 ): Promise<{ pr: PullRequest; previous: PullRequest | null }> {
   const previous = await findPullRequest(
     tx.conn,
     snapshot.repo,
     snapshot.number,
   );
-  const kept =
-    options.keepOpenState &&
-    previous?.state === 'open' &&
-    snapshot.state !== 'open'
-      ? previous
-      : null;
   const headMoved =
     !!previous && !!snapshot.headSha && previous.headSha !== snapshot.headSha;
   const values = {
     // The stored run links belong to the old head.
     ...(headMoved ? { ciRunUrl: null, screenshotsUrl: null } : {}),
-    ...snapshotValues(snapshot, connectionId, kept),
+    ...snapshotValues(snapshot, connectionId),
   };
   if (previous) {
-    await tx.conn.query
+    let update = tx.conn.query
       .updateTable('pullRequests')
       .set({ ...values, updatedAt: now() })
-      .where('id', '=', previous.id)
-      .execute();
+      .where('id', '=', previous.id);
+    if (previous.state !== snapshot.state)
+      update = update.where('state', '=', previous.state);
+    const { updatedCount } = await update.execute();
+    // Another writer changed the state first (PostgreSQL re-checks the condition once its commit releases the row).
+    if (updatedCount === 0)
+      return upsertPullRequest(tx, ids, snapshot, connectionId);
   } else {
     const timestamp = now();
     try {
@@ -180,7 +174,7 @@ export async function upsertPullRequest(
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       // A concurrent delivery inserted it first: refresh that row instead.
-      return upsertPullRequest(tx, ids, snapshot, connectionId, options);
+      return upsertPullRequest(tx, ids, snapshot, connectionId);
     }
   }
   return {
