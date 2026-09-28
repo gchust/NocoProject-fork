@@ -24,7 +24,10 @@ import {
   memberRoleOptions,
   viewerFrom,
 } from '../../client/pages/np/permissions.js';
-import { isGitRepoUrl } from '../../client/pages/np/projects/detail/resource-url.js';
+import {
+  githubRepoOf,
+  isGitRepoUrl,
+} from '../../client/pages/np/projects/detail/resource-url.js';
 import {
   progressFromCounts,
   progressFromGroups,
@@ -274,6 +277,26 @@ describe('Phase 0 leftovers', () => {
     expect(isGitRepoUrl('ssh://git@host/repo.git')).toBe(true);
     expect(isGitRepoUrl('nocobase')).toBe(false);
     expect(isGitRepoUrl('https://github.com')).toBe(false);
+  });
+
+  it('finds the GitHub repository and its webhook page in every URL form', () => {
+    const hooks = 'https://github.com/nocobase/nocoitam/settings/hooks/new';
+    for (const url of [
+      'https://github.com/nocobase/nocoitam.git',
+      'https://github.com/nocobase/nocoitam',
+      'git@github.com:nocobase/nocoitam.git',
+      'ssh://git@github.com/nocobase/nocoitam.git',
+    ])
+      expect(githubRepoOf(url)).toEqual({
+        fullName: 'nocobase/nocoitam',
+        webhookSettingsUrl: hooks,
+      });
+    expect(
+      githubRepoOf('https://github.acme.com/team/app.git')?.webhookSettingsUrl,
+    ).toBe('https://github.acme.com/team/app/settings/hooks/new');
+    expect(githubRepoOf('https://gitlab.com/acme/tool.git')).toBeNull();
+    expect(githubRepoOf('https://github.com/nocobase')).toBeNull();
+    expect(githubRepoOf('')).toBeNull();
   });
 
   it('makes avatar initials', () => {

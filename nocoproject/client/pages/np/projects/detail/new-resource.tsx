@@ -22,11 +22,15 @@ import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { addProjectResource } from '../../api-projects.js';
 import { npKeys } from '../../constants.js';
-import { isGitRepoUrl } from './resource-url.js';
+import { githubRepoOf, isGitRepoUrl } from './resource-url.js';
+import { GithubWebhookGuide } from './webhook-guide.js';
 
 const FORM_ID = 'np-resource-new-form';
 
-/** Route `/projects/:projectId/resources/new` (§J 4): attach a git repository to the project. */
+/**
+ * Route `/projects/:projectId/resources/new` (§J 4): attach a git repository to the project. A GitHub URL also shows
+ * the webhook steps for it (NP-118).
+ */
 export default function NewResourcePage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
@@ -150,6 +154,14 @@ function Body({
             onChange={(event) => setLabel(event.target.value)}
           />
         </Field>
+        {githubRepoOf(url) ? (
+          <div className='space-y-2 rounded-lg border bg-muted/40 p-3'>
+            <p className='text-sm text-muted-foreground'>
+              {t('np.repoWebhook.newHint')}
+            </p>
+            <GithubWebhookGuide repoUrl={url} />
+          </div>
+        ) : null}
       </FieldGroup>
     </form>
   );
