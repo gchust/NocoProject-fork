@@ -19,7 +19,7 @@ import {
 } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { now, str } from '../shared/db.js';
-import { conflict, invalid, notFound } from '../shared/errors.js';
+import { invalid } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type {
   ConfirmIntakeRequest,
@@ -27,6 +27,7 @@ import type {
   CreateIntakeBatchRequestV4,
   CreateIntakeBatchResponse,
   IntakeBatch,
+  IntakeBatchAiRefineField,
   IntakeBatchAttachmentsField,
   IntakeBatchDetail,
   IntakeDraft,
@@ -54,7 +55,9 @@ import {
   readStatuses,
 } from './intake.attachments.js';
 import { confirmBatch } from './intake.confirm.js';
-import { parseInput, parseIntake } from './intake.parse.js';
+import { ownBatch, requireStatus, storeDrafts } from './intake.access.js';
+import { aiEnabled, parseInput, parseIntake } from './intake.parse.js';
+import { refineDrafts } from './intake.refine.js';
 import {
   draftsOf,
   findBatch,
@@ -68,11 +71,13 @@ import type { IntakeParser } from './parser.js';
 const MAX_RAW_CONTENT = 200_000;
 const LIST_LIMIT = 50;
 
-/** NP-78: the batch views carry the files that travel with the batch. */
+/** NP-78: the batch views carry the files that travel with the batch; NP-120: and whether AI may refine it. */
 export type IntakeBatchDetailV4 = IntakeBatchDetail &
-  IntakeBatchAttachmentsField;
+  IntakeBatchAttachmentsField &
+  IntakeBatchAiRefineField;
 export type CreateIntakeBatchResponseV4 = CreateIntakeBatchResponse &
-  IntakeBatchAttachmentsField;
+  IntakeBatchAttachmentsField &
+  IntakeBatchAiRefineField;
 
 export interface IntakeService {
   create(
@@ -82,6 +87,8 @@ export interface IntakeService {
   list(actor: Actor, mine: boolean): Promise<IntakeBatch[]>;
   get(actor: Actor, id: string): Promise<IntakeBatchDetailV4>;
   putDrafts(actor: Actor, id: string, drafts: unknown): Promise<IntakeDraft[]>;
+  /** NP-120: revises the drafts by one instruction (`intake.refine.ts`). */
+  refine(actor: Actor, id: string, body: unknown): Promise<IntakeDraft[]>;
   confirm(
     actor: Actor,
     id: string,
@@ -274,31 +281,8 @@ async function create(
     drafts: await draftsOf(read, id),
     parser: outcome.parser,
     attachments: await intakeBatchAttachments(read, id),
+    aiRefine: await aiEnabled(deps, read),
   };
-}
-
-/** The batch, if the caller entered it or is an owner/admin (404 otherwise, so other members' batches do not leak). */
-async function ownBatch(
-  conn: Conn,
-  actor: Actor,
-  id: string,
-): Promise<{ batch: IntakeBatch; viewer: Viewer }> {
-  const viewer = await viewerOf(conn, actor);
-  const batch = await findBatch(conn, id);
-  if (batch.createdById !== viewer.userId && !isAdmin(viewer))
-    throw notFound('Intake batch');
-  return { batch, viewer };
-}
-
-function requireStatus(
-  batch: IntakeBatch,
-  status: IntakeBatch['status'],
-): void {
-  if (batch.status !== status)
-    throw conflict(
-      'INTAKE_STATE_CONFLICT',
-      `The batch is ${batch.status}; expected ${status}.`,
-    );
 }
 
 async function revert(
@@ -387,30 +371,12 @@ export function createIntakeService(deps: IntakeDeps): IntakeService {
         batch,
         drafts: await draftsOf(conn, id),
         attachments: await intakeBatchAttachments(conn, id),
+        aiRefine: await aiEnabled(deps, conn),
       };
     },
-    async putDrafts(actor, id, drafts) {
-      return deps.tx.run(async (tx) => {
-        const { batch, viewer } = await ownBatch(tx.conn, actor, id);
-        requireStatus(batch, 'draft');
-        const validated = await validateDrafts(
-          {
-            conn: tx.conn,
-            users: deps.users,
-            creatorId: batch.createdById || viewer.userId,
-            underIssue: !!batch.sourceIssueId,
-          },
-          drafts,
-        );
-        await replaceDrafts(tx, deps.ids, id, validated);
-        await tx.conn.query
-          .updateTable('intakeBatches')
-          .set({ updatedAt: now() })
-          .where('id', '=', id)
-          .execute();
-        return draftsOf(tx.conn, id);
-      });
-    },
+    putDrafts: (actor, id, drafts) =>
+      deps.tx.run((tx) => storeDrafts(deps, tx, actor, id, drafts)),
+    refine: (actor, id, body) => refineDrafts(deps, actor, id, body),
     async confirm(actor, id, input) {
       return deps.tx.run(async (tx) => {
         const { batch } = await ownBatch(tx.conn, actor, id);

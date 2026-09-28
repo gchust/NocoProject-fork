@@ -30,6 +30,21 @@ export interface IntakeParseInput {
   };
 }
 
+/** NP-120: what the AI gets to revise a batch's drafts by one instruction. */
+export interface IntakeRefineInput extends IntakeParseInput {
+  readonly drafts: readonly IntakeDraftInput[];
+  readonly instruction: string;
+  /** Names of the batch's files (their text is not read again). */
+  readonly attachmentNames: readonly string[];
+  /** The batch splits an issue: every draft is a sub-task of it. */
+  readonly underIssue: boolean;
+}
+
+/** NP-120: a revised draft and the position of the draft it keeps or rewrites (null = new). */
+export interface RefinedDraft extends IntakeDraftInput {
+  readonly from: number | null;
+}
+
 export interface IntakeParser {
   readonly kind: IntakeParserKind;
   parse(input: IntakeParseInput): Promise<IntakeDraftInput[]>;

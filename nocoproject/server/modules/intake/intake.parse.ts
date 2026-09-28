@@ -14,6 +14,18 @@ function errorMessage(error: unknown): string {
   return text.slice(0, 500) || 'The AI parser failed.';
 }
 
+/** The AI parser is registered, an LLM service is configured and the workspace setting allows it (NP-120: refine too). */
+export async function aiEnabled(
+  deps: IntakeDeps,
+  conn: Conn,
+): Promise<boolean> {
+  return (
+    deps.ai !== null &&
+    deps.aiConfigured() &&
+    (await deps.settings.read(conn)).intakeParser === 'auto'
+  );
+}
+
 /** Runs the AI parser when it is available and allowed, falling back to the heuristic (never failing). */
 export async function parseIntake(
   deps: IntakeDeps,
@@ -23,11 +35,7 @@ export async function parseIntake(
 ): Promise<IntakeParseOutcome> {
   let parseError: string | null = null;
   let aiSessionId: string | null = null;
-  const useAi =
-    deps.ai !== null &&
-    deps.aiConfigured() &&
-    (await deps.settings.read(conn)).intakeParser === 'auto';
-  if (useAi && deps.ai) {
+  if (deps.ai && (await aiEnabled(deps, conn))) {
     try {
       const result = await deps.ai.parseAs(input, userId);
       aiSessionId = result.sessionId || null;

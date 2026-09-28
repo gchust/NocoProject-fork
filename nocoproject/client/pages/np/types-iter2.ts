@@ -271,6 +271,8 @@ export interface IntakeBatchDetail {
   readonly drafts: readonly IntakeDraft[];
   readonly parser?: IntakeParserKind;
   readonly attachments?: readonly IntakeBatchAttachment[];
+  /** NP-120: the drafts can be revised by AI (an LLM is configured and the setting is auto). */
+  readonly aiRefine?: boolean;
 }
 
 export interface IntakeConfirmInput {
