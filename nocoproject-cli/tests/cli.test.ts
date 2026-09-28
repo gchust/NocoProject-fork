@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -16,6 +16,19 @@ beforeAll(async () => {
   mock.addIssue({ id: 'i9', identifier: 'NP-9', title: 'CLI issue', description: 'Body **md**' });
   mock.addIssue({ id: 'i10', identifier: 'NP-10', title: 'Other issue' });
   mock.addIssue({ id: 'i11', identifier: 'NP-11', title: 'Gated issue', statusKey: 'in_progress', approvalRequired: ['in_review'] });
+  mock.addIssue({
+    id: 'i12',
+    identifier: 'NP-12',
+    title: 'With files',
+    attachments: [
+      { id: 'f1', filename: 'shot.png', mimeType: 'image/png', size: 4 },
+      { id: 'f2', filename: '../shot.png', mimeType: 'image/png', size: 2 },
+      { id: 'f3', filename: 'SHOT.png', mimeType: 'image/png', size: 2 },
+    ],
+  });
+  mock.attachmentBytes.set('f1', new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+  mock.attachmentBytes.set('f2', new Uint8Array([1, 2]));
+  mock.attachmentBytes.set('f3', new Uint8Array([3, 4]));
   token = mock.issueToken('i9');
 });
 afterAll(async () => mock.stop());
@@ -98,6 +111,29 @@ describe('run-token mode CLI', () => {
     expect(JSON.parse(j.out)).toMatchObject({ issue: { id: 'i11', statusKey: 'in_progress' }, pendingApproval: { status: 'pending', toStatus: 'in_review', fromStatus: 'in_progress' } });
   });
 
+  it('lists and downloads attachments with safe, distinct names (NP-111)', async () => {
+    const list = await run(['issue', 'attachment', 'list', 'NP-12']);
+    expect(list.code).toBe(0);
+    expect(list.out).toContain('f1  shot.png  image/png  4 B');
+    const text = await run(['issue', 'get', 'NP-12']);
+    expect(text.out).toContain('attachments (3; save them with `nocoproject issue attachment download NP-12`)');
+    const dir = mkdtempSync(join(tmpdir(), 'ncp-att-'));
+    const r = await run(['issue', 'attachment', 'download', 'NP-12', '--dir', dir, '--json']);
+    expect(r.code).toBe(0);
+    const saved = JSON.parse(r.out) as { id: string; path: string }[];
+    expect(saved.map((file) => file.path)).toEqual([join(dir, 'shot.png'), join(dir, '.._shot.png'), join(dir, 'f3-SHOT.png')]);
+    expect([...readFileSync(join(dir, 'shot.png'))]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(mock.callsTo(/GET \/np\/agent\/issues\/NP-12\/attachments\/f1\/content/).length).toBe(1);
+    expect([...readFileSync(join(dir, 'f3-SHOT.png'))]).toEqual([3, 4]);
+    const one = await run(['issue', 'attachment', 'download', 'NP-12', '--id', 'f2', '--dir', dir]);
+    expect(one.out.trim()).toBe(`${join(dir, '.._shot.png')}  (image/png, 2 B)`);
+    const missing = await run(['issue', 'attachment', 'download', 'NP-12', '--id', 'nope', '--json']);
+    expect(missing.code).toBe(4);
+    expect(JSON.parse(missing.out).error.code).toBe('ATTACHMENT_NOT_FOUND');
+    const none = await run(['issue', 'attachment', 'download', 'NP-10', '--dir', dir]);
+    expect(none.out.trim()).toBe('(no attachments)');
+  });
+
   it('links and lists pull requests', async () => {
     const url = 'https://github.com/acme/demo/pull/7';
     const r = await run(['pr', 'link', url], { NOCOPROJECT_ISSUE_ID: 'i9', NOCOPROJECT_ISSUE_KEY: 'NP-9' });
@@ -134,7 +170,7 @@ describe('run-token mode CLI', () => {
 
   it('prints the version', async () => {
     const r = await run(['version', '--json']);
-    expect(JSON.parse(r.out)).toMatchObject({ version: '0.3.0', protocolVersion: 1 });
+    expect(JSON.parse(r.out)).toMatchObject({ version: '0.3.1', protocolVersion: 1 });
   });
 
   it('logs in against the server and stores the key with 0600', async () => {

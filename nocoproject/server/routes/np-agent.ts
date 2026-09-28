@@ -4,7 +4,8 @@
  * Iteration 3 adds `/api/np/agent/knowledge*` (the run's project and system-level documents); iteration 4
  * `/api/np/agent/issues/:id/design-proposal` and the project manager's reads `/api/np/agent/pm/*`; Phase 2 the
  * checklists `/api/np/agent/issues/:id/checklists*` and the workflow templates `/api/np/agent/workflows*` (read,
- * propose).
+ * propose); NP-111 the attachment content
+ * `/api/np/agent/issues/:id/attachments/:fileId/content`.
  */
 import type { Application } from '@nocobase/app-server/application';
 import {
@@ -17,6 +18,7 @@ import {
   createAgentApiRoutes,
   runTokenAuth,
 } from '../modules/run/agent-api.routes.js';
+import { createAgentAttachmentRoutes } from '../modules/attachment/agent-attachment.routes.js';
 import { createAgentDesignRoutes } from '../modules/issue/design.routes.js';
 import { createAgentKnowledgeRoutes } from '../modules/knowledge/knowledge.routes.js';
 import { createAgentPmRoutes } from '../modules/pm/pm.routes.js';
@@ -25,6 +27,7 @@ import { createAgentWorkflowRoutes } from '../modules/workflow/workflow.routes.j
 import { guarded } from '../modules/shared/http.js';
 import {
   npAgentIssueServiceToken,
+  npAttachmentServiceToken,
   npChecklistServiceToken,
   npWorkflowProposalServiceToken,
   npCommentServiceToken,
@@ -53,6 +56,10 @@ export const npAgentRoutes: AppApiRouteContribution<Application> =
           pullRequests: container.resolve(npPullRequestServiceToken),
         }),
         createAgentDesignRoutes(container.resolve(npDesignServiceToken)),
+        createAgentAttachmentRoutes({
+          queries: container.resolve(npIssueQueriesToken),
+          attachments: container.resolve(npAttachmentServiceToken),
+        }),
         createAgentKnowledgeRoutes(container.resolve(npKnowledgeServiceToken)),
         createAgentPmRoutes(container.resolve(npPmServiceToken)),
         createAgentChecklistRoutes(container.resolve(npChecklistServiceToken)),

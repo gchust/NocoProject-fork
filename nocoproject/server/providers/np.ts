@@ -15,6 +15,8 @@
  * `2026092800003_np_member_page_grants`, `2026092900003_np_iter2_page_grants`, `2026092900004_np_github_settings_grant`
  * and `2026093000002_np_iter3_page_grants`, so administrators can still edit them.
  */
+import { Readable } from 'node:stream';
+
 import {
   aiManagerToken,
   type AIApplicationConfig,
@@ -295,7 +297,10 @@ export default class NpProvider extends ServiceProvider<Application> {
     );
   }
 
-  /** NP-78: stored attachment objects are deleted through the application's Drive manager, on the row's own disk. */
+  /**
+   * NP-78 / NP-111: stored attachment objects are read and deleted through the application's Drive manager, on the
+   * row's own disk.
+   */
   private fileObjects(): FileObjectStore | undefined {
     const { container } = this.app;
     if (!container.has(driveManagerToken)) return undefined;
@@ -303,6 +308,10 @@ export default class NpProvider extends ServiceProvider<Application> {
       remove: async (disk, key) => {
         await container.resolve(driveManagerToken).use(disk).delete(key);
       },
+      open: async (disk, key) =>
+        Readable.toWeb(
+          await container.resolve(driveManagerToken).use(disk).getStream(key),
+        ) as ReadableStream<Uint8Array>,
     };
   }
 

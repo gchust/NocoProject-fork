@@ -108,6 +108,7 @@ export function buildBrief(input: BriefInput): string {
     `- \`nocoproject issue get ${key} --json\` — read the issue (title, description, status, owner)`,
     `- \`nocoproject issue comment list ${key} --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)`,
     `- \`nocoproject issue comment add ${key} --content-file ./reply.md [--parent <rootId>]\` — post a comment`,
+    `- \`nocoproject issue attachment download ${key} [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them`,
     ...parts.commands,
     ...knowledgeCommands(),
     '',
@@ -172,18 +173,30 @@ function parentLine(input: PromptInput): string[] {
   return [`It is a sub-issue${stage} of ${parent.identifier} "${parent.title}".`];
 }
 
+/** NP-111: the issue's attached files, so the agent downloads them instead of assuming there are none. */
+function attachmentLines(input: PromptInput): string[] {
+  const files = input.issue.attachments ?? [];
+  if (files.length === 0) return [];
+  const names = files.map((file) => file.filename).join(', ');
+  return [
+    `It has ${files.length} attached file${files.length === 1 ? '' : 's'} (${names}): save them with \`nocoproject issue attachment download ${input.issue.identifier}\` and open the printed paths.`,
+  ];
+}
+
 function openingLines(input: PromptInput): string[] {
   const key = input.issue.identifier;
   if (executionModeOf(input) === 'session') {
     return [
       `You are in a live conversation with the owner on issue ${key} "${input.issue.title}" (session mode).`,
       ...parentLine(input),
+      ...attachmentLines(input),
       `Run: ${input.run.id}. When you need more context, read the issue (\`nocoproject issue get ${key} --json\`) and earlier comments (\`nocoproject issue comment list ${key} --json\`).`,
     ];
   }
   return [
     `You are working on issue ${key} "${input.issue.title}".`,
     ...parentLine(input),
+    ...attachmentLines(input),
     `Run: ${input.run.id}. Read the issue first: \`nocoproject issue get ${key} --json\``,
     `Then catch up on comments: \`nocoproject issue comment list ${key} --json\``,
   ];
