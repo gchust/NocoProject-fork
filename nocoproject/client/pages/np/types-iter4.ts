@@ -28,7 +28,7 @@ export const DESIGN_STATUS_KEYS: ReadonlySet<string> = new Set([
 /** `comments.kind` gains `proposal` (§A): the agent's design proposal, a top-level Markdown comment. */
 export type CommentKindPhase1Iter4 = 'proposal';
 
-/** `agents.kind` (§C): a coding agent, or the project manager, which never executes ordinary issues. */
+/** `agents.kind` (§C): legacy display metadata; capability configuration determines execution eligibility. */
 export type AgentKind = 'coder' | 'manager';
 export const AGENT_KINDS: readonly AgentKind[] = ['coder', 'manager'];
 

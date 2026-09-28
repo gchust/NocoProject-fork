@@ -38,7 +38,7 @@ describe('Phase 2 brief: workflow stages', () => {
     const brief = buildBrief(iter4Run({ process: 'direct' }));
     expect(brief).toContain('## Changing a workflow template');
     expect(brief).toContain('`nocoproject workflow get <template> --definition > wf.json`');
-    expect(brief).toContain('- `nocoproject workflow propose (<template> | --copy-from <template> --name "...")');
+    expect(brief).toContain('nocoproject workflow propose <template> --definition-file');
     expect(brief).toContain('`INVALID_WORKFLOW` lists every problem with its path');
   });
 

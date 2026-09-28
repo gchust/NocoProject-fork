@@ -166,11 +166,17 @@ describe.skipIf(!db)('skills (PostgreSQL)', () => {
     ]);
     const other = await services.skills.create(CAROL, { name: 'Other' });
     await expect(
-      services.agents.update(BOB, agentId, { skillIds: ['missing'] }),
+      services.agents.update(BOB, agentId, {
+        configurationRevision: (await services.agents.get(BOB, agentId))
+          .configurationRevision,
+        skillIds: ['missing'],
+      }),
     ).rejects.toMatchObject({
       code: 'INVALID_SKILL',
     });
     const agent = await services.agents.update(BOB, agentId, {
+      configurationRevision: (await services.agents.get(BOB, agentId))
+        .configurationRevision,
       skillIds: [review.skill.id, other.skill.id],
     });
     expect(agent.skillIds).toHaveLength(2);

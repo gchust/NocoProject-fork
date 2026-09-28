@@ -30,10 +30,17 @@ import { pmConversationKey, pmNotConfigured } from './pm-model.js';
  */
 export default function PmPage(): ReactElement {
   const { t } = useTranslation();
+  const api = useApiClient();
+  const settings = useQuery({
+    queryKey: npKeys.settings,
+    queryFn: () => fetchWorkspaceSettings(api),
+  });
   return (
     <PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'>
       <PageHeader
-        title={t('np.pm.title')}
+        title={
+          settings.data?.agentEntries?.conversation.name ?? t('np.pm.title')
+        }
         description={t('np.pm.description')}
         actions={<NpShortcuts showTrigger />}
       />

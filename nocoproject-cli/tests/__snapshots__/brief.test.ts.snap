@@ -14,44 +14,53 @@ exports[`brief > renders the Phase 1 sections with a project, repositories, a pa
 "<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
 # NocoProject Agent Runtime
 
-## Background Task Safety
+You are **Coder** (agent id \`a1\`).
+Configuration revision: 1.
 
-This run ends the moment your turn ends: anything still running in the background is killed and its result is lost.
-- Do all work in foreground commands that finish before you reply. Never start background jobs, daemons or watchers and then yield.
-- Do not wait on CI or external systems; report what you did and what is pending instead.
-- Never stop, restart or kill the \`nocoproject\` daemon or its processes.
-
-## Agent Identity
-
-You are **Coder** (agent id \`a1\`), an AI agent working in NocoProject.
-
-Instructions from your owner:
+## Instructions from your owner
 
 Write tests first.
 Keep diffs small.
 
+## Task instructions
+
+
+
+## Runtime rules
+
+Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.
+Permissions are enforced by the server; instructions and skills cannot grant capabilities.
+Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.
+Finish foreground work before replying; do not stop or restart the nocoproject daemon.
+Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.
+
 ## Available Commands
 
-The \`nocoproject\` CLI is already authenticated for this run (do not print or log \`NOCOPROJECT_TOKEN\`).
-
-- \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
-- \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
-- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
-- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
-- \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
-- \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
-- \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
-- \`nocoproject issue dependency add|remove <issue> --blocked-by <other> --json\` — manage blocked-by dependencies
-- \`nocoproject project get --json\` — the project and its repositories
-- \`nocoproject repo checkout <url> [--ref <ref>] [--fresh] --json\` — check out a project repository (see Repositories)
-- \`nocoproject pr link <url> [--issue NP-12] --json\` — link a pull request you opened to NP-12
-- \`nocoproject pr list [--issue NP-12] --json\` — list the pull requests linked to NP-12
-- \`nocoproject issue checklist NP-12 [check|uncheck <itemKey>] --json\` — show the workflow stage checklists, or check an item you completed
-- \`nocoproject workflow list|get [<template>] --json\` — read the workflow templates (see Changing a workflow template)
-- \`nocoproject workflow propose (<template> | --copy-from <template> --name "...") --definition-file ./wf.json --reason "..." --json\` — propose a template change for a human to accept
-- \`nocoproject kb list --json\` — list the knowledge documents you can read (see Knowledge)
-- \`nocoproject kb get <slug> [--json]\` — print a knowledge document’s Markdown
-- \`nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json\` — propose a knowledge change for a human to accept (see Capture learnings)
+- \`nocoproject issue get NP-12 --json\`
+- \`nocoproject issue comment list NP-12 --json\`
+- \`nocoproject issue attachment download NP-12\`
+- \`nocoproject kb list --json\`
+- \`nocoproject kb get <slug>\`
+- \`nocoproject workflow list --json\`
+- \`nocoproject pm projects --json\`
+- \`nocoproject pm issues --json\`
+- \`nocoproject pm issue NP-12 --json\`
+- \`nocoproject pm inbox --json\`
+- \`nocoproject pm metrics --json\`
+- \`nocoproject pm knowledge --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
+- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject repo checkout <url> --json\`
+- \`nocoproject project get --json\`
+- \`nocoproject pr list [--issue NP-12] --json\`
+- \`nocoproject issue create --title <title> [--executor self|none|<agentId>] --json\`
+- \`nocoproject issue children NP-12 --json\`
+- \`nocoproject issue dependency add|remove NP-12 --blocked-by NP-12\`
+- \`nocoproject issue status NP-12 <statusKey>\`
+- \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md\`
+- \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
+- \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
+- \`nocoproject pr link <url> [--issue NP-12] --json\`
 
 ## Project Context
 
@@ -60,6 +69,9 @@ This issue belongs to the project **NocoProject** (id \`p1\`).
 The project management app.
 
 NP-12 is a sub-issue (stage 2) of NP-10 "Login overhaul". Read the parent for the overall plan: \`nocoproject issue get NP-10 --json\`.
+## Knowledge
+
+No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
 
 ## Repositories
 
@@ -73,20 +85,6 @@ Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git 
 - When the work is ready for review, push with \`git push -u origin HEAD\`.
 - Then open a pull request with \`gh pr create --title "NP-12: <summary>"\` and link it with \`nocoproject pr link <url>\` (the URL \`gh pr create\` prints). The branch name already contains NP-12, so the server also links it automatically. Mention the PR in your delivery comment.
 - The previous run of NP-12 worked on branch \`agent/coder/np-12\` of \`https://github.com/nocobase/nocoproject.git\`; \`repo checkout\` resumes it.
-
-## Knowledge
-
-No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
-
-## Workflow
-
-1. Read the issue first.
-2. Catch up on the comments, especially the thread you were asked in.
-3. As soon as you start producing work, set the status to \`in_progress\`.
-4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
-5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
-6. If you were only asked a question, answer it with a comment and do not change the status.
-
 ## Sub-issues
 
 Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
@@ -99,7 +97,6 @@ Split work into sub-issues only when it is genuinely separable: independent part
 - \`--executor none\` (the default) leaves it unassigned for a human.
 - Never @-mention other agents to hand off work; create sub-issues instead.
 - After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
-
 ## Parent coordination
 
 When you are woken because a batch of NP-12's sub-issues finished:
@@ -108,17 +105,6 @@ When you are woken because a batch of NP-12's sub-issues finished:
 2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
 3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
 4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
-
-## Changing a workflow template
-
-Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
-
-1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
-2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
-3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
-4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
-5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
-
 ## Capture learnings
 
 Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
@@ -129,80 +115,6 @@ Before you finish the task, ask yourself whether you found something the next pe
 - Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
 - Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
 - Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
-
-## Status Rules
-
-You may only make these status transitions (the server rejects anything else):
-
-- \`todo\` → \`in_progress\`
-- \`blocked\` → \`in_progress\`
-- \`in_progress\` → \`in_review\`
-- \`in_progress\` → \`blocked\`
-
-Every other status change (for example to \`done\`) is made by a human.
-
-## Output
-
-Always write comment bodies to a Markdown file inside the working directory and pass it with \`--content-file\`; never inline long content on the command line.
-Your final message in this turn is only a log; the comment you post is what humans read.
-<!-- END NOCOPROJECT-RUNTIME -->"
-`;
-
-exports[`brief > renders the runtime block 1`] = `
-"<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
-# NocoProject Agent Runtime
-
-## Background Task Safety
-
-This run ends the moment your turn ends: anything still running in the background is killed and its result is lost.
-- Do all work in foreground commands that finish before you reply. Never start background jobs, daemons or watchers and then yield.
-- Do not wait on CI or external systems; report what you did and what is pending instead.
-- Never stop, restart or kill the \`nocoproject\` daemon or its processes.
-
-## Agent Identity
-
-You are **Coder** (agent id \`a1\`), an AI agent working in NocoProject.
-
-Instructions from your owner:
-
-Write tests first.
-Keep diffs small.
-
-## Available Commands
-
-The \`nocoproject\` CLI is already authenticated for this run (do not print or log \`NOCOPROJECT_TOKEN\`).
-
-- \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
-- \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
-- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
-- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
-- \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
-- \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
-- \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
-- \`nocoproject issue dependency add|remove <issue> --blocked-by <other> --json\` — manage blocked-by dependencies
-- \`nocoproject project get --json\` — the project and its repositories
-- \`nocoproject repo checkout <url> [--ref <ref>] [--fresh] --json\` — check out a project repository (see Repositories)
-- \`nocoproject pr link <url> [--issue NP-12] --json\` — link a pull request you opened to NP-12
-- \`nocoproject pr list [--issue NP-12] --json\` — list the pull requests linked to NP-12
-- \`nocoproject issue checklist NP-12 [check|uncheck <itemKey>] --json\` — show the workflow stage checklists, or check an item you completed
-- \`nocoproject workflow list|get [<template>] --json\` — read the workflow templates (see Changing a workflow template)
-- \`nocoproject workflow propose (<template> | --copy-from <template> --name "...") --definition-file ./wf.json --reason "..." --json\` — propose a template change for a human to accept
-- \`nocoproject kb list --json\` — list the knowledge documents you can read (see Knowledge)
-- \`nocoproject kb get <slug> [--json]\` — print a knowledge document’s Markdown
-- \`nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json\` — propose a knowledge change for a human to accept (see Capture learnings)
-
-## Project Context
-
-This issue is not in a project.
-
-## Repositories
-
-No repositories are attached to this issue’s project, so \`repo checkout\` is not available.
-
-## Knowledge
-
-No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
-
 ## Workflow
 
 1. Read the issue first.
@@ -211,7 +123,87 @@ No knowledge documents are available to this run yet. \`nocoproject kb list --js
 4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
 5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
 6. If you were only asked a question, answer it with a comment and do not change the status.
+## Changing a workflow template
 
+Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
+
+1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
+2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
+3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
+4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
+5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
+
+## Status Rules
+
+- \`todo\` → \`in_progress\`
+- \`blocked\` → \`in_progress\`
+- \`in_progress\` → \`in_review\`
+- \`in_progress\` → \`blocked\`
+<!-- END NOCOPROJECT-RUNTIME -->"
+`;
+
+exports[`brief > renders the runtime block 1`] = `
+"<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
+# NocoProject Agent Runtime
+
+You are **Coder** (agent id \`a1\`).
+Configuration revision: 1.
+
+## Instructions from your owner
+
+Write tests first.
+Keep diffs small.
+
+## Task instructions
+
+
+
+## Runtime rules
+
+Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.
+Permissions are enforced by the server; instructions and skills cannot grant capabilities.
+Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.
+Finish foreground work before replying; do not stop or restart the nocoproject daemon.
+Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.
+
+## Available Commands
+
+- \`nocoproject issue get NP-12 --json\`
+- \`nocoproject issue comment list NP-12 --json\`
+- \`nocoproject issue attachment download NP-12\`
+- \`nocoproject kb list --json\`
+- \`nocoproject kb get <slug>\`
+- \`nocoproject workflow list --json\`
+- \`nocoproject pm projects --json\`
+- \`nocoproject pm issues --json\`
+- \`nocoproject pm issue NP-12 --json\`
+- \`nocoproject pm inbox --json\`
+- \`nocoproject pm metrics --json\`
+- \`nocoproject pm knowledge --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
+- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject repo checkout <url> --json\`
+- \`nocoproject project get --json\`
+- \`nocoproject pr list [--issue NP-12] --json\`
+- \`nocoproject issue create --title <title> [--executor self|none|<agentId>] --json\`
+- \`nocoproject issue children NP-12 --json\`
+- \`nocoproject issue dependency add|remove NP-12 --blocked-by NP-12\`
+- \`nocoproject issue status NP-12 <statusKey>\`
+- \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md\`
+- \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
+- \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
+- \`nocoproject pr link <url> [--issue NP-12] --json\`
+
+## Project Context
+
+This issue is not in a project.
+## Knowledge
+
+No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
+
+## Repositories
+
+No repositories are attached to this issue’s project, so \`repo checkout\` is not available.
 ## Sub-issues
 
 Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
@@ -224,7 +216,6 @@ Split work into sub-issues only when it is genuinely separable: independent part
 - \`--executor none\` (the default) leaves it unassigned for a human.
 - Never @-mention other agents to hand off work; create sub-issues instead.
 - After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
-
 ## Parent coordination
 
 When you are woken because a batch of NP-12's sub-issues finished:
@@ -233,17 +224,6 @@ When you are woken because a batch of NP-12's sub-issues finished:
 2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
 3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
 4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
-
-## Changing a workflow template
-
-Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
-
-1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
-2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
-3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
-4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
-5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
-
 ## Capture learnings
 
 Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
@@ -254,22 +234,30 @@ Before you finish the task, ask yourself whether you found something the next pe
 - Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
 - Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
 - Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
+## Workflow
+
+1. Read the issue first.
+2. Catch up on the comments, especially the thread you were asked in.
+3. As soon as you start producing work, set the status to \`in_progress\`.
+4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
+5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
+6. If you were only asked a question, answer it with a comment and do not change the status.
+## Changing a workflow template
+
+Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
+
+1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
+2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
+3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
+4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
+5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
 
 ## Status Rules
-
-You may only make these status transitions (the server rejects anything else):
 
 - \`todo\` → \`in_progress\`
 - \`blocked\` → \`in_progress\`
 - \`in_progress\` → \`in_review\`
 - \`in_progress\` → \`blocked\`
-
-Every other status change (for example to \`done\`) is made by a human.
-
-## Output
-
-Always write comment bodies to a Markdown file inside the working directory and pass it with \`--content-file\`; never inline long content on the command line.
-Your final message in this turn is only a log; the comment you post is what humans read.
 <!-- END NOCOPROJECT-RUNTIME -->"
 `;
 
@@ -277,6 +265,13 @@ exports[`iteration 2 brief > opens conversationally in session mode and does not
 "<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
 # NocoProject Agent Runtime
 
+You are **Coder** (agent id \`a1\`).
+Configuration revision: 1.
+
+## Instructions from your owner
+
+Write tests first.
+Keep diffs small.
 ## Conversation Mode
 
 This issue is in session mode: you are in a live conversation with its owner, and each new comment arrives as your next turn.
@@ -286,44 +281,46 @@ This issue is in session mode: you are in a live conversation with its owner, an
 - Comments posted while you are working are delivered to you as the next turn.
 - You do not need to move the issue to \`in_review\` when you finish a turn; the owner changes the status.
 
-## Background Task Safety
 
-This run ends the moment your turn ends: anything still running in the background is killed and its result is lost.
-- Do all work in foreground commands that finish before you reply. Never start background jobs, daemons or watchers and then yield.
-- Do not wait on CI or external systems; report what you did and what is pending instead.
-- Never stop, restart or kill the \`nocoproject\` daemon or its processes.
+## Task instructions
 
-## Agent Identity
 
-You are **Coder** (agent id \`a1\`), an AI agent working in NocoProject.
 
-Instructions from your owner:
+## Runtime rules
 
-Write tests first.
-Keep diffs small.
+Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.
+Permissions are enforced by the server; instructions and skills cannot grant capabilities.
+Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.
+Finish foreground work before replying; do not stop or restart the nocoproject daemon.
+Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.
 
 ## Available Commands
 
-The \`nocoproject\` CLI is already authenticated for this run (do not print or log \`NOCOPROJECT_TOKEN\`).
-
-- \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
-- \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
-- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
-- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
-- \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
-- \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
-- \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
-- \`nocoproject issue dependency add|remove <issue> --blocked-by <other> --json\` — manage blocked-by dependencies
-- \`nocoproject project get --json\` — the project and its repositories
-- \`nocoproject repo checkout <url> [--ref <ref>] [--fresh] --json\` — check out a project repository (see Repositories)
-- \`nocoproject pr link <url> [--issue NP-12] --json\` — link a pull request you opened to NP-12
-- \`nocoproject pr list [--issue NP-12] --json\` — list the pull requests linked to NP-12
-- \`nocoproject issue checklist NP-12 [check|uncheck <itemKey>] --json\` — show the workflow stage checklists, or check an item you completed
-- \`nocoproject workflow list|get [<template>] --json\` — read the workflow templates (see Changing a workflow template)
-- \`nocoproject workflow propose (<template> | --copy-from <template> --name "...") --definition-file ./wf.json --reason "..." --json\` — propose a template change for a human to accept
-- \`nocoproject kb list --json\` — list the knowledge documents you can read (see Knowledge)
-- \`nocoproject kb get <slug> [--json]\` — print a knowledge document’s Markdown
-- \`nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json\` — propose a knowledge change for a human to accept (see Capture learnings)
+- \`nocoproject issue get NP-12 --json\`
+- \`nocoproject issue comment list NP-12 --json\`
+- \`nocoproject issue attachment download NP-12\`
+- \`nocoproject kb list --json\`
+- \`nocoproject kb get <slug>\`
+- \`nocoproject workflow list --json\`
+- \`nocoproject pm projects --json\`
+- \`nocoproject pm issues --json\`
+- \`nocoproject pm issue NP-12 --json\`
+- \`nocoproject pm inbox --json\`
+- \`nocoproject pm metrics --json\`
+- \`nocoproject pm knowledge --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
+- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject repo checkout <url> --json\`
+- \`nocoproject project get --json\`
+- \`nocoproject pr list [--issue NP-12] --json\`
+- \`nocoproject issue create --title <title> [--executor self|none|<agentId>] --json\`
+- \`nocoproject issue children NP-12 --json\`
+- \`nocoproject issue dependency add|remove NP-12 --blocked-by NP-12\`
+- \`nocoproject issue status NP-12 <statusKey>\`
+- \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md\`
+- \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
+- \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
+- \`nocoproject pr link <url> [--issue NP-12] --json\`
 
 ## Project Context
 
@@ -332,6 +329,17 @@ This issue belongs to the project **NocoProject** (id \`p1\`).
 The project management app.
 
 NP-12 is a sub-issue (stage 2) of NP-10 "Login overhaul". Read the parent for the overall plan: \`nocoproject issue get NP-10 --json\`.
+## Skills
+
+Your owner attached these skills. Each one is a folder with a \`SKILL.md\` (instructions) and optional supporting files, rebuilt for every run. When a task matches a skill’s description, read its \`SKILL.md\` first and follow it; skip skills that are not relevant.
+
+- **Deploy** — How to deploy the app to staging. \`.nocoproject/skills/deploy/SKILL.md\`
+
+Claude Code also discovers the same skills natively under \`.claude/skills/\`.
+
+## Knowledge
+
+No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
 
 ## Repositories
 
@@ -349,26 +357,6 @@ Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git 
 Pull requests already linked to NP-12 (push to their branch to update one instead of opening another):
 
 - #42 (open) https://github.com/nocobase/nocoproject/pull/42
-
-## Skills
-
-Your owner attached these skills. Each one is a folder with a \`SKILL.md\` (instructions) and optional supporting files, rebuilt for every run. When a task matches a skill’s description, read its \`SKILL.md\` first and follow it; skip skills that are not relevant.
-
-- **Deploy** — How to deploy the app to staging. \`.nocoproject/skills/deploy/SKILL.md\`
-
-Claude Code also discovers the same skills natively under \`.claude/skills/\`.
-
-## Knowledge
-
-No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
-
-## Workflow
-
-1. Read the new comment(s) quoted in this turn’s prompt. Read the issue and earlier comments only when you need more context.
-2. If the issue is still \`todo\`, set it to \`in_progress\` once you start producing work.
-3. Reply with a short comment using \`comment add\`, in the triggering thread (\`--parent <rootId>\`).
-4. Leave the status alone after replying; the owner decides when the issue is done. If you are stuck, say what you need in your reply.
-
 ## Sub-issues
 
 Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
@@ -381,7 +369,6 @@ Split work into sub-issues only when it is genuinely separable: independent part
 - \`--executor none\` (the default) leaves it unassigned for a human.
 - Never @-mention other agents to hand off work; create sub-issues instead.
 - After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
-
 ## Parent coordination
 
 When you are woken because a batch of NP-12's sub-issues finished:
@@ -390,17 +377,6 @@ When you are woken because a batch of NP-12's sub-issues finished:
 2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
 3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
 4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
-
-## Changing a workflow template
-
-Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
-
-1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
-2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
-3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
-4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
-5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
-
 ## Capture learnings
 
 Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
@@ -411,22 +387,22 @@ Before you finish the task, ask yourself whether you found something the next pe
 - Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
 - Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
 - Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
+## Changing a workflow template
+
+Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
+
+1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
+2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
+3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
+4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
+5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
 
 ## Status Rules
-
-You may only make these status transitions (the server rejects anything else):
 
 - \`todo\` → \`in_progress\`
 - \`blocked\` → \`in_progress\`
 - \`in_progress\` → \`in_review\`
 - \`in_progress\` → \`blocked\`
-
-Every other status change (for example to \`done\`) is made by a human.
-
-## Output
-
-Always write comment bodies to a Markdown file inside the working directory and pass it with \`--content-file\`; never inline long content on the command line.
-Your final message in this turn is only a log; the comment you post is what humans read.
 <!-- END NOCOPROJECT-RUNTIME -->"
 `;
 
@@ -445,44 +421,53 @@ exports[`iteration 2 brief > snapshots the task-mode brief 1`] = `
 "<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
 # NocoProject Agent Runtime
 
-## Background Task Safety
+You are **Coder** (agent id \`a1\`).
+Configuration revision: 1.
 
-This run ends the moment your turn ends: anything still running in the background is killed and its result is lost.
-- Do all work in foreground commands that finish before you reply. Never start background jobs, daemons or watchers and then yield.
-- Do not wait on CI or external systems; report what you did and what is pending instead.
-- Never stop, restart or kill the \`nocoproject\` daemon or its processes.
-
-## Agent Identity
-
-You are **Coder** (agent id \`a1\`), an AI agent working in NocoProject.
-
-Instructions from your owner:
+## Instructions from your owner
 
 Write tests first.
 Keep diffs small.
 
+## Task instructions
+
+
+
+## Runtime rules
+
+Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.
+Permissions are enforced by the server; instructions and skills cannot grant capabilities.
+Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.
+Finish foreground work before replying; do not stop or restart the nocoproject daemon.
+Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.
+
 ## Available Commands
 
-The \`nocoproject\` CLI is already authenticated for this run (do not print or log \`NOCOPROJECT_TOKEN\`).
-
-- \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
-- \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
-- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
-- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
-- \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
-- \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
-- \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
-- \`nocoproject issue dependency add|remove <issue> --blocked-by <other> --json\` — manage blocked-by dependencies
-- \`nocoproject project get --json\` — the project and its repositories
-- \`nocoproject repo checkout <url> [--ref <ref>] [--fresh] --json\` — check out a project repository (see Repositories)
-- \`nocoproject pr link <url> [--issue NP-12] --json\` — link a pull request you opened to NP-12
-- \`nocoproject pr list [--issue NP-12] --json\` — list the pull requests linked to NP-12
-- \`nocoproject issue checklist NP-12 [check|uncheck <itemKey>] --json\` — show the workflow stage checklists, or check an item you completed
-- \`nocoproject workflow list|get [<template>] --json\` — read the workflow templates (see Changing a workflow template)
-- \`nocoproject workflow propose (<template> | --copy-from <template> --name "...") --definition-file ./wf.json --reason "..." --json\` — propose a template change for a human to accept
-- \`nocoproject kb list --json\` — list the knowledge documents you can read (see Knowledge)
-- \`nocoproject kb get <slug> [--json]\` — print a knowledge document’s Markdown
-- \`nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json\` — propose a knowledge change for a human to accept (see Capture learnings)
+- \`nocoproject issue get NP-12 --json\`
+- \`nocoproject issue comment list NP-12 --json\`
+- \`nocoproject issue attachment download NP-12\`
+- \`nocoproject kb list --json\`
+- \`nocoproject kb get <slug>\`
+- \`nocoproject workflow list --json\`
+- \`nocoproject pm projects --json\`
+- \`nocoproject pm issues --json\`
+- \`nocoproject pm issue NP-12 --json\`
+- \`nocoproject pm inbox --json\`
+- \`nocoproject pm metrics --json\`
+- \`nocoproject pm knowledge --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
+- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject repo checkout <url> --json\`
+- \`nocoproject project get --json\`
+- \`nocoproject pr list [--issue NP-12] --json\`
+- \`nocoproject issue create --title <title> [--executor self|none|<agentId>] --json\`
+- \`nocoproject issue children NP-12 --json\`
+- \`nocoproject issue dependency add|remove NP-12 --blocked-by NP-12\`
+- \`nocoproject issue status NP-12 <statusKey>\`
+- \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md\`
+- \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
+- \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
+- \`nocoproject pr link <url> [--issue NP-12] --json\`
 
 ## Project Context
 
@@ -491,24 +476,6 @@ This issue belongs to the project **NocoProject** (id \`p1\`).
 The project management app.
 
 NP-12 is a sub-issue (stage 2) of NP-10 "Login overhaul". Read the parent for the overall plan: \`nocoproject issue get NP-10 --json\`.
-
-## Repositories
-
-Project repositories (only these can be checked out):
-
-- \`https://github.com/nocobase/nocoproject.git\` (default ref \`main\`)
-
-Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git worktree at \`$NOCOPROJECT_WORKDIR/<repo name>/\` on the branch \`agent/coder/np-12\` and prints its path; later runs of NP-12 resume the same branch. \`--ref <ref>\` picks another base, \`--fresh\` discards this checkout and restarts the branch from the base.
-
-- Work and commit only inside that worktree, on that branch. Do not switch branches there and do not touch the shared clone cache under \`~/.nocoproject/repos\`.
-- When the work is ready for review, push with \`git push -u origin HEAD\`.
-- Then open a pull request with \`gh pr create --title "NP-12: <summary>"\` and link it with \`nocoproject pr link <url>\` (the URL \`gh pr create\` prints). The branch name already contains NP-12, so the server also links it automatically. Mention the PR in your delivery comment.
-- The previous run of NP-12 worked on branch \`agent/coder/np-12\` of \`https://github.com/nocobase/nocoproject.git\`; \`repo checkout\` resumes it.
-
-Pull requests already linked to NP-12 (push to their branch to update one instead of opening another):
-
-- #42 (open) https://github.com/nocobase/nocoproject/pull/42
-
 ## Skills
 
 Your owner attached these skills. Each one is a folder with a \`SKILL.md\` (instructions) and optional supporting files, rebuilt for every run. When a task matches a skill’s description, read its \`SKILL.md\` first and follow it; skip skills that are not relevant.
@@ -521,127 +488,6 @@ Claude Code also discovers the same skills natively under \`.claude/skills/\`.
 
 No knowledge documents are available to this run yet. \`nocoproject kb list --json\` shows documents added after the run started.
 
-## Workflow
-
-1. Read the issue first.
-2. Catch up on the comments, especially the thread you were asked in.
-3. As soon as you start producing work, set the status to \`in_progress\`.
-4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
-5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
-6. If you were only asked a question, answer it with a comment and do not change the status.
-
-## Sub-issues
-
-Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
-
-- \`nocoproject issue create --title "..." --description-file ./sub.md --json\` creates a sub-issue of NP-12. Its owner is NP-12's owner.
-- \`--stage N\` puts sub-issues into ordered batches: a sub-issue does not start until every sibling with a lower stage is done.
-- \`--blocked-by NP-1,NP-2\` makes it wait for specific issues; it starts on its own once they are done.
-- \`--executor self\` asks for you to execute it. Auto-execute sub-issues is **on** for NP-12: you become the executor and it runs automatically once it is unblocked.
-- \`--executor <agentId>\` proposes another agent; the owner must accept it unless that agent is in your delegation list. Your delegation list (these start without approval): Reviewer (\`a7\`).
-- \`--executor none\` (the default) leaves it unassigned for a human.
-- Never @-mention other agents to hand off work; create sub-issues instead.
-- After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
-
-## Parent coordination
-
-When you are woken because a batch of NP-12's sub-issues finished:
-
-1. Run \`nocoproject issue children NP-12 --json\` and read the finished sub-issues (\`issue get\`, \`issue comment list\`) for their results.
-2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
-3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
-4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
-
-## Changing a workflow template
-
-Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
-
-1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
-2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
-3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
-4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
-5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
-
-## Capture learnings
-
-Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
-
-- Update an existing document: \`nocoproject kb propose --doc <slug> --content-file ./kb.md --reason "..." --json\`. The file holds the whole new content, so start from \`nocoproject kb get <slug>\` and edit that.
-- Add a new document: \`nocoproject kb propose --title "..." [--slug <slug>] --content-file ./kb.md --reason "..." [--summary "..."] --json\`.
-- \`--reason\` (at most 500 characters) says what you found and why it matters.
-- Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
-- Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
-- Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
-
-## Status Rules
-
-You may only make these status transitions (the server rejects anything else):
-
-- \`todo\` → \`in_progress\`
-- \`blocked\` → \`in_progress\`
-- \`in_progress\` → \`in_review\`
-- \`in_progress\` → \`blocked\`
-
-Every other status change (for example to \`done\`) is made by a human.
-
-## Output
-
-Always write comment bodies to a Markdown file inside the working directory and pass it with \`--content-file\`; never inline long content on the command line.
-Your final message in this turn is only a log; the comment you post is what humans read.
-<!-- END NOCOPROJECT-RUNTIME -->"
-`;
-
-exports[`iteration 3 brief > lists the knowledge documents and how to read and propose them 1`] = `
-"<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
-# NocoProject Agent Runtime
-
-## Background Task Safety
-
-This run ends the moment your turn ends: anything still running in the background is killed and its result is lost.
-- Do all work in foreground commands that finish before you reply. Never start background jobs, daemons or watchers and then yield.
-- Do not wait on CI or external systems; report what you did and what is pending instead.
-- Never stop, restart or kill the \`nocoproject\` daemon or its processes.
-
-## Agent Identity
-
-You are **Coder** (agent id \`a1\`), an AI agent working in NocoProject.
-
-Instructions from your owner:
-
-Write tests first.
-Keep diffs small.
-
-## Available Commands
-
-The \`nocoproject\` CLI is already authenticated for this run (do not print or log \`NOCOPROJECT_TOKEN\`).
-
-- \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
-- \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
-- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
-- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
-- \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
-- \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
-- \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
-- \`nocoproject issue dependency add|remove <issue> --blocked-by <other> --json\` — manage blocked-by dependencies
-- \`nocoproject project get --json\` — the project and its repositories
-- \`nocoproject repo checkout <url> [--ref <ref>] [--fresh] --json\` — check out a project repository (see Repositories)
-- \`nocoproject pr link <url> [--issue NP-12] --json\` — link a pull request you opened to NP-12
-- \`nocoproject pr list [--issue NP-12] --json\` — list the pull requests linked to NP-12
-- \`nocoproject issue checklist NP-12 [check|uncheck <itemKey>] --json\` — show the workflow stage checklists, or check an item you completed
-- \`nocoproject workflow list|get [<template>] --json\` — read the workflow templates (see Changing a workflow template)
-- \`nocoproject workflow propose (<template> | --copy-from <template> --name "...") --definition-file ./wf.json --reason "..." --json\` — propose a template change for a human to accept
-- \`nocoproject kb list --json\` — list the knowledge documents you can read (see Knowledge)
-- \`nocoproject kb get <slug> [--json]\` — print a knowledge document’s Markdown
-- \`nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json\` — propose a knowledge change for a human to accept (see Capture learnings)
-
-## Project Context
-
-This issue belongs to the project **NocoProject** (id \`p1\`).
-
-The project management app.
-
-NP-12 is a sub-issue (stage 2) of NP-10 "Login overhaul". Read the parent for the overall plan: \`nocoproject issue get NP-10 --json\`.
-
 ## Repositories
 
 Project repositories (only these can be checked out):
@@ -658,7 +504,122 @@ Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git 
 Pull requests already linked to NP-12 (push to their branch to update one instead of opening another):
 
 - #42 (open) https://github.com/nocobase/nocoproject/pull/42
+## Sub-issues
 
+Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
+
+- \`nocoproject issue create --title "..." --description-file ./sub.md --json\` creates a sub-issue of NP-12. Its owner is NP-12's owner.
+- \`--stage N\` puts sub-issues into ordered batches: a sub-issue does not start until every sibling with a lower stage is done.
+- \`--blocked-by NP-1,NP-2\` makes it wait for specific issues; it starts on its own once they are done.
+- \`--executor self\` asks for you to execute it. Auto-execute sub-issues is **on** for NP-12: you become the executor and it runs automatically once it is unblocked.
+- \`--executor <agentId>\` proposes another agent; the owner must accept it unless that agent is in your delegation list. Your delegation list (these start without approval): Reviewer (\`a7\`).
+- \`--executor none\` (the default) leaves it unassigned for a human.
+- Never @-mention other agents to hand off work; create sub-issues instead.
+- After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
+## Parent coordination
+
+When you are woken because a batch of NP-12's sub-issues finished:
+
+1. Run \`nocoproject issue children NP-12 --json\` and read the finished sub-issues (\`issue get\`, \`issue comment list\`) for their results.
+2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
+3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
+4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
+## Capture learnings
+
+Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
+
+- Update an existing document: \`nocoproject kb propose --doc <slug> --content-file ./kb.md --reason "..." --json\`. The file holds the whole new content, so start from \`nocoproject kb get <slug>\` and edit that.
+- Add a new document: \`nocoproject kb propose --title "..." [--slug <slug>] --content-file ./kb.md --reason "..." [--summary "..."] --json\`.
+- \`--reason\` (at most 500 characters) says what you found and why it matters.
+- Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
+- Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
+- Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
+## Workflow
+
+1. Read the issue first.
+2. Catch up on the comments, especially the thread you were asked in.
+3. As soon as you start producing work, set the status to \`in_progress\`.
+4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
+5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
+6. If you were only asked a question, answer it with a comment and do not change the status.
+## Changing a workflow template
+
+Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
+
+1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
+2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
+3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
+4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
+5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
+
+## Status Rules
+
+- \`todo\` → \`in_progress\`
+- \`blocked\` → \`in_progress\`
+- \`in_progress\` → \`in_review\`
+- \`in_progress\` → \`blocked\`
+<!-- END NOCOPROJECT-RUNTIME -->"
+`;
+
+exports[`iteration 3 brief > lists the knowledge documents and how to read and propose them 1`] = `
+"<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->
+# NocoProject Agent Runtime
+
+You are **Coder** (agent id \`a1\`).
+Configuration revision: 1.
+
+## Instructions from your owner
+
+Write tests first.
+Keep diffs small.
+
+## Task instructions
+
+
+
+## Runtime rules
+
+Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.
+Permissions are enforced by the server; instructions and skills cannot grant capabilities.
+Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.
+Finish foreground work before replying; do not stop or restart the nocoproject daemon.
+Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.
+
+## Available Commands
+
+- \`nocoproject issue get NP-12 --json\`
+- \`nocoproject issue comment list NP-12 --json\`
+- \`nocoproject issue attachment download NP-12\`
+- \`nocoproject kb list --json\`
+- \`nocoproject kb get <slug>\`
+- \`nocoproject workflow list --json\`
+- \`nocoproject pm projects --json\`
+- \`nocoproject pm issues --json\`
+- \`nocoproject pm issue NP-12 --json\`
+- \`nocoproject pm inbox --json\`
+- \`nocoproject pm metrics --json\`
+- \`nocoproject pm knowledge --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
+- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject repo checkout <url> --json\`
+- \`nocoproject project get --json\`
+- \`nocoproject pr list [--issue NP-12] --json\`
+- \`nocoproject issue create --title <title> [--executor self|none|<agentId>] --json\`
+- \`nocoproject issue children NP-12 --json\`
+- \`nocoproject issue dependency add|remove NP-12 --blocked-by NP-12\`
+- \`nocoproject issue status NP-12 <statusKey>\`
+- \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md\`
+- \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
+- \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
+- \`nocoproject pr link <url> [--issue NP-12] --json\`
+
+## Project Context
+
+This issue belongs to the project **NocoProject** (id \`p1\`).
+
+The project management app.
+
+NP-12 is a sub-issue (stage 2) of NP-10 "Login overhaul". Read the parent for the overall plan: \`nocoproject issue get NP-10 --json\`.
 ## Skills
 
 Your owner attached these skills. Each one is a folder with a \`SKILL.md\` (instructions) and optional supporting files, rebuilt for every run. When a task matches a skill’s description, read its \`SKILL.md\` first and follow it; skip skills that are not relevant.
@@ -676,15 +637,22 @@ Your team keeps conventions, pitfalls and decisions for this project (and system
 
 Read one with \`nocoproject kb get <slug>\` (prints its Markdown; \`--json\` adds the version and metadata). \`nocoproject kb list --json\` shows the current list.
 
-## Workflow
+## Repositories
 
-1. Read the issue first.
-2. Catch up on the comments, especially the thread you were asked in.
-3. As soon as you start producing work, set the status to \`in_progress\`.
-4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
-5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
-6. If you were only asked a question, answer it with a comment and do not change the status.
+Project repositories (only these can be checked out):
 
+- \`https://github.com/nocobase/nocoproject.git\` (default ref \`main\`)
+
+Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git worktree at \`$NOCOPROJECT_WORKDIR/<repo name>/\` on the branch \`agent/coder/np-12\` and prints its path; later runs of NP-12 resume the same branch. \`--ref <ref>\` picks another base, \`--fresh\` discards this checkout and restarts the branch from the base.
+
+- Work and commit only inside that worktree, on that branch. Do not switch branches there and do not touch the shared clone cache under \`~/.nocoproject/repos\`.
+- When the work is ready for review, push with \`git push -u origin HEAD\`.
+- Then open a pull request with \`gh pr create --title "NP-12: <summary>"\` and link it with \`nocoproject pr link <url>\` (the URL \`gh pr create\` prints). The branch name already contains NP-12, so the server also links it automatically. Mention the PR in your delivery comment.
+- The previous run of NP-12 worked on branch \`agent/coder/np-12\` of \`https://github.com/nocobase/nocoproject.git\`; \`repo checkout\` resumes it.
+
+Pull requests already linked to NP-12 (push to their branch to update one instead of opening another):
+
+- #42 (open) https://github.com/nocobase/nocoproject/pull/42
 ## Sub-issues
 
 Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.
@@ -697,7 +665,6 @@ Split work into sub-issues only when it is genuinely separable: independent part
 - \`--executor none\` (the default) leaves it unassigned for a human.
 - Never @-mention other agents to hand off work; create sub-issues instead.
 - After creating sub-issues, post a comment on NP-12 that lists them and explains the plan, and keep NP-12 \`in_progress\` while they run: you are woken when a batch finishes.
-
 ## Parent coordination
 
 When you are woken because a batch of NP-12's sub-issues finished:
@@ -706,17 +673,6 @@ When you are woken because a batch of NP-12's sub-issues finished:
 2. Adjust the plan if needed: create follow-up sub-issues, add or remove dependencies.
 3. Later stages start on their own once unblocked; do not re-create them. Post a short progress comment.
 4. When every sub-issue is done, check the combined result, post a summary comment on NP-12 and set it to \`in_review\`.
-
-## Changing a workflow template
-
-Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
-
-1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
-2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
-3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
-4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
-5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
-
 ## Capture learnings
 
 Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
@@ -727,22 +683,30 @@ Before you finish the task, ask yourself whether you found something the next pe
 - Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
 - Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.
 - Each document takes one pending proposal per run; a second one is refused with \`KNOWLEDGE_PROPOSAL_PENDING\`, so put everything for that document into one proposal.
+## Workflow
+
+1. Read the issue first.
+2. Catch up on the comments, especially the thread you were asked in.
+3. As soon as you start producing work, set the status to \`in_progress\`.
+4. Deliver your result as a comment with \`comment add\`, replying to the triggering thread with \`--parent <rootId>\`.
+5. After delivering, set the status to \`in_review\`. If you are stuck, set \`blocked\` and leave a comment explaining what you need.
+6. If you were only asked a question, answer it with a comment and do not change the status.
+## Changing a workflow template
+
+Workflow templates (statuses, transitions, approvals, stage actions) change only when a person asks for it in the issue. You never change a template directly: you propose, and an owner or admin accepts or rejects the proposal in their inbox.
+
+1. Read: \`nocoproject workflow list --json\` (the template of this run’s project is marked \`usedByRunProject\`), then \`nocoproject workflow get <template> --definition > wf.json\`.
+2. Edit \`wf.json\`: it is the whole definition, so keep everything you are not asked to change. The 9 built-in statuses stay with their category; a new status needs a key (\`^[a-z][a-z0-9_]{1,31}$\`), one of the 4 categories (fixed once created) and transitions a person can take out of it.
+3. Propose: \`nocoproject workflow propose <template> --definition-file wf.json --reason "..." --json\`. System templates (\`isSystem\`) can only be copied: \`--copy-from <template> --name "..."\`, and the project then switches to the copy.
+4. The server validates the definition at once: \`INVALID_WORKFLOW\` lists every problem with its path, and \`WORKFLOW_STATUS_CONFLICT\` means issues are still in a status you removed. Fix and propose again. \`WORKFLOW_PROPOSAL_PENDING\` means this run already proposed for that template.
+5. Say in your comment which proposal you made and what it changes. A \`runExecutor\` action with an \`agentId\` makes that agent run on entering the stage without the owner confirming, so call it out. If the proposal becomes \`stale\` (the template changed first), propose again from the latest revision.
 
 ## Status Rules
-
-You may only make these status transitions (the server rejects anything else):
 
 - \`todo\` → \`in_progress\`
 - \`blocked\` → \`in_progress\`
 - \`in_progress\` → \`in_review\`
 - \`in_progress\` → \`blocked\`
-
-Every other status change (for example to \`done\`) is made by a human.
-
-## Output
-
-Always write comment bodies to a Markdown file inside the working directory and pass it with \`--content-file\`; never inline long content on the command line.
-Your final message in this turn is only a log; the comment you post is what humans read.
 <!-- END NOCOPROJECT-RUNTIME -->"
 `;
 

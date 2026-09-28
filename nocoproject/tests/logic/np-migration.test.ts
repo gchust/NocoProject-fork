@@ -80,7 +80,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     });
 
   it('creates every table and the declared indexes', async () => {
-    const result = await migrator().latest();
+    const result = await migrator().upTo('2026100600001_np_member_preferences');
     expect(result.executed).toContain('2026092700001_np_phase0');
     expect(await tables(db!)).toEqual(expect.arrayContaining([...NP_TABLES]));
 
@@ -416,7 +416,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(defs.has('np_inbox_items_dedupe_unique')).toBe(false);
     expect(defs.has('np_approval_requests_pending_unique')).toBe(false);
 
-    const again = await migrator().latest();
+    const again = await migrator().upTo('2026100600001_np_member_preferences');
     expect(again.executed).toContain('2026092700001_np_phase0');
     expect((await indexes(db!)).has('np_runs_pending_unique')).toBe(true);
   });
@@ -445,7 +445,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     ])
       expect(defs.has(name)).toBe(false);
     expect(defs.has('np_approval_requests_pending_unique')).toBe(true);
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 
   it('rolls back the iteration 4 batch alone', async () => {
@@ -469,7 +469,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(await tables(db!)).toEqual(
       expect.arrayContaining([...NP_PHASE1_ITER3_TABLES]),
     );
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 
   it('adds and drops the pull request CI link columns (NP-85)', async () => {
@@ -488,7 +488,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(remaining).not.toContain('ci_run_url');
     expect(remaining).not.toContain('screenshots_url');
     expect(remaining).toContain('mergeable_state');
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 
   it('rolls back an iteration 2 + 3 + 4 batch and keeps iteration 1', async () => {
@@ -517,7 +517,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(issueColumns).not.toContain('deleted_at');
     expect(issueColumns).toContain('stage');
     expect(await columns(db!, 'comments')).not.toContain('resolved_at');
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 
   it('adds the attachments table and rolls it back alone', async () => {
@@ -552,7 +552,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(await tables(db!)).toEqual(
       expect.arrayContaining([...NP_PHASE1_ITER3_TABLES]),
     );
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 
   it('adds the intake batch columns to the attachments table and rolls them back alone', async () => {
@@ -574,6 +574,6 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
     expect(after).not.toContain('intake_batch_id');
     expect(after).not.toContain('intake_read_status');
     expect((await indexes(db!)).has('np_files_intake_batch_idx')).toBe(false);
-    await migrator().latest();
+    await migrator().upTo('2026100600001_np_member_preferences');
   });
 });

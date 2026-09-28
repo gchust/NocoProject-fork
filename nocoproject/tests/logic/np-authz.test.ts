@@ -14,6 +14,7 @@ import {
   CAROL,
   buildServices,
   createAgent,
+  claimOne,
   openNpTestDatabase,
   registerRuntime,
   resetData,
@@ -206,9 +207,15 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
     });
 
     await expect(
-      services.agents.update(BOB, agentId, { access: 'everyone' }),
+      services.agents.update(BOB, agentId, {
+        configurationRevision: (await services.agents.get(BOB, agentId))
+          .configurationRevision,
+        access: 'everyone',
+      }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await services.agents.update(ALICE, agentId, {
+      configurationRevision: (await services.agents.get(ALICE, agentId))
+        .configurationRevision,
       access: 'specificUsers',
       accessUserIds: [BOB.id!],
     });
@@ -258,13 +265,27 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
     });
     const alices = await createAgent(services, ALICE, runtimeId, 'Alices');
     await expect(
-      services.agents.update(BOB, bobs.id, { delegationTargetIds: [alices] }),
+      services.agents.update(BOB, bobs.id, {
+        configurationRevision: (await services.agents.get(BOB, bobs.id))
+          .configurationRevision,
+        delegationTargetIds: [alices],
+      }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
-      services.agents.update(BOB, bobs.id, { delegationTargetIds: [bobs.id] }),
+      services.agents.update(BOB, bobs.id, {
+        configurationRevision: (await services.agents.get(BOB, bobs.id))
+          .configurationRevision,
+        delegationTargetIds: [bobs.id],
+      }),
     ).rejects.toMatchObject({ code: 'INVALID_DELEGATION' });
-    await services.agents.update(ALICE, alices, { access: 'everyone' });
+    await services.agents.update(ALICE, alices, {
+      configurationRevision: (await services.agents.get(ALICE, alices))
+        .configurationRevision,
+      access: 'everyone',
+    });
     const delegating = await services.agents.update(BOB, bobs.id, {
+      configurationRevision: (await services.agents.get(BOB, bobs.id))
+        .configurationRevision,
       delegationTargetIds: [alices],
     });
     expect(delegating.delegationTargets).toEqual([
@@ -398,7 +419,19 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
         revision: issue.revision,
       }),
     ).rejects.toMatchObject({ code: 'INVALID_STATUS' });
-    const agent: Actor = { type: 'agent', id: 'a-x', runId: 'r-x' };
+    const fixture = await registerRuntime(services, ALICE);
+    const agentId = await createAgent(
+      services,
+      ALICE,
+      fixture.runtimeId,
+      'Dev',
+    );
+    await services.issues.update(ALICE, issue.id, {
+      executor: { type: 'agent', id: agentId },
+      revision: issue.revision,
+    });
+    const claimed = await claimOne(services, ALICE, fixture);
+    const agent: Actor = { type: 'agent', id: agentId, runId: claimed!.run.id };
     await expect(
       services.issues.agentSetStatus(agent, issue.id, 'done'),
     ).rejects.toMatchObject({ code: 'TRANSITION_NOT_ALLOWED' });

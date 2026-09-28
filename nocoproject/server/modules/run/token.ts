@@ -1,3 +1,6 @@
+import { requireCapability } from '../agent/capabilities.js';
+import { routeCapability } from './agent-capability-routes.js';
+import { forbidden } from '../shared/errors.js';
 /**
  * Run tokens (protocol.md §0): minted at claim inside the claim transaction, stored as a SHA-256 hash, valid until
  * revoked, expired (24h) or the run reaches a terminal status.
@@ -18,6 +21,7 @@ export interface RunAuth {
 }
 
 export interface RunTokenService {
+  authorize(auth: RunAuth, method: string, path: string): Promise<void>;
   verify(token: string): Promise<RunAuth | null>;
 }
 
@@ -46,6 +50,15 @@ export async function issueRunToken(
 
 export function createRunTokenService(deps: { tx: TxRunner }): RunTokenService {
   return {
+    async authorize(auth, method, path) {
+      const capability = routeCapability(method, path);
+      if (!capability)
+        throw forbidden(
+          'CAPABILITY_DENIED',
+          'This agent endpoint has no capability assignment.',
+        );
+      await requireCapability(deps.tx.read(), auth, capability);
+    },
     async verify(token) {
       if (!token.startsWith(RUN_TOKEN_PREFIX)) return null;
       const conn = deps.tx.read();

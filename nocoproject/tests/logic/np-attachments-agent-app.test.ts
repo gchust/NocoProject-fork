@@ -3,8 +3,7 @@
  * NP-111 agents read issue attachments through the whole application (isolated SQLite and storage, the file plugin):
  * the agent issue view carries each attachment's `id`, and `GET /np/agent/issues/:id/attachments/:fileId/content`
  * streams the same bytes to a run token, with the name and type in the headers. Guards: no token 401, an issue outside
- * the run's project 404, a file of another issue 404, a malformed id 404. The run token is resolved by a stubbed
- * `verify` (the claim flow that mints real tokens is covered elsewhere).
+ * the run's project 404, a file of another issue 404, a malformed id 404. The run token is minted from a configured, claimed run.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,7 +11,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { npRunTokenServiceToken } from '../../server/providers/np.ts';
+import { npServicesToken } from '../../server/providers/np.ts';
 import type { StandaloneServer } from '../../server/standalone.ts';
 import { cookiesOf, startNpApp } from './np-app-harness.ts';
 
@@ -22,8 +21,6 @@ afterEach(async () => {
   vi.restoreAllMocks();
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
-
-const RUN_TOKEN = `npr_${'c'.repeat(40)}`;
 
 interface Admin {
   send(method: string, url: string, body?: unknown): Promise<Response>;
@@ -129,14 +126,71 @@ describe('NP-111 agents read issue attachments', () => {
       elsewhereFile,
     ]);
 
-    const tokens = app.application.container.resolve(npRunTokenServiceToken);
-    vi.spyOn(tokens, 'verify').mockImplementation(async (token) =>
-      token === RUN_TOKEN
-        ? { runId: 'r1', agentId: 'a1', actorUserId: null, issueId: own.id }
+    const services = app.application.container.resolve(npServicesToken);
+    const registered = await json<{ runtimes: { id: string }[] }>(
+      await admin.send('POST', '/np/daemon/register', {
+        daemonId: 'attachments',
+        deviceName: 'test',
+        version: '0.4.0',
+        protocolVersion: 1,
+        runtimes: [
+          {
+            provider: 'echo',
+            version: '1',
+            capabilities: { resume: true, steering: false },
+          },
+        ],
+      }),
+    );
+    const runtimeId = registered.runtimes[0]!.id;
+    const configured = await json<{ id: string; ownerUserId: string }>(
+      await admin.send('POST', '/np/agents', {
+        name: 'Reader',
+        instructions: 'Read files',
+        provider: 'echo',
+        runtimeId,
+        capabilities: ['context.read', 'comment.create', 'issue.execute'],
+      }),
+      201,
+    );
+    const actor = { type: 'user', id: configured.ownerUserId } as const;
+    const detail = await services.issueQueries.detail(actor, own.id);
+    await services.issues.update(actor, own.id, {
+      executor: { type: 'agent', id: configured.id },
+      revision: detail.issue.revision,
+    });
+    const run = await services.tx
+      .read()
+      .query.selectFrom('runs')
+      .selectAll()
+      .where('subjectId', '=', own.id)
+      .executeTakeFirstOrThrow();
+    await services.tx
+      .read()
+      .query.updateTable('runs')
+      .set({
+        status: 'running',
+        configurationSnapshot: JSON.stringify({
+          configurationRevision: 1,
+          capabilities: ['context.read'],
+          instructions: 'Read files',
+        }),
+      })
+      .where('id', '=', run.id)
+      .execute();
+    const runToken = `npr_${'c'.repeat(40)}`;
+    vi.spyOn(services.runTokens, 'verify').mockImplementation(async (token) =>
+      token === runToken
+        ? {
+            runId: String(run.id),
+            agentId: configured.id,
+            actorUserId: configured.ownerUserId,
+            issueId: own.id,
+          }
         : null,
     );
     const base = `http://localhost${app.application.publicBasePath}/api/np/agent`;
-    const agent = (url: string, token: string | null = RUN_TOKEN) =>
+    const agent = (url: string, token: string | null = runToken) =>
       app.fetch(
         new Request(`${base}${url}`, {
           headers: token ? { authorization: `Bearer ${token}` } : {},

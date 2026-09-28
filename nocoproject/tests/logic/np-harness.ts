@@ -1,3 +1,4 @@
+import { AGENT_CAPABILITIES } from '../../server/modules/shared/protocol.capabilities.js';
 /**
  * Real-PostgreSQL harness for the NocoProject integration tests (`np-*.test.ts`).
  *
@@ -329,6 +330,7 @@ export async function createAgent(
 ): Promise<string> {
   const agent = await services.agents.create(owner, {
     name,
+    capabilities: AGENT_CAPABILITIES.filter((c) => c !== 'workspace.read'),
     instructions: `You are ${name}.`,
     runtimeId,
     provider: 'echo',
@@ -371,6 +373,7 @@ export async function claimOne(
   const claim = await services.claims.claim(
     owner.id as string,
     {
+      configurationProtocol: 1,
       daemonId: fixture.daemonId,
       slots: [{ runtimeId: fixture.runtimeId, free: 1 }],
     },

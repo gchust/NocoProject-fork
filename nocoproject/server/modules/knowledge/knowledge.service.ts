@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * Knowledge base v0 (docs/phase1/iteration-3-contract.md §B): project or system-level Markdown documents that people
  * write and keep, and that agents read on demand. Agents only propose changes (`knowledge.proposals.ts`); the project
@@ -373,6 +374,7 @@ async function agentGet(
   idOrSlug: string,
 ): Promise<KnowledgeDoc> {
   const conn = deps.tx.read();
+  await requireCapability(conn, auth, 'context.read');
   const row = await agentDocRow(conn, idOrSlug, await runProject(conn, auth));
   if (!row || row.archivedAt) throw notFound('Knowledge document');
   const [doc] = await decorateDocs(conn, decoration(deps, null), [row]);
@@ -394,6 +396,7 @@ export function createKnowledgeService(deps: KnowledgeDeps): KnowledgeService {
     decide: (actor, proposalId, decision, input) =>
       decideProposal(deps, actor, proposalId, decision, input),
     async agentList(auth) {
+      await requireCapability(deps.tx.read(), auth, 'context.read');
       const conn = deps.tx.read();
       const rows = await agentRows(conn, await runProject(conn, auth));
       return (await decorateDocs(conn, decoration(deps, null), rows)).map(

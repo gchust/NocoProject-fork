@@ -294,7 +294,7 @@ describe.skipIf(!db)('usage query and settings (PostgreSQL)', () => {
   });
 
   it('reads settings for everyone and lets owner/admin change them with validation', async () => {
-    expect(await services.workspaceSettings.view(BOB)).toEqual({
+    expect(await services.workspaceSettings.view(BOB)).toMatchObject({
       autoExecuteSubtasksDefault: false,
       prMergedStatus: 'done',
       modelPrices: [],

@@ -63,16 +63,13 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
     );
     await user.click(screen.getByRole('combobox', { name: 'Runtime' }));
     await user.click(await screen.findByRole('option', { name: /dev/ }));
-    expect(screen.getByRole('combobox', { name: 'Kind' })).toHaveTextContent(
-      'Coding',
-    );
+    expect(
+      screen.queryByRole('combobox', { name: 'Kind' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: 'Reasoning effort' }),
     ).toHaveTextContent('Default');
-    await user.click(screen.getByRole('combobox', { name: 'Kind' }));
-    await user.click(
-      await screen.findByRole('option', { name: 'Project manager' }),
-    );
+
     await user.click(
       screen.getByRole('combobox', { name: 'Reasoning effort' }),
     );
@@ -83,7 +80,7 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
         expect.objectContaining({
           name: 'PM',
           provider: 'opencode',
-          kind: 'manager',
+          capabilities: ['context.read', 'comment.create'],
           reasoningEffort: 'high',
         }),
       ]),
@@ -108,6 +105,8 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
       runtimeId: 'r1',
       provider: 'opencode',
       kind: 'manager',
+      capabilities: ['context.read', 'comment.create'],
+      configurationRevision: 3,
       reasoningEffort: 'max',
     };
     await renderNp(
@@ -119,9 +118,9 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
         canEdit
       />,
     );
-    expect(screen.getByRole('combobox', { name: 'Kind' })).toHaveTextContent(
-      'Project manager',
-    );
+    expect(
+      screen.queryByRole('combobox', { name: 'Kind' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: 'Reasoning effort' }),
     ).toHaveTextContent('Max');
@@ -132,7 +131,11 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(patched).toEqual([
-        expect.objectContaining({ kind: 'manager', reasoningEffort: null }),
+        expect.objectContaining({
+          configurationRevision: 3,
+          capabilities: ['context.read', 'comment.create'],
+          reasoningEffort: null,
+        }),
       ]),
     );
   });

@@ -116,7 +116,9 @@ describe('project manager page (iteration 4 §C)', () => {
       respond({ pmAgentId: null }, () => ({ data: { issueId: 'x' } })),
     );
     await renderNp(<PmPage />, { url: '/pm', path: '/pm' });
-    expect(await screen.findByText('No project manager yet')).toBeVisible();
+    expect(
+      await screen.findByText('No conversation agent configured'),
+    ).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Open settings' }),
     ).toHaveAttribute('href', '/config/general');
@@ -137,7 +139,9 @@ describe('project manager page (iteration 4 §C)', () => {
       }),
     );
     await renderNp(<PmPage />, { url: '/pm', path: '/pm' });
-    expect(await screen.findByText('No project manager yet')).toBeVisible();
+    expect(
+      await screen.findByText('No conversation agent configured'),
+    ).toBeVisible();
   });
 
   it('opens the conversation full width with its messages and composer', async () => {
@@ -158,7 +162,7 @@ describe('project manager page (iteration 4 §C)', () => {
     expect(screen.getByText('What shipped this week?')).toBeVisible();
     expect(calls).toEqual(['GET', 'POST']);
     expect(
-      screen.getByRole('heading', { name: 'Project manager' }),
+      screen.getByRole('heading', { name: 'Conversation', level: 1 }),
     ).toBeVisible();
     // Full width: no properties column beside the conversation.
     expect(screen.queryByRole('complementary')).toBeNull();
@@ -167,7 +171,7 @@ describe('project manager page (iteration 4 §C)', () => {
     );
     await waitFor(() =>
       expect(
-        document.querySelector('[data-placeholder="Ask the project manager…"]'),
+        document.querySelector('[data-placeholder="Write a message…"]'),
       ).not.toBeNull(),
     );
   });

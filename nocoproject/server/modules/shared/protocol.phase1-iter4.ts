@@ -1,3 +1,7 @@
+import type {
+  AgentConfiguration,
+  AgentEntryBindings,
+} from './protocol.capabilities.js';
 /**
  * NocoProject 协议类型：Phase 1 迭代 4 追加（docs/phase1/iteration-4-contract.md，实现见
  * docs/phase1/protocol-iteration-4.md）。
@@ -130,13 +134,13 @@ export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
 ];
 
 /** 迭代 4 给 Agent 追加的列（`GET /np/agents` 的行） */
-export interface AgentPhase4Fields {
+export interface AgentPhase4Fields extends AgentConfiguration {
   readonly kind: AgentKind;
   readonly reasoningEffort: ReasoningEffort | null;
 }
 
 /** `POST /np/agents`、`PATCH /np/agents/:id` 追加 */
-export interface AgentPhase4Input {
+export interface AgentPhase4Input extends AgentConfiguration {
   readonly kind?: AgentKind;
   readonly reasoningEffort?: ReasoningEffort | null;
 }
@@ -151,7 +155,9 @@ export const RETROSPECTIVE_THREAD_SCOPE = 'retro';
 
 /** ClaimedRun 在迭代 4 追加的字段（守护进程按可选读取） */
 export interface ClaimedRunPhase4Extras {
-  readonly agent: {
+  readonly agent: AgentConfiguration & {
+    readonly taskInstructions?: string;
+    readonly commandDescriptions?: readonly string[];
     readonly kind: AgentKind;
     readonly reasoningEffort: ReasoningEffort | null;
   };
@@ -227,6 +233,7 @@ export const PM_DETAIL_TAIL = 50;
 
 export interface WorkspaceSettingsPhase4Fields {
   readonly defaultProcess: DefaultProcess;
+  readonly agentEntries?: AgentEntryBindings;
   readonly pmAgentId: string | null;
   readonly retrospectiveOnDone: boolean;
 }

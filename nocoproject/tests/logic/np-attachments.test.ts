@@ -278,7 +278,7 @@ describe.skipIf(!db)('issue attachments (PostgreSQL)', () => {
     });
     const { runs } = await services.claims.claim(
       ALICE.id!,
-      { daemonId, slots: [{ runtimeId, free: 1 }] },
+      { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
       'http://test/main',
     );
     expect(runs[0]?.issue.attachments).toEqual([

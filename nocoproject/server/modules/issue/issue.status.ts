@@ -1,3 +1,4 @@
+import { requireActorCapability } from '../agent/capabilities.js';
 /**
  * Status writes that are not a plain field edit: agent transitions, the approval gate, the transition an approver
  * accepts, system writes (a merged pull request, a failed run's reset).
@@ -146,6 +147,7 @@ export async function agentSetStatus(
   statusKey: string,
 ): Promise<IssueStatusResult> {
   return deps.tx.run(async (tx) => {
+    await requireActorCapability(tx.conn, actor, 'issue.status.write', idOrKey);
     const before = await findIssue(tx.conn, idOrKey);
     if (!before) throw notFound('Issue');
     const view = await deps.workflows.forIssue(tx.conn, before);

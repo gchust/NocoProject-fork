@@ -1,3 +1,5 @@
+import { capabilitiesOf, validateCapabilities } from './capabilities.js';
+import { conflict } from '../shared/errors.js';
 /**
  * Agents: a named configuration (instructions, provider, model) bound to one runtime, with an access level
  * (docs/phase1/iteration-1-contract.md §H):
@@ -80,6 +82,8 @@ export function mapAgent(
     description: str(row.description),
     ownerUserId: str(row.ownerUserId) ?? '',
     instructions: str(row.instructions) ?? '',
+    capabilities: capabilitiesOf(row.capabilities),
+    configurationRevision: num(row.configurationRevision, 1),
     runtimeId: str(row.runtimeId),
     provider: (str(row.provider) ?? 'echo') as AgentProvider,
     model: str(row.model),
@@ -295,6 +299,31 @@ async function getAgent(
   return item;
 }
 
+async function auditConfiguration(conn: Conn, id: string) {
+  const agent = await findAgent(conn, id);
+  const skills = await conn.query
+    .selectFrom('agentSkills')
+    .select('skillId')
+    .where('agentId', '=', id)
+    .execute();
+  const access = await conn.query
+    .selectFrom('agentAccessGrants')
+    .select('userId')
+    .where('agentId', '=', id)
+    .execute();
+  const delegation = await conn.query
+    .selectFrom('agentDelegationGrants')
+    .select('targetAgentId')
+    .where('agentId', '=', id)
+    .execute();
+  return {
+    ...agent,
+    skillIds: skills.map((row) => row.skillId),
+    accessUserIds: access.map((row) => row.userId),
+    delegationTargetIds: delegation.map((row) => row.targetAgentId),
+  };
+}
+
 async function createAgent(
   deps: AgentDeps,
   actor: Actor,
@@ -323,6 +352,12 @@ async function createAgent(
         description: optionalText(input.description, 'description'),
         ownerUserId: viewer.userId,
         instructions: input.instructions,
+        capabilities: JSON.stringify(
+          validateCapabilities(
+            input.capabilities ?? ['context.read', 'comment.create'],
+          ),
+        ),
+        configurationRevision: 1,
         runtimeId,
         provider: input.provider,
         model: optionalText(input.model, 'model', 128),
@@ -367,6 +402,18 @@ async function createAgent(
         id,
         stringList(input.skillIds, 'skillIds'),
       );
+    await tx.conn.query
+      .insertInto('agentConfigurationChanges')
+      .values({
+        id: deps.ids.next(),
+        agentId: id,
+        actorUserId: viewer.userId,
+        revision: 1,
+        before: JSON.stringify(null),
+        after: JSON.stringify(await auditConfiguration(tx.conn, id)),
+        createdAt: now(),
+      })
+      .execute();
     tx.emit({ type: 'agents.changed' });
   });
   return getAgent(deps, actor, id);
@@ -375,10 +422,14 @@ async function createAgent(
 async function patchValues(
   tx: Tx,
   viewer: Viewer,
-  current: AgentV1,
+  current: AgentV1 & AgentPhase4Fields,
   patch: UpdateAgentRequestV4,
 ): Promise<Record<string, unknown>> {
   const values: Record<string, unknown> = {};
+  if (patch.capabilities !== undefined)
+    values.capabilities = JSON.stringify(
+      validateCapabilities(patch.capabilities),
+    );
   if (patch.name !== undefined) values.name = requiredName(patch.name);
   if (patch.description !== undefined)
     values.description = optionalText(patch.description, 'description');
@@ -433,13 +484,22 @@ async function updateAgent(
     const current = await findAgent(tx.conn, id);
     if (!canEditAgent(viewer, current))
       forbid('Only the agent owner or an owner/admin may change this agent.');
+    if (patch.configurationRevision !== current.configurationRevision)
+      throw conflict(
+        'CONFIGURATION_CONFLICT',
+        'Reload the agent configuration before saving.',
+      );
+    const before = await auditConfiguration(tx.conn, id);
     const values = await patchValues(tx, viewer, current, patch ?? {});
-    if (Object.keys(values).length > 0)
-      await tx.conn.query
-        .updateTable('agents')
-        .set({ ...values, updatedAt: now() })
-        .where('id', '=', id)
-        .execute();
+    values.configurationRevision = (current.configurationRevision ?? 1) + 1;
+    const updated = await tx.conn.query
+      .updateTable('agents')
+      .set({ ...values, updatedAt: now() })
+      .where('id', '=', id)
+      .where('configurationRevision', '=', current.configurationRevision ?? 1)
+      .execute();
+    if (Number(updated.updatedCount) === 0)
+      throw conflict('CONFIGURATION_CONFLICT', 'Agent configuration changed.');
     if (patch.accessUserIds !== undefined)
       await replaceAccessList(
         tx,
@@ -463,6 +523,18 @@ async function updateAgent(
         id,
         stringList(patch.skillIds, 'skillIds'),
       );
+    await tx.conn.query
+      .insertInto('agentConfigurationChanges')
+      .values({
+        id: deps.ids.next(),
+        agentId: id,
+        actorUserId: viewer.userId,
+        revision: values.configurationRevision,
+        before: JSON.stringify(before),
+        after: JSON.stringify(await auditConfiguration(tx.conn, id)),
+        createdAt: now(),
+      })
+      .execute();
     tx.emit({ type: 'agents.changed' });
   });
   return getAgent(deps, actor, id);

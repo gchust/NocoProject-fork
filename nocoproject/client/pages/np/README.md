@@ -53,7 +53,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 
 - Identifiers, slugs, versions, branches: `font-mono text-xs`.
 - The process is marked only when it changes what happens next: `NpProcessBadge` ("先出方案", blue, compass icon) beside the status in the issue header and on board cards, nothing for direct issues. Timeline comments that are a design proposal or a retrospective note carry `NpCommentTag` ("方案" / "总结").
-- Executor pickers (`NpExecutorSelect`) never offer a project manager agent (`kind: 'manager'`), except one already set.
+- Executor pickers (`NpExecutorSelect`) offer invokable agents with explicit `issue.execute` capability; legacy `kind` is display-only.
 - Every tag is `NpTag` (tinted pill: pale background, darker text of the same hue, 12px, dot for statuses) with its tone from one map. Status: `NpStatusBadge` (tone by meaning via `statusTone`: unstarted grey, started blue, in review violet, blocked amber, done green, cancelled slate). Priority: `NpPriorityLabel` (urgent red, high orange, medium blue, low grey). Runs: `NpRunStatusBadge`. Labels: `NpLabelChip`. Never a solid fill, never a dot on a neutral pill, never the shadcn `Badge` on these pages.
 - People, agents and the system: only `NpActorAvatar` (initials round / bot rounded-square in the agent hue / dashed cog; `live` for a working agent). `NpExecutor` builds on it.
 - Empty values (no priority, executor, owner, date, project) render a muted "—" with the word kept for screen readers. Editable controls keep their "none" option names in the list only.

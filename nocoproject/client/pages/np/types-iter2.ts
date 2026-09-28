@@ -1,3 +1,4 @@
+import type { AgentEntryBindings } from './agent-capabilities.js';
 /**
  * Browser-side types for Phase 1 iteration 2 (`docs/phase1/iteration-2-contract.md` §C–§K, §M).
  *
@@ -329,6 +330,7 @@ export type IntakeParserSetting = 'auto' | 'heuristic';
 
 /** `GET /np/settings`. Only the fields the settings page edits are typed; the rest is carried through untouched. */
 export interface WorkspaceSettings {
+  readonly agentEntries?: AgentEntryBindings;
   readonly prMergedStatus?: string;
   readonly autoExecuteSubtasksDefault?: boolean;
   readonly intakeParser?: IntakeParserSetting;
@@ -354,6 +356,7 @@ export type WorkspaceSettingsInput = Partial<
     | 'modelPrices'
     | 'metricThresholds'
     | 'defaultProcess'
+    | 'agentEntries'
     | 'pmAgentId'
     | 'retrospectiveOnDone'
   >

@@ -92,7 +92,7 @@ describe('iteration 2 brief', () => {
   it('opens conversationally in session mode and does not require in_review', () => {
     const brief = buildBrief(iter2Run({ executionMode: 'session' }));
     expect(brief).toMatchSnapshot();
-    expect(brief.indexOf('## Conversation Mode')).toBeLessThan(brief.indexOf('## Background Task Safety'));
+    expect(brief.indexOf('## Conversation Mode')).toBeLessThan(brief.indexOf('## Runtime rules'));
     expect(brief).toContain('do not write a summary report every turn');
     expect(brief).toContain('Your working directory and your session carry over');
     expect(brief).toContain('You do not need to move the issue to `in_review`');

@@ -1,3 +1,5 @@
+import { CapabilityFields } from '../capability-fields.js';
+import type { AgentCapability } from '../../agent-capabilities.js';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -44,6 +46,7 @@ const ACCESS_LEVELS: readonly AgentAccessLevel[] = [
 ];
 
 interface Draft {
+  readonly capabilities: readonly AgentCapability[];
   readonly name: string;
   readonly description: string;
   readonly instructions: string;
@@ -59,6 +62,7 @@ interface Draft {
 
 function draftOf(agent: AgentListItem): Draft {
   return {
+    capabilities: agent.capabilities ?? [],
     name: agent.name,
     description: agent.description ?? '',
     instructions: agent.instructions ?? '',
@@ -144,6 +148,8 @@ export function AgentForm({
     if (Object.keys(found).length > 0) return;
     setFormError(undefined);
     save.mutate({
+      configurationRevision: agent.configurationRevision,
+      capabilities: draft.capabilities,
       name: draft.name.trim(),
       description: draft.description.trim() || null,
       instructions: draft.instructions.trim(),
@@ -167,6 +173,12 @@ export function AgentForm({
   return (
     <form onSubmit={submit} noValidate className='max-w-2xl'>
       <FieldGroup>
+        <CapabilityFields
+          value={draft.capabilities}
+          instructions={draft.instructions}
+          disabled={disabled}
+          onChange={(capabilities) => set('capabilities', capabilities)}
+        />
         {formError ? (
           <Alert variant='destructive'>
             <AlertCircleIcon />
