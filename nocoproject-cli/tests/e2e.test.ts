@@ -86,7 +86,7 @@ describe('daemon e2e with the echo adapter', () => {
     const second = mock.enqueue('i2', { session: { providerSessionId: `echo-${first}`, workDir, fresh: false } });
     await waitFor(() => runStatus(mock, second) === 'completed', 20_000, 'second run');
     const start2 = mock.callsTo(new RegExp(`runs/${second}/start`))[0];
-    expect(start2?.body).toEqual({ providerSessionId: `echo-${first}`, workDir });
+    expect(start2?.body).toEqual({ acceptsInput: true, providerSessionId: `echo-${first}`, workDir });
   });
 
   it('classifies agent failures', async () => {
