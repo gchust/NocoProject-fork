@@ -1,15 +1,16 @@
 /**
  * Agent-facing commands (run-token mode): issue get / comment list / comment add / status,
- * plus the Phase 1 sub-issue commands registered from ./subissue.ts and the Phase 2 stage
- * checklist command from ./checklist.ts.
+ * plus the Phase 1 sub-issue commands registered from ./subissue.ts, the Phase 2 stage
+ * checklist command from ./checklist.ts and the NP-111 attachment commands from ./attachment.ts.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
-import type { CommentForAgent, IssueForAgent } from '../protocol.js';
+import type { AgentAttachmentInfo, CommentForAgent, IssueForAgent } from '../protocol.js';
 import { CliError, EXIT, printJson, printLine } from './output.js';
 import { action, type JsonOpt, resolveIssueId, runTokenContext } from './run-token.js';
+import { registerAttachmentCommands } from './attachment.js';
 import { registerChecklistCommand } from './checklist.js';
 import { registerSubIssueCommands } from './subissue.js';
 
@@ -21,6 +22,12 @@ function printIssue(issue: IssueForAgent): void {
   printLine(`executor: ${issue.executor.type}${issue.executor.name ? ` (${issue.executor.name})` : ''}`);
   printLine();
   printLine(issue.description || '(no description)');
+  const attachments = (issue as IssueForAgent & { attachments?: readonly AgentAttachmentInfo[] }).attachments ?? [];
+  if (attachments.length > 0) {
+    printLine();
+    printLine(`attachments (${attachments.length}; save them with \`nocoproject issue attachment download ${issue.identifier}\`):`);
+    for (const file of attachments) printLine(`  ${file.filename}  (${file.mimeType})`);
+  }
 }
 
 function printComments(comments: readonly CommentForAgent[]): void {
@@ -144,4 +151,5 @@ export function registerIssueCommands(program: Command): void {
 
   registerSubIssueCommands(issue);
   registerChecklistCommand(issue);
+  registerAttachmentCommands(issue);
 }

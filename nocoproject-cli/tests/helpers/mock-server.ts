@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer, type WebSocket } from 'ws';
-import type { ClaimedKnowledgeDoc, ClaimedProject, CommentForAgent, IssueForAgent, IssuePullRequestView, RunStatus } from '../../src/protocol.js';
+import type { AgentAttachmentInfo, ClaimedKnowledgeDoc, ClaimedProject, CommentForAgent, IssueForAgent, IssuePullRequestView, RunStatus } from '../../src/protocol.js';
 import type { ClaimedRunV1 as ClaimedRun } from '../../src/run-context.js';
 import { MockKnowledge } from './mock-knowledge.js';
 import { MockPm } from './mock-pm.js';
@@ -59,6 +59,7 @@ export type MockIssue = IssueForAgent & {
   projectId?: string | null;
   ownerUserId?: string;
   updatedAt?: string;
+  attachments?: readonly AgentAttachmentInfo[];
 };
 
 export interface EnqueueOptions {
@@ -97,6 +98,8 @@ export class MockServer {
   readonly runs = new Map<string, RunState>();
   readonly queue: ClaimedRun[] = [];
   readonly tokens = new Map<string, string>();
+  /** NP-111: attachment bytes by file id, served on `/np/agent/issues/:id/attachments/:fileId/content`. */
+  readonly attachmentBytes = new Map<string, Uint8Array>();
   readonly runtimes = new Map<string, { id: string; provider: string }>();
   readonly meta = new Map<string, IssueMeta>();
   readonly dependencies: Dependency[] = [];
@@ -255,6 +258,7 @@ export class MockServer {
     try {
       if (path === '/healthz') return send(200, { ok: true });
       if (path.startsWith('/np/daemon/')) return await this.daemonRoute(req.method ?? 'GET', path, body, req, send);
+      if (/^\/np\/agent\/issues\/[^/]+\/attachments\/[^/]+\/content$/.test(path)) return this.attachmentContent(path, req, res, send);
       if (path.startsWith('/np/agent/')) return this.agentRoute(req.method ?? 'GET', path, url, body, req, send);
       if (path === '/np/me') return req.headers['x-api-key'] === API_KEY ? send(200, { data: { userId: '1', name: 'Alice' } }) : send(401, { code: 'UNAUTHORIZED', message: 'no' });
       send(404, { code: 'NOT_FOUND', message: path });
@@ -310,6 +314,18 @@ export class MockServer {
     else if (action === 'cancel-ack') run.status = 'cancelled';
     else return send(404, { code: 'NOT_FOUND', message: path });
     return send(200, { data: { ok: true } });
+  }
+
+  private attachmentContent(path: string, req: IncomingMessage, res: ServerResponse, send: (s: number, p: unknown) => void): void {
+    const token = String(req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
+    if (!this.tokens.has(token)) return send(401, { code: 'INVALID_RUN_TOKEN', message: 'bad token' });
+    const [, , , , issueRef, , fileId] = path.split('/').map(decodeURIComponent);
+    const issue = this.findIssue(issueRef ?? '');
+    const file = issue?.attachments?.find((item) => item.id === fileId);
+    const bytes = file ? this.attachmentBytes.get(file.id) : undefined;
+    if (!file || !bytes) return send(404, { code: 'NOT_FOUND', message: 'Attachment not found.' });
+    res.writeHead(200, { 'content-type': file.mimeType });
+    res.end(Buffer.from(bytes));
   }
 
   private agentRoute(method: string, path: string, url: URL, body: any, req: IncomingMessage, send: (s: number, p: unknown) => void): void {

@@ -355,14 +355,22 @@ export interface CreateIssueAttachmentFields {
   readonly attachmentIds?: readonly string[];
 }
 
-/** Agent 读任务时看到的附件元数据（本期不提供内容下载） */
+/**
+ * Agent 读任务时看到的附件元数据。NP-111：带 `id`，内容用运行令牌下载：
+ * `GET /np/agent/issues/:id/attachments/:fileId/content`（与读任务同一可见范围，其它一律 404）。
+ */
 export interface AgentAttachmentInfo {
+  readonly id: string;
   readonly filename: string;
   readonly mimeType: string;
   readonly size: number;
 }
 export interface IssueForAgentAttachmentFields {
   readonly attachments: readonly AgentAttachmentInfo[];
+}
+/** NP-111：claim 载荷的任务也带附件，轮次提示据此列出文件并提示下载 */
+export interface ClaimedRunAttachmentExtras {
+  readonly issue: IssueForAgentAttachmentFields;
 }
 
 /**

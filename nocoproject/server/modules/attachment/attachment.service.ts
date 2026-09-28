@@ -11,6 +11,7 @@
  *
  * Attaching and removing record `attachment_added` / `attachment_removed` activities and push `np:issues` through
  * `issue.changed`. Removing deletes the row, then the stored object best-effort (the plugin only deletes metadata).
+ * Agents read an attachment's bytes with `agentContent` (NP-111) after the route checked the run may read the issue.
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
@@ -42,9 +43,17 @@ import {
 } from './attachment.records.js';
 import { openBatchIds } from './attachment.intake.js';
 
-/** Deletes stored objects; the provider backs it with the Drive manager. */
+/** Reads and deletes stored objects; the provider backs it with the Drive manager. */
 export interface FileObjectStore {
   remove(disk: string, key: string): Promise<void>;
+  /** The object's bytes as a stream; absent when no Drive is configured. */
+  open?(disk: string, key: string): Promise<ReadableStream<Uint8Array>>;
+}
+
+/** An attachment's content for the agent API: the row (name, type, size) and its bytes. */
+export interface AttachmentContent {
+  readonly file: FileRow;
+  readonly body: ReadableStream<Uint8Array>;
 }
 
 export interface AttachmentService {
@@ -57,6 +66,11 @@ export interface AttachmentService {
   remove(actor: Actor, issueIdOrKey: string, fileId: string): Promise<void>;
   /** Whether the actor may read the file's content (false for a missing file). */
   canRead(actor: Actor, fileId: string): Promise<boolean>;
+  /**
+   * The content of a file attached to the issue (by id, already checked readable by the caller); 404 for anything
+   * else, including a file of another issue or a store that cannot read.
+   */
+  agentContent(issueId: string, fileId: string): Promise<AttachmentContent>;
   /** Deletes uploads never attached to an issue and older than a day; answers how many. */
   purgeOrphans(at: Date): Promise<number>;
 }
@@ -251,6 +265,15 @@ export function createAttachmentService(
       const issue = await findIssue(conn, file.issueId);
       if (!issue) return false;
       return canSeeIssue(conn, await viewerOf(conn, actor), issue);
+    },
+
+    async agentContent(issueId, fileId) {
+      const file = isFileId(fileId)
+        ? await findFile(deps.tx.read(), fileId)
+        : null;
+      if (!file || file.issueId !== issueId || !deps.objects.open)
+        throw notFound('Attachment');
+      return { file, body: await deps.objects.open(file.disk, file.key) };
     },
 
     async purgeOrphans(at) {

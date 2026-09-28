@@ -28,6 +28,7 @@ import {
   PROTOCOL_VERSION,
   type AgentProvider,
   type ClaimedRun,
+  type ClaimedRunAttachmentExtras,
   type ClaimedRunPhase1Extras,
   type ClaimedRunPhase2Extras,
   type ClaimedRunPhase3Extras,
@@ -41,6 +42,7 @@ import {
 } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import { claimEnv } from '../agent/env.service.js';
+import { agentAttachments } from '../attachment/attachment.records.js';
 import type { KnowledgeService } from '../knowledge/knowledge.service.js';
 import { claimedPullRequests } from '../git/git.records.js';
 import { agentKindOf, reasoningEffortOf } from '../agent/agent.fields.js';
@@ -92,9 +94,10 @@ export type ClaimedRunV2 = ClaimedRunV1 & ClaimedRunPhase2Extras;
 export type ClaimedRunV3 = ClaimedRunV2 & ClaimedRunPhase3Extras;
 /** ...and the iteration-4 agent kind, reasoning effort and design state (iteration-4 contract §B, §C). */
 export type ClaimedRunV4 = ClaimedRunV3 & ClaimedRunPhase4Extras;
-/** ...and the Phase 2 checklist and stage instruction (NP-77 §6). */
+/** ...and the Phase 2 checklist and stage instruction (NP-77 §6), and the issue's attachments (NP-111). */
 export type ClaimedRunV5 = ClaimedRunV4 &
-  ClaimedRunWorkflowExtras & {
+  ClaimedRunWorkflowExtras &
+  ClaimedRunAttachmentExtras & {
     readonly triggers: readonly (ClaimedRun['triggers'][number] &
       ClaimedTriggerPhase2Extras)[];
   };
@@ -320,6 +323,7 @@ async function buildClaimedRun(
       designProposal: await latestProposal(conn, issue.id),
       originType: issue.originType,
       checklist: await currentChecklist(conn, deps.users, issue),
+      attachments: await agentAttachments(conn, issue.id),
     },
     project: await claimedProject(conn, issue.projectId),
     statusCatalog: view.catalog,

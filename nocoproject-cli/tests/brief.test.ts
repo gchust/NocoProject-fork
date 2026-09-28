@@ -139,6 +139,21 @@ describe('turn prompt', () => {
     expect(buildTurnPrompt(claimedRun(), { resumed: false })).toMatchSnapshot();
   });
 
+  it('names the attached files and how to download them (NP-111)', () => {
+    const issue = {
+      ...claimedRun().issue,
+      attachments: [
+        { id: 'f1', filename: 'shot.png', mimeType: 'image/png', size: 4 },
+        { id: 'f2', filename: 'spec.pdf', mimeType: 'application/pdf', size: 9 },
+      ],
+    };
+    const prompt = buildTurnPrompt(claimedRun({ issue, triggers: [{ type: 'assign' }] }), { resumed: false });
+    expect(prompt).toContain(
+      'It has 2 attached files (shot.png, spec.pdf): save them with `nocoproject issue attachment download NP-12` and open the printed paths.',
+    );
+    expect(buildTurnPrompt(claimedRun(), { resumed: false })).not.toContain('attached file');
+  });
+
   it('renders an assignment turn without --parent', () => {
     const prompt = buildTurnPrompt(claimedRun({ triggers: [{ type: 'assign' }] }), { resumed: true });
     expect(prompt).toMatchSnapshot();

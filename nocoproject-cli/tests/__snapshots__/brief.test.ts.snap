@@ -37,6 +37,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
 - \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
@@ -174,6 +175,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
 - \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
@@ -307,6 +309,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
 - \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
@@ -465,6 +468,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
 - \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)
@@ -614,6 +618,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
 - \`nocoproject issue children NP-12 --json\` — list its sub-issues (stage, status, how many blockers each waits on)

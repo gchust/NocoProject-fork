@@ -104,6 +104,7 @@ export async function agentAttachments(
   issueId: string,
 ): Promise<AgentAttachmentInfo[]> {
   return (await filesOfIssue(conn, issueId)).map((file) => ({
+    id: file.id,
     filename: file.filename,
     mimeType: file.mimeType,
     size: file.size,

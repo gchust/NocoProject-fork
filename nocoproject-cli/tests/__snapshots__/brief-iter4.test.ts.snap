@@ -57,6 +57,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject issue status NP-12 <statusKey>\` — change the issue status
 - \`nocoproject issue design-proposal NP-12 --content-file ./proposal.md --json\` — submit (or resubmit) the design proposal of NP-12 (see Design first)
 - \`nocoproject issue create --title "..." [--description-file ./sub.md] [--stage N] [--blocked-by NP-1,NP-2] [--executor self|none|<agentId>] [--priority p] [--label a,b] --json\` — create a sub-issue of NP-12
@@ -242,6 +243,7 @@ The \`nocoproject\` CLI is already authenticated for this run (do not print or l
 - \`nocoproject issue get NP-12 --json\` — read the issue (title, description, status, owner)
 - \`nocoproject issue comment list NP-12 --json\` — read the comments (\`--thread <rootId>\`, \`--tail <n>\`, \`--since <iso>\`)
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\` — post a comment
+- \`nocoproject issue attachment download NP-12 [--id <fileId>] [--dir <path>]\` — save the issue's attached files (images, documents) locally and print their paths; \`issue attachment list\` lists them
 - \`nocoproject pm projects --json\` — every project you can see (lead, members, issue counts)
 - \`nocoproject pm issues [--project <id>] [--status <key>] [--owner me|<userId>] [--executor <agentId>] [--q <text>] [--since 7d] [--limit n] [--cursor c] --json\` — search issues across projects (\`{ data, nextCursor }\`)
 - \`nocoproject pm issue <issue> --json\` — one issue in full: comments and activities (latest 50), runs, pull requests, sub-issues

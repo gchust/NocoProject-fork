@@ -19,6 +19,7 @@ import type {
   ClaimedProject,
   ClaimedPullRequest,
   ClaimedRun,
+  ClaimedRunAttachmentExtras,
   ClaimedRunPhase1Extras,
   ClaimedRunPhase2Extras,
   ClaimedRunPhase4Extras,
@@ -47,7 +48,8 @@ export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'tri
     Partial<ClaimedRunPhase1Extras['issue']> &
     Partial<ClaimedRunPhase2Extras['issue']> &
     Partial<ClaimedRunPhase4Extras['issue']> &
-    Partial<ClaimedRunWorkflowExtras['issue']>;
+    Partial<ClaimedRunWorkflowExtras['issue']> &
+    Partial<ClaimedRunAttachmentExtras['issue']>;
   readonly agent: ClaimedRun['agent'] &
     Partial<ClaimedRunPhase1Extras['agent']> &
     Partial<ClaimedRunPhase2Extras['agent']> &
