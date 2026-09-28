@@ -148,7 +148,6 @@ const npIter2ZhCN: NpIter2Resource = {
     created: '已创建 {{count}} 个任务',
     fixProblems: '请先处理表格中标出的问题。',
     stateChanged: '这一批已确认或已取消。',
-    newBatch: '再录入一批',
     notFound: '这一批不存在。',
     recentTitle: '我最近的批次',
     recentEmpty: '还没有批次。',
