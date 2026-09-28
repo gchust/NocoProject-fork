@@ -561,6 +561,11 @@ describe.skipIf(!db)('merging a pull request (PostgreSQL)', () => {
       repository: { full_name: 'acme/app' },
       pull_request: prPayload({ title: `${issue.identifier}: login` }),
     });
+    await services.issues.update(BOB, issue.id, {
+      statusKey: 'in_review',
+      revision: (await services.issueQueries.detail(BOB, issue.id)).issue
+        .revision,
+    });
     const [pr] = await services.pullRequests.list(BOB, issue.id);
     await services.pullRequests.refresh(BOB, issue.id, pr!.id);
     const card = async (user: Actor) =>
