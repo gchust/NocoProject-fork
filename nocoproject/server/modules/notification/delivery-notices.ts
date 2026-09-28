@@ -6,11 +6,14 @@
  * | approval.requested  | decision `approval_pending` to each approver (`user:<uid>:approval_pending:<issueId>`)    |
  * | approval.decided    | resolves the approvers' cards; approved / rejected → info `approval_decided` to the member |
  * |                     | who asked, or to the issue owner when an agent asked (not for cancellations)              |
- * | pr.reviewRequested  | decision `pr_review` to the owner (`user:<owner>:pr_review:<issueId>`)                    |
+ * | pr.reviewRequested  | decision `pr_review` to the owner (`user:<owner>:pr_review:<issueId>`), held until the    |
+ * |                     | issue is in_review (or terminal); entering in_review releases it (NP-128)               |
  * | pr.merged           | info `pr_merged` to the subscribers                                                      |
  * | pr.closed           | resolves the issues' `pr_review` cards                                                   |
  */
 import type { DomainEvent, EventActor } from '../shared/events.js';
+import type { IssueV1 } from '../shared/protocol.js';
+import { pullRequestsForIssue } from '../git/git.records.js';
 import { findIssue, issuesByIds } from '../issue/issue.records.js';
 import { activeSubscribers, resolveItems } from './inbox.store.js';
 import type { Round } from './round.js';
@@ -74,24 +77,68 @@ export async function onApprovalDecided(
   });
 }
 
+interface ReadyPullRequest {
+  readonly pullRequestId: string;
+  readonly repo: string;
+  readonly number: number;
+  readonly url: string;
+}
+
+async function notifyPullRequestReview(
+  round: Round,
+  issue: IssueV1,
+  pr: ReadyPullRequest,
+): Promise<void> {
+  if (!issue.ownerUserId) return;
+  await round.notify(issue, [issue.ownerUserId], SYSTEM, {
+    type: 'pr_review',
+    kind: 'decision',
+    body: `Pull request ${pr.repo}#${pr.number} is ready to merge.`,
+    payload: {
+      pullRequestId: pr.pullRequestId,
+      repo: pr.repo,
+      number: pr.number,
+      url: pr.url,
+    },
+    dedupeKey: `user:${issue.ownerUserId}:pr_review:${issue.id}`,
+  });
+}
+
+/**
+ * NP-128: the owner accepts the delivery (`review_requested`) before merging, so the merge card waits while the agent
+ * is still working — the PR is usually opened before the issue moves to in_review.
+ */
 export async function onPullRequestReview(
   round: Round,
   event: Extract<DomainEvent, { type: 'pr.reviewRequested' }>,
 ): Promise<void> {
   const issue = await findIssue(round.tx.conn, event.issueId);
   if (!issue?.ownerUserId) return;
-  await round.notify(issue, [issue.ownerUserId], SYSTEM, {
-    type: 'pr_review',
-    kind: 'decision',
-    body: `Pull request ${event.repo}#${event.number} is ready to merge.`,
-    payload: {
-      pullRequestId: event.pullRequestId,
-      repo: event.repo,
-      number: event.number,
-      url: event.url,
-    },
-    dedupeKey: `user:${issue.ownerUserId}:pr_review:${issue.id}`,
-  });
+  const view = await round.deps.workflows.forIssue(round.tx.conn, issue);
+  if (issue.statusKey !== 'in_review' && !view.isTerminal(issue.statusKey))
+    return;
+  await notifyPullRequestReview(round, issue, event);
+}
+
+/** The issue entered in_review: the held `pr_review` card of an agent-executed issue follows the delivery. */
+export async function releasePullRequestReviews(
+  round: Round,
+  issue: IssueV1,
+): Promise<void> {
+  if (issue.executorType !== 'agent' || !issue.ownerUserId) return;
+  const prs = await pullRequestsForIssue(
+    round.tx.conn,
+    round.deps.users,
+    issue.id,
+  );
+  for (const pr of prs)
+    if (pr.state === 'open' && !pr.draft)
+      await notifyPullRequestReview(round, issue, {
+        pullRequestId: pr.id,
+        repo: pr.repo,
+        number: pr.number,
+        url: pr.url,
+      });
 }
 
 export async function onPullRequestMerged(
