@@ -1,0 +1,3 @@
+Reading additional input from stdin...
+2026-09-27T04:35:37.467991Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when UnexpectedServerResponse("HTTP 401: {\n  \"error\": {\n    \"message\": \"Encountered invalidated oauth token for user, failing request\",\n    \"type\": null,\n    \"code\": \"token_revoked\",\n    \"param\": null\n  },\n  \"status\": 401\n}")
+2026-09-27T04:35:37.760678Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when UnexpectedServerResponse("HTTP 401: {\n  \"error\": {\n    \"message\": \"Encountered invalidated oauth token for user, failing request\",\n    \"type\": null,\n    \"code\": \"token_revoked\",\n    \"param\": null\n  },\n  \"status\": 401\n}")

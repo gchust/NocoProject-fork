@@ -1,0 +1,3 @@
+# pnpm 11 reads build-script permissions from this file only.
+allowBuilds:
+  esbuild: true

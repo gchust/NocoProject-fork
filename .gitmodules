@@ -1,0 +1,3 @@
+[submodule "nocosolution"]
+	path = nocosolution
+	url = https://github.com/nocobase/NocoSolution.git

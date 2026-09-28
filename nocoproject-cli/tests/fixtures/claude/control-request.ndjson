@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","cwd":"/tmp/work","session_id":"5d2f7c1e-8b3a-4c6d-9e0f-1a2b3c4d5e6f","tools":["Bash"],"mcp_servers":[],"model":"claude-sonnet-4-5-20250929","permissionMode":"bypassPermissions","apiKeySource":"none","claude_code_version":"2.0.14","uuid":"4c2d3e4f-0000-4000-8000-000000000001"}
+{"type":"control_request","request_id":"req_1_a1b2c3","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"permission_suggestions":[]}}

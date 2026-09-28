@@ -1,0 +1,6 @@
+[Unit]
+Description=NocoProject daily database backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/nocoproject/bin/np-backup

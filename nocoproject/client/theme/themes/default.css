@@ -1,0 +1,118 @@
+:root,
+:root[data-theme='default'],
+.theme-preview[data-theme='default'] {
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  --font-serif:
+    ui-serif, Georgia, Cambria, 'Times New Roman', 'Songti SC', SimSun, serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  --font-heading: var(--font-sans);
+  --spacing: 0.25rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: calc(2.25 / 1.875);
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: calc(2.5 / 2.25);
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1;
+  --text-6xl: 3.75rem;
+  --text-6xl--line-height: 1;
+  --text-7xl: 4.5rem;
+  --text-7xl--line-height: 1;
+  --text-8xl: 6rem;
+  --text-8xl--line-height: 1;
+  --text-9xl: 8rem;
+  --text-9xl--line-height: 1;
+  --shadow-2xs: 0 1px rgb(0 0 0 / 0.05);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --radius: 0.5rem;
+  --background: oklch(0.985 0.002 264);
+  --foreground: oklch(0.2 0.012 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.012 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.012 264);
+  --primary: oklch(0.52 0.2 266);
+  --primary-foreground: oklch(0.99 0.004 266);
+  --secondary: oklch(0.955 0.005 264);
+  --secondary-foreground: oklch(0.25 0.012 264);
+  --muted: oklch(0.965 0.003 264);
+  --muted-foreground: oklch(0.5 0.014 264);
+  --accent: oklch(0.95 0.006 264);
+  --accent-foreground: oklch(0.22 0.012 264);
+  --destructive: oklch(0.577 0.215 27);
+  --border: oklch(0.915 0.004 264);
+  --input: oklch(0.89 0.006 264);
+  --ring: oklch(0.6 0.16 266);
+  /* One categorical palette in both modes: orange, green, blue, yellow, purple (docs/design/ui-design.md §2.4). */
+  --chart-1: oklch(0.68 0.17 50);
+  --chart-2: oklch(0.62 0.15 155);
+  --chart-3: oklch(0.58 0.16 250);
+  --chart-4: oklch(0.78 0.15 85);
+  --chart-5: oklch(0.58 0.19 300);
+  --sidebar: oklch(0.975 0.003 264);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: color-mix(in oklch, var(--primary) 10%, var(--sidebar));
+  --sidebar-primary-foreground: var(--foreground);
+  --sidebar-accent: color-mix(in oklch, var(--foreground) 5%, var(--sidebar));
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+:root.dark,
+:root.dark[data-theme='default'],
+:root.dark .theme-preview[data-theme='default'] {
+  --background: oklch(0.155 0.006 264);
+  --foreground: oklch(0.95 0.004 264);
+  --card: oklch(0.195 0.007 264);
+  --card-foreground: oklch(0.95 0.004 264);
+  --popover: oklch(0.215 0.008 264);
+  --popover-foreground: oklch(0.95 0.004 264);
+  --primary: oklch(0.7 0.15 268);
+  --primary-foreground: oklch(0.16 0.03 268);
+  --secondary: oklch(0.25 0.008 264);
+  --secondary-foreground: oklch(0.95 0.004 264);
+  --muted: oklch(0.235 0.007 264);
+  --muted-foreground: oklch(0.7 0.012 264);
+  --accent: oklch(0.27 0.01 264);
+  --accent-foreground: oklch(0.96 0.004 264);
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.14 268);
+  --chart-1: oklch(0.74 0.15 55);
+  --chart-2: oklch(0.72 0.15 155);
+  --chart-3: oklch(0.7 0.14 250);
+  --chart-4: oklch(0.82 0.14 88);
+  --chart-5: oklch(0.7 0.17 300);
+  --sidebar: oklch(0.175 0.006 264);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: color-mix(in oklch, var(--primary) 14%, var(--sidebar));
+  --sidebar-primary-foreground: var(--foreground);
+  --sidebar-accent: color-mix(in oklch, var(--foreground) 6%, var(--sidebar));
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}

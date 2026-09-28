@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a0e126-fed6-7972-8273-9ba7b1832f4f"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `no-such-model-xyz` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"error","message":"{\"error\":{\"code\":\"model_not_found\",\"message\":\"unknown provider for model no-such-model-xyz\",\"param\":\"model\",\"type\":\"invalid_request_error\"}}"}
+{"type":"turn.failed","error":{"message":"{\"error\":{\"code\":\"model_not_found\",\"message\":\"unknown provider for model no-such-model-xyz\",\"param\":\"model\",\"type\":\"invalid_request_error\"}}"}}

@@ -1,0 +1,33 @@
+{
+  "name": "@nocoproject/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NocoProject protocol types and constants shared by the server, the browser client and the daemon/CLI.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

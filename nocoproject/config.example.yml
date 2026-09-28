@@ -1,0 +1,132 @@
+# Copy this file to config.yml before starting the application.
+
+# app:
+#   Public origin used for callbacks and redirects in production.
+#   publicOrigin: https://apps.example.com
+
+# The language the application starts in, for the browser and the server alike. Which languages it offers follows
+# from the files in client/locales and server/locales, not from configuration.
+# i18n:
+#   defaultLocale: zh-CN
+
+# Values under client are public and embedded in the SPA HTML.
+client:
+  app:
+    title: NocoBase
+    # Defaults apply only when no valid browser-local choice is saved.
+    # defaultColorScheme: system # light | dark | system
+    # defaultTheme: compact # ID from client/theme/theme-presets.ts
+
+users:
+  # The first administrator, created only when seeding an empty user table. Changing these values later does not
+  # reset an existing account. Replace the password before exposing the application.
+  initialAdmin:
+    username: nocobase # 3–30 letters, digits, underscores or dots; stored lowercase
+    email: admin@nocobase.com # stored lowercase; also signs in
+    password: admin123
+
+auth:
+  # Generate a unique secret, for example with: openssl rand -hex 32
+  secret: replace-with-a-unique-secret
+  emailAndPassword:
+    enabled: true
+    autoSignIn: false
+  session:
+    storeSessionInDatabase: true
+
+session:
+  # Use the same generated value as auth.secret, or another unique secret.
+  secret: replace-with-a-unique-secret
+
+notification:
+  channels:
+    inbox:
+      provider: in-app
+
+    # Uncomment and configure independent email Channels.
+    # system-email:
+    #   provider: smtp
+    #   host: smtp.example.com
+    #   port: 587
+    #   auth:
+    #     user: ${SMTP_USER}
+    #     pass: ${SMTP_PASSWORD}
+    #   from: notifications@example.com
+    # marketing-email:
+    #   provider: resend
+    #   apiKey: ${RESEND_API_KEY}
+    #   from: marketing@example.com
+
+    # ops-feishu:
+    #   provider: feishu-webhook
+    #   webhookUrl: ${FEISHU_WEBHOOK_URL}
+    # ops-dingtalk:
+    #   provider: dingtalk-webhook
+    #   webhookUrl: ${DINGTALK_WEBHOOK_URL}
+
+# Declarative LLM services are loaded from application config.
+# Reload application config after editing; no process restart or AI resource rescan is required.
+# ai:
+#   llmServices:
+#     - name: openai
+#       title: OpenAI
+#       provider: openai
+#       options:
+#         apiKey: ${OPENAI_API_KEY}
+#       enabledModels:
+#         - label: GPT-4.1
+#           value: gpt-4.1
+#       enabled: true
+#       sort: 10
+
+database:
+  default: main
+  connections:
+    main:
+      dialect: sqlite
+      database: database.sqlite
+      debug: false
+      # For Oracle, use dialect: oracle and replace database with serviceName: FREEPDB1.
+      # For SQL Server, use dialect: mssql and configure encrypt and trustServerCertificate.
+      schemaManagement: managed
+      migrations:
+        autoRun: true
+      seeds:
+        autoRun: true
+    # Additional managed databases use database/<connectionName>/{migrations,seeds}.
+    # analytics:
+    #   dialect: postgres
+    #   host: localhost
+    #   database: analytics
+    #   username: postgres
+    #   password: ${ANALYTICS_DB_PASSWORD}
+    #   schemaManagement: managed
+    #   migrations:
+    #     autoRun: false
+    #   seeds:
+    #     autoRun: false
+    # An existing database another system owns sets schemaManagement: external and runs no tasks. Its titles,
+    # descriptions and relations are read from database/<connection>/metadata/<name>.json unless metadataStore says otherwise.
+
+snowflake:
+  # Assign a unique worker ID to each concurrently running instance.
+  workerId: 0
+  epoch: 1605024000
+
+# File logging is independent of terminal formatting.
+logging:
+  level: info
+  file:
+    enabled: true
+    retentionDays: 7
+    name: app
+    maxFileSizeMB: 10
+    maxTotalSizeMB: 500
+  loggers:
+    request:
+      file:
+        name: request
+  console:
+    enabled: true
+    # Set true for human-readable terminal output.
+    pretty: false

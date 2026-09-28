@@ -1,0 +1,66 @@
+/*
+ * NocoProject semantic colours (docs/design/ui-design.md §2). These are the application's own tokens, not theme
+ * preset tokens: every preset (compact, default) and both colour modes share them, and `client/styles.css` maps
+ * them to Tailwind colours (`bg-np-tint-blue`, `text-np-ink-blue`, `bg-agent`, `bg-attention` …).
+ *
+ * - `--agent`: an agent's identity (its avatar).
+ * - `--attention` / `--attention-foreground`: "needs you" (the inbox count, a decision's accent bar).
+ * - `--success`: a success mark (resolved, completed).
+ * - `--np-tint-*` / `--np-ink-*`: the tinted badge pairs — a pale background and a darker text of the same hue —
+ *   for status, priority, PR and run states, decision types and role tags (`NpTag`).
+ */
+:root {
+  --agent: oklch(0.55 0.2 295);
+  --attention: oklch(0.75 0.16 70);
+  --attention-foreground: oklch(0.28 0.07 60);
+  --success: oklch(0.6 0.15 155);
+
+  --np-tint-grey: oklch(0.955 0.004 264);
+  --np-ink-grey: oklch(0.46 0.015 264);
+  --np-tint-blue: oklch(0.95 0.035 245);
+  --np-ink-blue: oklch(0.5 0.15 250);
+  --np-tint-violet: oklch(0.95 0.035 295);
+  --np-ink-violet: oklch(0.5 0.17 295);
+  --np-tint-amber: oklch(0.96 0.05 85);
+  --np-ink-amber: oklch(0.52 0.12 65);
+  --np-tint-green: oklch(0.955 0.04 155);
+  --np-ink-green: oklch(0.5 0.12 155);
+  --np-tint-slate: oklch(0.935 0.008 264);
+  --np-ink-slate: oklch(0.42 0.02 264);
+  --np-tint-red: oklch(0.955 0.03 25);
+  --np-ink-red: oklch(0.52 0.18 27);
+  --np-tint-orange: oklch(0.955 0.045 60);
+  --np-ink-orange: oklch(0.55 0.15 50);
+}
+
+/* Dark: the tint is a dim translucent wash of the hue, the ink a lighter shade, so a pill never glows. */
+:root.dark {
+  --agent: oklch(0.74 0.15 295);
+  --attention: oklch(0.8 0.15 75);
+  --attention-foreground: oklch(0.26 0.06 60);
+  --success: oklch(0.74 0.15 155);
+
+  --np-tint-grey: oklch(0.72 0.01 264 / 0.14);
+  --np-ink-grey: oklch(0.8 0.01 264);
+  --np-tint-blue: oklch(0.65 0.13 250 / 0.2);
+  --np-ink-blue: oklch(0.8 0.1 250);
+  --np-tint-violet: oklch(0.65 0.14 295 / 0.2);
+  --np-ink-violet: oklch(0.8 0.11 295);
+  --np-tint-amber: oklch(0.75 0.13 75 / 0.18);
+  --np-ink-amber: oklch(0.84 0.12 80);
+  --np-tint-green: oklch(0.65 0.12 155 / 0.2);
+  --np-ink-green: oklch(0.8 0.12 155);
+  --np-tint-slate: oklch(0.6 0.02 264 / 0.2);
+  --np-ink-slate: oklch(0.72 0.015 264);
+  --np-tint-red: oklch(0.62 0.18 25 / 0.2);
+  --np-ink-red: oklch(0.78 0.13 25);
+  --np-tint-orange: oklch(0.7 0.15 55 / 0.2);
+  --np-ink-orange: oklch(0.82 0.12 60);
+}
+
+/* Badge text: 12px (the tag reference), between the xs caption and the sm body sizes. Line height stays tight
+   (1rem) so a tag's pill hugs the glyph height instead of the padding stretching it into a button-sized pill. */
+@utility badge-text {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}

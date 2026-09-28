@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 每日数据库备份（systemd 用户定时器 nocoproject-backup.timer 调用），保留 14 天。说明见 docs/deploy.md。
+set -euo pipefail
+
+DIR="$HOME/nocoproject/backups"
+mkdir -p "$DIR"
+OUT="$DIR/daily-$(date -u +%Y%m%d).dump"
+docker exec nocoproject-postgres pg_dump -U nocoproject -Fc nocoproject > "$OUT.tmp"
+mv "$OUT.tmp" "$OUT"
+find "$DIR" -name 'daily-*.dump' -mtime +14 -delete
+echo "backup: $OUT ($(du -h "$OUT" | cut -f1))"

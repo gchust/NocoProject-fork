@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# 服务器端部署（装在 ali-agents 的 ~/nocoproject/bin/，由 scripts/deploy-server.sh 同步过去）。说明见 docs/deploy.md。
+#
+#   np-deploy <tag>           用 ~/nocoproject/build/ 里已上传的 dist 部署
+#   np-deploy <tag> --stdin   先从标准输入解开 tar.gz（dist/、Dockerfile、Dockerfile.dockerignore、config.example.yml）
+#
+# 顺序：备份数据库 → 打镜像 → 替换容器 → 等健康检查；不健康就换回上一个镜像并以非零退出。
+set -euo pipefail
+
+TAG="${1:?usage: np-deploy <tag> [--stdin]}"
+ROOT="$HOME/nocoproject"
+BIND="${NP_DEPLOY_BIND:-100.89.167.29:13001}"
+APP=nocoproject-app
+exec 9>"$ROOT/.deploy.lock"
+flock -w 600 9 || { echo "another deploy is running" >&2; exit 1; }
+
+if [ "${2:-}" = --stdin ]; then
+  rm -rf "$ROOT/build/dist"
+  tar -xzf - -C "$ROOT/build"
+fi
+test -f "$ROOT/build/dist/package.json" || { echo "no dist in $ROOT/build" >&2; exit 1; }
+# “添加电脑”的安装命令从应用下载 CLI，构建钩子（scripts/pack-cli.sh）应已打进 dist；缺了就不部署。
+ls "$ROOT"/build/dist/client/assets/cli/nocoproject-cli-*.tgz >/dev/null 2>&1 ||
+  { echo "dist has no CLI installer (dist/client/assets/cli/); rebuild with pnpm build" >&2; exit 1; }
+
+echo "==> backup database"
+mkdir -p "$ROOT/backups"
+BACKUP="$ROOT/backups/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)-$TAG.dump"
+docker exec nocoproject-postgres pg_dump -U nocoproject -Fc nocoproject > "$BACKUP"
+echo "    $BACKUP ($(du -h "$BACKUP" | cut -f1))"
+# 部署前备份留最近 10 份；每日备份由 np-backup 管理。
+ls -1t "$ROOT"/backups/pre-deploy-*.dump | tail -n +11 | xargs -r rm -f
+
+# 没有新上传的产物、而这个标签的镜像还在时直接复用：`np-deploy <旧标签>` 就是回滚。
+if [ "${2:-}" != --stdin ] && [ "${NP_DEPLOY_REBUILD:-0}" != 1 ] && docker image inspect "nocoproject:$TAG" >/dev/null 2>&1; then
+  echo "==> reuse existing image nocoproject:$TAG"
+else
+  echo "==> build image nocoproject:$TAG"
+  docker build -q --build-arg DIST=prebuilt --build-arg APP_BASE_PATH=/main \
+    -t "nocoproject:$TAG" -t nocoproject:latest "$ROOT/build" >/dev/null
+fi
+
+PREVIOUS="$(docker inspect -f '{{.Config.Image}}' "$APP" 2>/dev/null || true)"
+
+run_app() {
+  docker rm -f "$APP" >/dev/null 2>&1 || true
+  # rootless Docker 释放端口需要一点时间，端口占用时重试。
+  for _ in 1 2 3 4 5 6; do
+    sleep 3
+    # 容器 root 即宿主机 agents 用户，才能读写挂载的 config.yml 与 storage；只绑 Tailscale 地址，Caddy 反代到这里。
+    if docker run -d --name "$APP" --user 0:0 --network nocoproject --restart unless-stopped \
+      --env-file "$ROOT/app.env" -p "$BIND:13000" \
+      -v "$ROOT/config.yml:/app/config.yml:ro" -v "$ROOT/storage:/app/storage" \
+      "$1" >/dev/null 2>&1; then
+      return 0
+    fi
+    docker rm -f "$APP" >/dev/null 2>&1 || true
+  done
+  echo "could not start container from $1" >&2
+  return 1
+}
+
+healthy() {
+  for _ in $(seq 1 60); do
+    curl -sf -o /dev/null "http://$BIND/main/api/healthz" && return 0
+    sleep 3
+  done
+  return 1
+}
+
+echo "==> replace container (previous: ${PREVIOUS:-none})"
+if run_app "nocoproject:$TAG" && healthy; then
+  echo "healthy: nocoproject:$TAG"
+  # 保留最近 3 个版本的镜像，便于回滚。
+  docker images nocoproject --format '{{.Tag}}' | grep -v '^latest$' | tail -n +4 |
+    xargs -r -I{} docker rmi "nocoproject:{}" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+echo "nocoproject:$TAG did not become healthy; last logs:" >&2
+docker logs --tail 60 "$APP" >&2 || true
+if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "nocoproject:$TAG" ]; then
+  echo "==> rolling back to $PREVIOUS (database migrations are not reverted; backup: $BACKUP)" >&2
+  run_app "$PREVIOUS" && healthy && echo "rolled back: $PREVIOUS" >&2
+fi
+exit 1

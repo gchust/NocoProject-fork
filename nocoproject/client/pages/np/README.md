@@ -1,0 +1,99 @@
+# NocoProject pages: UI rules
+
+The design system is `nocosolution/frontend/nocobase3-frontend-best-practices.md` (any NocoBase 3 app) plus `nocosolution/frontend/nocosolution-frontend-standard.md` (what every NocoSolution must share); this file is their implementation checklist for `client/pages/np/`. NocoProject used to keep a separate `../nocosolution/NocoProject/docs/design/ui-design.md`; it has been folded into those two docs and this file (§11 keeps what was NocoProject-specific: the shell layout and the screenshot/token inventory) and no longer exists — do not recreate it. Every page under `client/pages/np/` follows the rules here, but a design decision the product owner or user states explicitly for a page — even a one-line request, not written down anywhere — outranks all of it; update this file afterward so it stops saying one thing while the page does another. Start from `client/pages/reference/examples` (orders, team-settings, inbox, dashboard) for structure and density, and from `client/pages/reference/components` for component APIs — copy structure, never import.
+
+## 0. Styling under the compact preset
+
+NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% under Tailwind's 0.25rem), so every `p-*`, `gap-*`, `h-*` and `w-*` shrinks. Our pages had picked values that were already tight under the default preset (32px nav rows, `size-8` header buttons, `w-72` board columns) and used `text-xs` for body copy, so under compact they looked cramped. Rules:
+
+- Never override `--spacing` or any preset token at page level, and never give one page its own density.
+- Size with the spacing scale and component size variants: buttons default / `sm` / `icon-sm`, the template's navigation row, the `DataTable` default row, cards `p-4` / `p-5`. No hand-picked tight values.
+- Body text `text-sm`; `text-xs` only for captions and metadata; tags use `NpTag` (12px).
+- Hit targets never below `icon-sm`.
+- Layout widths that must not shrink are written in rem with a comment: side column `20rem`, inbox list `26rem`, board column `18rem`.
+- Check both presets (compact, default) and both modes (light, dark): `pnpm build && pnpm screenshots` writes all four combinations of every page to `output/screenshots/` from a throwaway preview of this checkout (`../nocosolution/NocoProject/docs/dogfooding.md`); attach them to the delivery.
+
+## 1. Page frame
+
+- A top-level page is `PageContainer` + `PageHeader` (title = the menu name, one sentence of description, the one primary action rightmost). No `max-w-*` or `mx-auto` at page level.
+- Only form and dialog content are width-limited (`FieldGroup className='max-w-2xl'`, the dialog's content).
+- Page tabs are child routes (`NpRouteTabs` + default-tab redirect). Sections inside a covering detail page use `NpTabBar` with `?tab=`, because the detail's child routes are its dialogs. Both look the same.
+- `/issues` and `/my-issues` fill the content area: header, toolbar, then the board or the table in a bounded area (`PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'`, `IssueBoard fill`, `DataTable fillHeight`). The page itself does not scroll.
+- Every top-level page renders `NpShortcuts` once (§8).
+- A page that is one conversation (`/pm`) fills the content area like `/issues`: header, then `SessionPanel fill` — only its message list scrolls, the composer stays under it, no properties column.
+
+## 2. Lists and tables
+
+- Toolbar on the left (search, filters, view switch — `IssueToolbar`), the primary button in the page header.
+- Creating issues is one "新建任务" button and one dialog (`/issues/new`, `NewIssueButton`), never a split button: tabs AI 整理 (default; describe or paste, choose the project, "整理" → batch entry's drafts table → create one or many) and 手动 (the single-issue form). The last tab is remembered in `localStorage` (`nocoproject:new-issue-tab`, try/catch), `?tab=` overrides, `?batch=` holds the open draft batch and `?project=` preselects the project. Old batch-entry routes redirect into the AI tab.
+- The board shows the design-first columns (分析中, 方案待审) only while one holds an issue or a visible issue is design-first (`withoutIdleDesignColumns`).
+- Lists are `DataTable`. Server-paged lists pass `pagination={false}` and put "Load more" under the table; client-paged lists keep `pageSize={20}`.
+- Column widths go in `meta.className`: fixed widths for identifier, status, priority, people and dates; the title column `w-full max-w-0` with a single-line truncated cell capped at `max-w-[30rem]` and a `title` tooltip. One long title never stretches a table.
+- Sortable headers use `DataTableColumnHeader`: a click cycles ascending → descending → unsorted, the icon shows the state, there is no menu on the header. Column hiding lives in `DataTableViewOptions`.
+- `/issues` and `/my-issues` open on the board. The list / board choice is remembered per page in `localStorage` (`nocoproject:issues-view:<page>`, every access in try/catch); `?view=` overrides and is always written explicitly.
+- Loading: `NpListSkeleton` (or a skeleton shaped like the content). Empty: `NpEmpty` (icon, title, one sentence of fact, the create action). Failed: `NpLoadError` (retry, none on 403).
+
+## 3. Detail pages
+
+- A record's page is a covering `RouteChildPage`. The issue and knowledge details use `NpDetailLayout` (main column `flex-1 min-w-0`, side column fixed `20rem` holding small cards, sticky below the page header from `lg` up unless taller than the viewport, one column below `lg`); the project detail is a header, `NpTabBar` and the tab's content.
+- **One scroll container.** The covering page scrolls as a whole; neither column scrolls on its own. The issue composer is `sticky bottom-0` inside the main column.
+- The main column starts with `Breadcrumbs` and the record's `text-2xl` title, then one meta line (identifier, status, project, and `NpLiveRun` while a run is active). Blocks are bordered cards (`rounded-lg border bg-card p-4`) headed by `NpSectionHeading`, `space-y-6` apart.
+- **Empty sections take no room.** No description is one muted row with "edit"; empty sub-issues fold into one dashed row with its actions; attachments (right under the description, NP-78), pull requests and dependencies render only with content or once revealed from the "添加" chips under the description; approvals and proposals render only when pending.
+- Loading uses `NpDetailSkeleton`; 404/403 uses an error with "back to the list".
+
+## 4. Decisions
+
+- A decision is always shown with the thing being decided in full (`DecisionContent`: the agent's delivery comment and PR, the approval's from → to and requester, the proposals, the knowledge text with its diff, the design proposal in Markdown for `design_review`) and the actions right under it (`DecisionActionsBar`). Never a bare "accept".
+- The inbox (`/inbox`) is master–detail: grouped list on the left (decisions first), the selected item's context under a sticky action bar on the right, `j` / `k` / `e` / Enter, `?tab=` / `?archived=1` / `?item=` in the URL, list → detail on narrow screens.
+- The inbox reminder: the sidebar entry carries the count of decisions still waiting on the viewer (`GET /np/inbox/pending-count`, NP-107), and a short Web Audio chime plays when that count goes up after the first load (NP-108, `inbox/inbox-chime.ts`). The chime is on by default; each member turns it off for their account under 设置 → 通用 → 我的提醒 (`config/chime-preference.tsx`, `GET`/`PATCH /np/me/preferences`, editable even when the workspace settings below it are read-only). There is no toggle on the inbox page itself. The browser needs one user gesture in the tab before it lets the chime sound, and it plays in only one tab at a time (Web Lock).
+- The issue page shows the viewer's open decisions on that issue ("等你决定", `GET /np/inbox?kind=decision&resolved=false&issueId=`); a decided card folds into one line for the rest of the visit.
+- Both run decisions through `useDecisionRunner` (optimistic resolve in every cached inbox list, toast, refetch on failure). Button hierarchy: the primary action is the one filled button and comes first; other requests outlined; rejection red; navigation (open, reassign) plain text. Type-specific wording goes in `np.decision.actions.<type>.<key>`.
+
+## 5. Identifiers, tags, people, empty values
+
+- Identifiers, slugs, versions, branches: `font-mono text-xs`.
+- The process is marked only when it changes what happens next: `NpProcessBadge` ("先出方案", blue, compass icon) beside the status in the issue header and on board cards, nothing for direct issues. Timeline comments that are a design proposal or a retrospective note carry `NpCommentTag` ("方案" / "总结").
+- Executor pickers (`NpExecutorSelect`) never offer a project manager agent (`kind: 'manager'`), except one already set.
+- Every tag is `NpTag` (tinted pill: pale background, darker text of the same hue, 12px, dot for statuses) with its tone from one map. Status: `NpStatusBadge` (tone by meaning via `statusTone`: unstarted grey, started blue, in review violet, blocked amber, done green, cancelled slate). Priority: `NpPriorityLabel` (urgent red, high orange, medium blue, low grey). Runs: `NpRunStatusBadge`. Labels: `NpLabelChip`. Never a solid fill, never a dot on a neutral pill, never the shadcn `Badge` on these pages.
+- People, agents and the system: only `NpActorAvatar` (initials round / bot rounded-square in the agent hue / dashed cog; `live` for a working agent). `NpExecutor` builds on it.
+- Empty values (no priority, executor, owner, date, project) render a muted "—" with the word kept for screen readers. Editable controls keep their "none" option names in the list only.
+
+## 6. Feedback and copy
+
+- Every explicit write action toasts on success and on failure; failures are localized (`np.common.forbidden`, `np.common.requestFailed`, or a specific key for 409s).
+- Inline property edits and emoji reactions change in place and toast only on failure.
+- Destructive actions go through `AlertDialog` with a `destructive` action.
+- UI text states facts and actions and never explains the UI: no "在这里可以…", "下面是…", "就在这里决定…". An empty state's sentence is a fact, not an instruction.
+
+## 7. Colour, motion, themes
+
+- Colours are tokens only. Neutrals, primary and charts come from the theme presets; NocoProject's own semantic colours (`--agent`, `--attention`, `--success`, `--np-tint-*` / `--np-ink-*`) live in `client/np-tones.css`. Accent (primary) only for primary actions, focus and live state; amber only for "needs you".
+- Motion explains change and respects reduced motion: realtime inbox arrivals slide in, resolved decisions dim, running work pulses (`NpPulse`, `np-live-ring`), progress rings animate.
+
+## 8. Keyboard
+
+- `C` opens "New issue" (on `/issues` the create dialog beside the list), ignored while typing or when a dialog is open.
+- `⌘K` / `Ctrl+K` opens the issue search; Enter opens the highlighted issue.
+- `⌘Enter` sends a comment, saves a knowledge document, sends an inline decision comment.
+- In the inbox: `j` / `k` move, `e` archives, Enter opens the issue.
+
+## 9. Long lists
+
+- Cursor pages (`useInfiniteQuery`): the issue list, board columns ("load more" per column), older issue activities, the inbox groups.
+- Virtualization (`react-virtuoso`): the activity timeline and board columns past 100 items (`NpVirtualList`), the issue table past 200 rows (`DataTable virtualizeAfter`), measured against the nearest scrolling ancestor.
+- Query keys sit under the family the realtime topics invalidate (`npKeys.issues`, `npKeys.issue(id)`, `npKeys.inbox`).
+
+## 10. Languages
+
+- Every string is a key in `client/locales/` with `en-US` and `zh-CN`; `tests/logic/locale-coverage.test.ts` fails on a missing key. New groups go in the latest `np-*-en-US.ts` (today `np-iter4-en-US.ts`); a key inside an existing group goes into the file that defines that group, since the spread into `np` is shallow; avoid i18next plural suffixes.
+
+## 11. Shell, screenshots and token inventory
+
+NocoProject-specific reference material that doesn't belong in the two shared design docs because no other Solution needs it verbatim:
+
+- **Shell**: brand mark, top bar (collapse toggle, workspace name, appearance, account) above a flat sidebar — 收件箱 → 我的任务 → 工作（任务、项目）→ AGENT 团队（Agent、运行时、技能、知识库）→ 报表 → 设置. Top bar and sidebar keep the template's own sizes (`h-16`, `size-10` / `size-9` icon buttons); they are already sized for the compact preset, so they are not compressed further.
+- **Screenshots**: 1360×900 desktop viewport, `../nocosolution/NocoProject/docs/design/screenshots/` holds the last reviewed baseline (compact · dark as the primary shot, plus a light and a default-preset counterpart per page: inbox, issue detail, project detail, board, issue list, knowledge, reports, settings). Day-to-day verification doesn't update that baseline — `pnpm build && pnpm screenshots` regenerates the same four combinations (compact/default × light/dark) into `output/screenshots/` from a throwaway local preview (`../nocosolution/NocoProject/docs/dogfooding.md` "看效果"); attach those to the delivery instead.
+- **Token and file inventory**:
+  - Theme presets (`client/theme/themes/{compact,default}.css`, identical except density): cool-toned neutrals, `--primary` indigo, `--chart-1..5` fixed hues, an independent sidebar background, selected nav text in the body color.
+  - App semantic colours (`client/np-tones.css`): `--agent`, `--attention` / `--attention-foreground`, `--success`, `--np-tint-*` / `--np-ink-*` (eight hues), plus the `badge-text` and `np-live-ring` utilities (the latter in `client/styles.css`).
+  - Flat sidebar sections: `client/layouts/components/navigation-sections.tsx` (the template's `navigation-tree.tsx` only gained the entry row styling and `relative`, and still owns the collapsible tree for Settings/Dev and for any group whose entry count needs it — see the best-practices doc §2.1 for when to switch).

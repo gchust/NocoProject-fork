@@ -1,0 +1,437 @@
+/**
+ * Batch intake (docs/phase1/iteration-2-contract.md §E): paste text (or split an issue's description), review the
+ * drafts, confirm them into issues, and revert a confirmed batch.
+ *
+ * A batch belongs to the member who entered it; only they (or an owner/admin) may edit, confirm, cancel or revert
+ * it. Confirming creates parents before children (`intake.confirm.ts`); reverting soft-deletes the issues it created
+ * that never had a run and keeps the others. Iteration 4: `process` on the request is written into every draft that
+ * has none; confirming selects each issue's process (heuristic only, `issue/process.ts`). NP-78: `attachmentIds`
+ * hands the member's own uploads to the batch (`attachment/attachment.intake.ts`); they start on the first top-level
+ * draft (`fields.attachmentIds`) and are attached when the batch is confirmed.
+ */
+import type { Actor, ActivityRecorder } from '../shared/activity.js';
+import {
+  canSeeProject,
+  isAdmin,
+  requireVisibleIssue,
+  viewerOf,
+  type Viewer,
+} from '../shared/authz.js';
+import type { Conn, Tx, TxRunner } from '../shared/db.js';
+import { now, str } from '../shared/db.js';
+import { conflict, invalid, notFound } from '../shared/errors.js';
+import type { IdSource } from '../shared/ids.js';
+import type {
+  ConfirmIntakeRequest,
+  ConfirmIntakeResponse,
+  CreateIntakeBatchRequestV4,
+  CreateIntakeBatchResponse,
+  IntakeBatch,
+  IntakeBatchAttachmentsField,
+  IntakeBatchDetail,
+  IntakeDraft,
+  IntakeDraftFieldsV4,
+  RevertIntakeResponse,
+} from '../shared/protocol.js';
+import type { UserDirectory } from '../shared/users.js';
+import type { SettingsService } from '../system/settings.service.js';
+import type { TriggerService } from '../trigger/trigger.service.js';
+import type { WorkflowService } from '../workflow/workflow.service.js';
+import type { IssueService } from '../issue/issue.service.js';
+import { validateProcess } from '../issue/process.js';
+import {
+  claimFilesForBatch,
+  intakeBatchAttachments,
+} from '../attachment/attachment.intake.js';
+import { validateFileIds } from '../attachment/attachment.service.js';
+import type { AiIntakeParser } from './ai-parser.js';
+import type { ProcessClassifier } from './process-classifier.js';
+import type { AttachmentTextReader } from './attachment-text.js';
+import {
+  fileNamedDraft,
+  hasReadableText,
+  readIntakeAttachments,
+  readStatuses,
+} from './intake.attachments.js';
+import { confirmBatch } from './intake.confirm.js';
+import { parseInput, parseIntake } from './intake.parse.js';
+import {
+  draftsOf,
+  findBatch,
+  mapBatch,
+  replaceDrafts,
+  setBatchStatus,
+} from './intake.records.js';
+import { validateDrafts } from './intake.validation.js';
+import type { IntakeParser } from './parser.js';
+
+const MAX_RAW_CONTENT = 200_000;
+const LIST_LIMIT = 50;
+
+/** NP-78: the batch views carry the files that travel with the batch. */
+export type IntakeBatchDetailV4 = IntakeBatchDetail &
+  IntakeBatchAttachmentsField;
+export type CreateIntakeBatchResponseV4 = CreateIntakeBatchResponse &
+  IntakeBatchAttachmentsField;
+
+export interface IntakeService {
+  create(
+    actor: Actor,
+    input: CreateIntakeBatchRequestV4,
+  ): Promise<CreateIntakeBatchResponseV4>;
+  list(actor: Actor, mine: boolean): Promise<IntakeBatch[]>;
+  get(actor: Actor, id: string): Promise<IntakeBatchDetailV4>;
+  putDrafts(actor: Actor, id: string, drafts: unknown): Promise<IntakeDraft[]>;
+  confirm(
+    actor: Actor,
+    id: string,
+    input: ConfirmIntakeRequest,
+  ): Promise<ConfirmIntakeResponse>;
+  cancel(actor: Actor, id: string): Promise<IntakeBatch>;
+  revert(actor: Actor, id: string): Promise<RevertIntakeResponse>;
+}
+
+export interface IntakeDeps {
+  readonly tx: TxRunner;
+  readonly ids: IdSource;
+  readonly users: UserDirectory;
+  readonly activity: ActivityRecorder;
+  readonly settings: SettingsService;
+  readonly workflows: WorkflowService;
+  readonly issues: () => IssueService;
+  readonly triggers: () => TriggerService;
+  readonly heuristic: IntakeParser;
+  /** Present when the AI employee plugin is registered. */
+  readonly ai: AiIntakeParser | null;
+  /** True when `ai.llmServices` is not empty. */
+  readonly aiConfigured: () => boolean;
+  /** Iteration 4: the process of each confirmed draft (heuristic only). */
+  readonly classifier: ProcessClassifier;
+  /** NP-78: reads attached files for the AI parser; null = files travel with the batch unread. */
+  readonly attachmentText: AttachmentTextReader | null;
+}
+
+async function source(
+  conn: Conn,
+  viewer: Viewer,
+  input: CreateIntakeBatchRequestV4,
+  allowEmpty = false,
+): Promise<{
+  rawContent: string;
+  projectId: string | null;
+  sourceIssueId: string | null;
+}> {
+  if (input?.source === 'issue') {
+    if (typeof input.issueId !== 'string' || !input.issueId)
+      throw invalid('INVALID_FIELD', 'issueId is required for source issue.');
+    const issue = await requireVisibleIssue(conn, viewer, input.issueId);
+    return {
+      rawContent: issue.description,
+      projectId: issue.projectId,
+      sourceIssueId: issue.id,
+    };
+  }
+  if (input?.source !== 'paste')
+    throw invalid('INVALID_FIELD', 'source must be paste or issue.');
+  if (typeof input.rawContent !== 'string')
+    throw invalid('INVALID_FIELD', 'rawContent is required.');
+  if (!input.rawContent.trim() && !allowEmpty)
+    throw invalid(
+      'INVALID_FIELD',
+      'rawContent is required unless an attached file can be read.',
+    );
+  if (input.rawContent.length > MAX_RAW_CONTENT)
+    throw invalid('INVALID_FIELD', 'rawContent is too long.');
+  const projectId = input.projectId ?? null;
+  if (projectId !== null) {
+    const exists = await conn.query
+      .selectFrom('projects')
+      .select('id')
+      .where('id', '=', projectId)
+      .exists();
+    if (!exists || !(await canSeeProject(conn, viewer, projectId)))
+      throw invalid('INVALID_PROJECT', 'projectId does not exist.');
+  }
+  return { rawContent: input.rawContent, projectId, sourceIssueId: null };
+}
+
+async function create(
+  deps: IntakeDeps,
+  actor: Actor,
+  input: CreateIntakeBatchRequestV4,
+): Promise<CreateIntakeBatchResponseV4> {
+  const attachmentIds =
+    input?.attachmentIds === undefined
+      ? []
+      : validateFileIds(input.attachmentIds, 'attachmentIds');
+  const conn = deps.tx.read();
+  const viewer = await viewerOf(conn, actor);
+  // NP-78: the files are checked to be the caller's own before any is read, then read for the AI parser.
+  const attachments = await readIntakeAttachments(
+    deps.attachmentText,
+    conn,
+    actor,
+    attachmentIds,
+  );
+  const origin = await source(
+    conn,
+    viewer,
+    input,
+    hasReadableText(attachments),
+  );
+  const outcome = await parseIntake(
+    deps,
+    conn,
+    {
+      ...(await parseInput(
+        conn,
+        deps.workflows,
+        origin.projectId,
+        origin.rawContent,
+      )),
+      ...(attachments.texts
+        ? {
+            attachments: {
+              documents: attachments.texts.documents,
+              unreadNames: attachments.texts.unreadNames,
+            },
+          }
+        : {}),
+    },
+    viewer.userId,
+  );
+  const drafts =
+    outcome.drafts.length === 0 && !origin.rawContent.trim()
+      ? fileNamedDraft(attachments)
+      : outcome.drafts;
+  const process =
+    input?.process === undefined || input.process === null
+      ? undefined
+      : validateProcess(input.process, true);
+  // A batch split from an issue hangs every draft directly under that issue; `process` fills the drafts' gaps.
+  const parsed: {
+    position: number;
+    parentPosition: number | null;
+    fields: IntakeDraftFieldsV4;
+  }[] = drafts.map((draft) => ({
+    ...draft,
+    parentPosition: origin.sourceIssueId ? null : draft.parentPosition,
+    fields:
+      process && !('process' in draft.fields)
+        ? { ...draft.fields, process }
+        : draft.fields,
+  }));
+  // NP-78: every uploaded file starts on the first top-level draft; the editor can move it to another one.
+  const holder =
+    parsed.find((draft) => draft.parentPosition === null) ?? parsed[0];
+  if (holder && attachmentIds.length > 0)
+    parsed[parsed.indexOf(holder)] = {
+      ...holder,
+      fields: { ...holder.fields, attachmentIds },
+    };
+  const id = deps.ids.next();
+  await deps.tx.run(async (tx) => {
+    const drafts = await validateDrafts(
+      {
+        conn: tx.conn,
+        users: deps.users,
+        creatorId: viewer.userId,
+        underIssue: !!origin.sourceIssueId,
+      },
+      parsed,
+    );
+    const timestamp = now();
+    await tx.conn.query
+      .insertInto('intakeBatches')
+      .values({
+        id,
+        createdById: viewer.userId,
+        projectId: origin.projectId,
+        source: origin.sourceIssueId ? 'issue' : 'paste',
+        sourceIssueId: origin.sourceIssueId,
+        rawContent: origin.rawContent,
+        parser: outcome.parser,
+        parseError: outcome.parseError,
+        status: 'draft',
+        aiSessionId: outcome.aiSessionId,
+        confirmedAt: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .execute();
+    await claimFilesForBatch(
+      tx,
+      actor,
+      id,
+      attachmentIds,
+      readStatuses(attachments),
+    );
+    await replaceDrafts(tx, deps.ids, id, drafts);
+  });
+  const read = deps.tx.read();
+  return {
+    batch: await findBatch(read, id),
+    drafts: await draftsOf(read, id),
+    parser: outcome.parser,
+    attachments: await intakeBatchAttachments(read, id),
+  };
+}
+
+/** The batch, if the caller entered it or is an owner/admin (404 otherwise, so other members' batches do not leak). */
+async function ownBatch(
+  conn: Conn,
+  actor: Actor,
+  id: string,
+): Promise<{ batch: IntakeBatch; viewer: Viewer }> {
+  const viewer = await viewerOf(conn, actor);
+  const batch = await findBatch(conn, id);
+  if (batch.createdById !== viewer.userId && !isAdmin(viewer))
+    throw notFound('Intake batch');
+  return { batch, viewer };
+}
+
+function requireStatus(
+  batch: IntakeBatch,
+  status: IntakeBatch['status'],
+): void {
+  if (batch.status !== status)
+    throw conflict(
+      'INTAKE_STATE_CONFLICT',
+      `The batch is ${batch.status}; expected ${status}.`,
+    );
+}
+
+async function revert(
+  deps: IntakeDeps,
+  tx: Tx,
+  actor: Actor,
+  batch: IntakeBatch,
+): Promise<RevertIntakeResponse> {
+  const created = (await draftsOf(tx.conn, batch.id))
+    .map((draft) => draft.createdIssueId)
+    .filter((issueId): issueId is string => !!issueId);
+  const reverted: string[] = [];
+  const kept: string[] = [];
+  for (const issueId of created) {
+    const hasRun = await tx.conn.query
+      .selectFrom('runs')
+      .select('id')
+      .where('subjectId', '=', issueId)
+      .exists();
+    if (hasRun) {
+      kept.push(issueId);
+      continue;
+    }
+    const row = await tx.conn.query
+      .selectFrom('issues')
+      .select(['revision', 'parentIssueId', 'deletedAt'])
+      .where('id', '=', issueId)
+      .executeTakeFirst();
+    if (!row || row.deletedAt) continue;
+    const timestamp = now();
+    await tx.conn.query
+      .updateTable('issues')
+      .set({
+        deletedAt: timestamp,
+        revision: Number(row.revision) + 1,
+        updatedAt: timestamp,
+      })
+      .where('id', '=', issueId)
+      .execute();
+    await deps.activity.record(tx.conn, {
+      issueId,
+      actor,
+      action: 'intake_reverted',
+      details: { intakeBatchId: batch.id },
+    });
+    tx.emit({ type: 'issue.changed', issueId });
+    const parentId = str(row.parentIssueId);
+    if (parentId) tx.emit({ type: 'issue.changed', issueId: parentId });
+    reverted.push(issueId);
+  }
+  if (batch.sourceIssueId)
+    await deps.activity.record(tx.conn, {
+      issueId: batch.sourceIssueId,
+      actor,
+      action: 'intake_reverted',
+      details: {
+        intakeBatchId: batch.id,
+        reverted: reverted.length,
+        kept: kept.length,
+      },
+    });
+  await setBatchStatus(tx, batch.id, 'reverted');
+  return { reverted, kept };
+}
+
+export function createIntakeService(deps: IntakeDeps): IntakeService {
+  return {
+    create: (actor, input) => create(deps, actor, input),
+    async list(actor, mine) {
+      const conn = deps.tx.read();
+      const viewer = await viewerOf(conn, actor);
+      let query = conn.query.selectFrom('intakeBatches').selectAll();
+      if (mine || !isAdmin(viewer))
+        query = query.where('createdById', '=', viewer.userId);
+      const rows = await query
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(LIST_LIMIT)
+        .execute();
+      return rows.map(mapBatch);
+    },
+    async get(actor, id) {
+      const conn = deps.tx.read();
+      const { batch } = await ownBatch(conn, actor, id);
+      return {
+        batch,
+        drafts: await draftsOf(conn, id),
+        attachments: await intakeBatchAttachments(conn, id),
+      };
+    },
+    async putDrafts(actor, id, drafts) {
+      return deps.tx.run(async (tx) => {
+        const { batch, viewer } = await ownBatch(tx.conn, actor, id);
+        requireStatus(batch, 'draft');
+        const validated = await validateDrafts(
+          {
+            conn: tx.conn,
+            users: deps.users,
+            creatorId: batch.createdById || viewer.userId,
+            underIssue: !!batch.sourceIssueId,
+          },
+          drafts,
+        );
+        await replaceDrafts(tx, deps.ids, id, validated);
+        await tx.conn.query
+          .updateTable('intakeBatches')
+          .set({ updatedAt: now() })
+          .where('id', '=', id)
+          .execute();
+        return draftsOf(tx.conn, id);
+      });
+    },
+    async confirm(actor, id, input) {
+      return deps.tx.run(async (tx) => {
+        const { batch } = await ownBatch(tx.conn, actor, id);
+        requireStatus(batch, 'draft');
+        return confirmBatch(deps, tx, actor, batch, input ?? {});
+      });
+    },
+    async cancel(actor, id) {
+      await deps.tx.run(async (tx) => {
+        const { batch } = await ownBatch(tx.conn, actor, id);
+        requireStatus(batch, 'draft');
+        await setBatchStatus(tx, id, 'cancelled');
+      });
+      return findBatch(deps.tx.read(), id);
+    },
+    async revert(actor, id) {
+      return deps.tx.run(async (tx) => {
+        const { batch } = await ownBatch(tx.conn, actor, id);
+        requireStatus(batch, 'confirmed');
+        return revert(deps, tx, actor, batch);
+      });
+    },
+  };
+}

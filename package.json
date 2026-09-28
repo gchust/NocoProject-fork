@@ -1,0 +1,11 @@
+{
+  "name": "nocoproject-workspace",
+  "private": true,
+  "description": "NocoProject monorepo root (workspace prepared, not switched on; see nocosolution/NocoProject/docs/phase1/workspace.md).",
+  "scripts": {
+    "test": "pnpm --dir nocoproject run test && pnpm --dir nocoproject-cli exec vitest run --exclude \"**/*.live.test.ts\"",
+    "typecheck": "pnpm --dir nocoproject run typecheck && pnpm --dir nocoproject-cli run typecheck",
+    "build": "pnpm --dir nocoproject run build && pnpm --dir nocoproject-cli run build"
+  },
+  "packageManager": "pnpm@11.7.0"
+}

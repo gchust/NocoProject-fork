@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# CI 部署密钥的强制命令（~/.ssh/authorized_keys 里 command="…/np-ci-deploy"）。
+# 这把密钥只能做一件事：`deploy <提交号>`，从标准输入接收构建产物并部署。
+set -euo pipefail
+
+read -r ACTION TAG EXTRA <<<"${SSH_ORIGINAL_COMMAND:-}"
+if [ "$ACTION" != deploy ] || [ -n "${EXTRA:-}" ] || ! [[ "$TAG" =~ ^[0-9a-f]{7,40}$ ]]; then
+  echo "only 'deploy <commit sha>' is allowed" >&2
+  exit 2
+fi
+exec "$HOME/nocoproject/bin/np-deploy" "$TAG" --stdin

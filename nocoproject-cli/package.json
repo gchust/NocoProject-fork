@@ -1,0 +1,40 @@
+{
+  "name": "nocoproject-cli",
+  "version": "0.3.0",
+  "description": "NocoProject local daemon and agent CLI: runs coding agents (Claude Code, OpenCode) for NocoProject issues.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "bin": {
+    "nocoproject": "dist/cli.js",
+    "ncp": "dist/cli.js",
+    "nocoproject-echo-agent": "dist/echo-agent.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "sync-protocol": "node scripts/sync-protocol.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "ws": "^8.18.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/ws": "^8.18.1",
+    "tsup": "^8.5.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

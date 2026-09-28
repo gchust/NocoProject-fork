@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # 只取消 PR 上被新提交取代的运行；main 上的运行带部署，不能中途被取消。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  app:
+    name: app
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: demo
+          POSTGRES_PASSWORD: demo123456
+          POSTGRES_DB: nocoproject_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U demo -d nocoproject_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    defaults:
+      run:
+        working-directory: nocoproject
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-app-${{ runner.os }}-${{ hashFiles('nocoproject/pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - run: cp -n config.example.yml config.yml
+      - run: pnpm typecheck
+      - run: pnpm exec eslint --max-warnings 0 client server database tests
+      - run: pnpm exec vitest run
+        env:
+          NP_TEST_DATABASE_URL: postgres://demo:demo123456@127.0.0.1:5432/nocoproject_test
+          AUTH_SECRET: ci-auth-secret-at-least-32-characters-long
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      # Screenshots of every page under compact / default × light / dark, from a throwaway preview of this build.
+      - run: pnpm screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: nocoproject/output/screenshots
+          if-no-files-found: ignore
+
+  cli:
+    name: cli
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nocoproject-cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-cli-${{ runner.os }}-${{ hashFiles('nocoproject-cli/pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm build
+      - run: pnpm exec vitest run --exclude "**/*.live.test.ts"
+
+  # main 通过 app 与 cli 后自动部署到 ali-agents（nocosolution/NocoProject/docs/deploy.md）。部署密钥在服务器上被强制命令
+  # np-ci-deploy 限定为只能部署：接收构建产物、备份数据库、替换容器、不健康就回滚。
+  deploy:
+    name: deploy
+    needs: [app, cli]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://project.nocobase.cn/main
+    defaults:
+      run:
+        working-directory: nocoproject
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-app-${{ runner.os }}-${{ hashFiles('nocoproject/pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      # 构建钩子会把 CLI 安装包打进 dist/client/assets/cli/（scripts/pack-cli.sh）。
+      - run: pnpm build --target linux-x64 --node-version 24
+        env:
+          APP_BASE_PATH: /main
+      - name: Deploy
+        env:
+          NP_DEPLOY_SSH_KEY: ${{ secrets.NP_DEPLOY_SSH_KEY }}
+          NP_DEPLOY_KNOWN_HOSTS: ${{ secrets.NP_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$NP_DEPLOY_SSH_KEY" > ~/.ssh/np_deploy
+          chmod 600 ~/.ssh/np_deploy
+          printf '%s\n' "$NP_DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          tar -czf - --exclude dist/.env dist Dockerfile Dockerfile.dockerignore config.example.yml |
+            ssh -i ~/.ssh/np_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              agents@47.236.77.169 "deploy ${GITHUB_SHA::7}"

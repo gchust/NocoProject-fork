@@ -1,0 +1,16 @@
+# NocoProject workspace (Phase 1 iteration 3 §I: prepared, NOT switched on).
+#
+# Until the cutover in nocosolution/NocoProject/docs/phase1/workspace.md, nocoproject/ and nocoproject-cli/ keep their own
+# pnpm-workspace.yaml, lockfile and node_modules. pnpm, Vite and vitest look for the nearest pnpm-workspace.yaml,
+# so commands run inside those directories never see this file. Do not run `pnpm install` here before the cutover:
+# it would relink nocoproject/node_modules under the running dev server (the root .pnpmfile.cjs refuses it).
+packages:
+  - nocoproject
+  - nocoproject-cli
+  - packages/*
+
+# Root scripts only delegate into the packages; never auto-install the root before running them.
+verifyDepsBeforeRun: false
+
+# At the cutover, append every setting from nocoproject/pnpm-workspace.yaml here (allowBuilds, trustLockfile,
+# strictDepBuilds, minimumReleaseAgeExclude; nocoproject-cli's allowBuilds is a subset), then delete the two nested files.

@@ -1,0 +1,14 @@
+{
+  "extends": "@nocobase/dev-config/tsconfig/server-library.json",
+  "compilerOptions": {
+    // Application configuration factories infer exports during the full TypeScript build.
+    "isolatedDeclarations": false,
+    "rootDir": ".",
+    "outDir": "dist",
+    "paths": {
+      "@/jobs/*.js": ["./server/jobs/*.ts"],
+      "@/jobs/*": ["./server/jobs/*"]
+    }
+  },
+  "include": ["server/**/*.ts", "database/**/*.ts", "cli/**/*.ts"]
+}
