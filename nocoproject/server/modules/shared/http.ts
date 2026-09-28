@@ -20,6 +20,7 @@ const STATUS_BY_KIND: Readonly<Record<NpErrorKind, ContentfulStatusCode>> = {
   conflict: 409,
   upgradeRequired: 426,
   upstream: 502,
+  timeout: 504,
 };
 
 export function errorBody(

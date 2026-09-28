@@ -11,6 +11,7 @@ import { NpMultiSelect } from '@/components/np-multi-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 
 import { ISSUE_PRIORITIES } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
@@ -82,12 +83,12 @@ export function IntakeRow({
   return (
     <>
       <TableRow data-invalid={invalid ? true : undefined}>
-        <TableCell className='min-w-72 align-top'>
+        <TableCell className='w-full min-w-80 align-top'>
           <div
-            className='flex items-center gap-1'
+            className='flex items-start gap-1'
             style={{ paddingInlineStart: `${depth * 1.25}rem` }}
           >
-            <span className='w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums'>
+            <span className='w-6 shrink-0 text-right text-xs leading-8 text-muted-foreground tabular-nums'>
               {row.position}
             </span>
             {readOnly ? null : (
@@ -99,6 +100,7 @@ export function IntakeRow({
                   aria-label={t('np.intake.outdent', {
                     position: row.position,
                   })}
+                  className='mt-1'
                   onClick={onOutdent}
                 >
                   <IndentDecreaseIcon />
@@ -108,15 +110,18 @@ export function IntakeRow({
                   size='icon-xs'
                   disabled={!canIndent(rows, index)}
                   aria-label={t('np.intake.indent', { position: row.position })}
+                  className='mt-1'
                   onClick={onIndent}
                 >
                   <IndentIncreaseIcon />
                 </Button>
               </>
             )}
-            <Input
+            {/* Wraps and grows so the whole title shows; a title stays one line. */}
+            <Textarea
               id={cellId('title')}
               value={row.fields.title}
+              rows={1}
               readOnly={readOnly}
               aria-label={`${label} ${t('np.intake.columns.title')}`}
               aria-invalid={
@@ -125,8 +130,17 @@ export function IntakeRow({
                   ? true
                   : undefined
               }
-              className='h-8'
-              onChange={(event) => onFields({ title: event.target.value })}
+              className='min-h-8 resize-none py-1 wrap-anywhere'
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                }
+              }}
+              onChange={(event) =>
+                onFields({
+                  title: event.target.value.replace(/\s*\n\s*/g, ' '),
+                })
+              }
             />
           </div>
         </TableCell>
@@ -191,6 +205,7 @@ export function IntakeRow({
               row.parentPosition === null ? null : String(row.parentPosition)
             }
             noneLabel={t('np.intake.noParent')}
+            className='w-40'
             disabled={readOnly}
             onChange={(value) =>
               onParent(value === null ? null : Number(value))

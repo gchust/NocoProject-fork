@@ -54,7 +54,9 @@ import {
   setParent,
   updateFields,
 } from './intake-model.js';
+import { IntakeRefine } from './intake-refine.js';
 import { IntakeRow } from './intake-row.js';
+import { useIntakeRefine } from './use-intake-refine.js';
 
 const COLUMNS = [
   'title',
@@ -70,8 +72,9 @@ const COLUMNS = [
 /**
  * The drafts of one batch as an editable table (iteration 2 §E). Edits stay local until "Save" or "Create issues";
  * both replace the drafts on the server, which validates them again. Creating runs only when neither the browser
- * nor the server reports a problem, then closes the new-issue dialog like the manual tab does (NP-124). NP-78: the batch's files are listed above the table
- * with the draft each one goes to (`fields.attachmentIds`).
+ * nor the server reports a problem, then closes the new-issue dialog like the manual tab does (NP-124). NP-78: the
+ * batch's files are listed above the table with the draft each one goes to (`fields.attachmentIds`). NP-120: when AI
+ * is available, the drafts can be revised by an instruction below the table (`intake-refine.tsx`).
  */
 export function BatchEditor({
   detail,
@@ -189,7 +192,9 @@ export function BatchEditor({
     onError: (error) =>
       toast.add({ type: 'error', priority: 'high', title: errorTitle(error) }),
   });
-  const busy = save.isPending || confirm.isPending || cancel.isPending;
+  const refine = useIntakeRefine(batch.id, rows, setRows);
+  const busy =
+    save.isPending || confirm.isPending || cancel.isPending || refine.pending;
 
   return (
     <section className='space-y-4' aria-labelledby='np-intake-batch-heading'>
@@ -279,6 +284,9 @@ export function BatchEditor({
             <PlusIcon data-icon='inline-start' />
             {t('np.intake.addRow')}
           </Button>
+          {detail.aiRefine ? (
+            <IntakeRefine state={refine} disabled={busy} />
+          ) : null}
           <div className='grid gap-4 sm:grid-cols-2'>
             <Field>
               <FieldLabel htmlFor='np-intake-owner'>

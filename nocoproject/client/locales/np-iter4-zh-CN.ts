@@ -51,6 +51,23 @@ const npIter4ZhCN: NpIter4Resource = {
     parse: '整理',
     parsing: '整理中…',
   },
+  intakeRefine: {
+    title: '让 AI 修改',
+    label: '要改什么',
+    placeholder: '说说哪里要改，例如"拆细一点""第 3 条放到第 1 条下面"',
+    submit: '修改',
+    submitting: '修改中…',
+    revised: '已按要求修改草稿',
+    revisedTag: '已修改',
+    undo: '撤销',
+    undone: '已撤销这次修改',
+    undoneTag: '已撤销',
+    history: '修改记录',
+    tooLong: '最多 {{max}} 字。',
+    failed: '修改失败，请重试。',
+    timeout: 'AI 没有及时回复。草稿较多时可以分几次改。',
+    unavailable: 'AI 当前不可用。',
+  },
   process: {
     label: '流程',
     choices: {
@@ -230,6 +247,25 @@ const npIter4ZhCN: NpIter4Resource = {
       accountConflict: '这个邮箱已有账号，请直接登录。',
       failed: '出错了，请重试。',
     },
+  },
+  repoWebhook: {
+    open: '{{name}} 的 Webhook 设置',
+    title: '在 GitHub 上添加 Webhook',
+    description:
+      '每个 GitHub 仓库都要单独添加 Webhook，否则 PR 合并后任务状态不会自动更新。',
+    newHint: '添加后，还要在 GitHub 上为这个仓库添加 NocoProject 的 Webhook：',
+    stepOpen: '打开 {{repo}} 的 Webhook 设置。',
+    openSettings: '在 GitHub 打开',
+    stepOpenGeneric:
+      '在 GitHub 打开这个仓库，进入 Settings → Webhooks → Add webhook。',
+    settingsLink: '设置 → GitHub',
+    askAdmin: '在「设置 → GitHub」中，请工作区所有者或管理员提供。',
+    secret: '与 NocoProject 中保存的 Webhook 密钥相同。',
+    secretNotSet: '密钥未设置',
+    events:
+      '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses。',
+    stepSave:
+      '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
   },
 };
 

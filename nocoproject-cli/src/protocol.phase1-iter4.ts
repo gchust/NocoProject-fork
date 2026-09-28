@@ -20,7 +20,9 @@ import type {
 import type {
   CommentV2,
   CreateIntakeBatchRequest,
+  IntakeDraft,
   IntakeDraftFields,
+  IntakeDraftInput,
   IssuePullRequestView,
   IssueStatusSnapshot,
   UsageRow,
@@ -415,6 +417,26 @@ export interface IntakeBatchAttachmentsField {
   readonly attachments: readonly IntakeBatchAttachment[];
 }
 
+/**
+ * NP-120：草稿编辑时让 AI 按一句话修改草稿。`POST /np/intake/batches/:id/refine` 以当前表格（含未保存的手工修改）
+ * 为底稿，AI 改完后整份替换并校验，返回与 `PUT .../drafts` 相同的 `{ drafts }`。AI 保留或改写的草稿继承原草稿的
+ * `executor`、`ownerUserId`、`process`、`attachmentIds`。只允许 `draft` 批次；AI 不可用 409 `AI_UNAVAILABLE`，
+ * 超时 504 `AI_TIMEOUT`，回复无法解析或为空 502 `AI_REFINE_FAILED`，失败时草稿不变。
+ */
+export interface RefineIntakeDraftsRequest {
+  /** 1–2000 字 */
+  readonly instruction: string;
+  readonly drafts: readonly IntakeDraftInput[];
+}
+export interface RefineIntakeDraftsResponse {
+  readonly drafts: readonly IntakeDraft[];
+}
+/** 批次详情与创建的响应追加：当前能否让 AI 修改（配置了 LLM 且设置为 auto） */
+export interface IntakeBatchAiRefineField {
+  readonly aiRefine: boolean;
+}
+export const MAX_REFINE_INSTRUCTION = 2000;
+
 /** 单次最多挂的文件数 */
 export const MAX_ATTACHMENTS_PER_REQUEST = 10;
 
@@ -454,3 +476,7 @@ export const ERROR_PR_CHANGED = 'PR_CHANGED';
 /** 409：令牌缺少 Contents 与 Pull requests 的写权限 */
 export const ERROR_GITHUB_MERGE_FORBIDDEN = 'GITHUB_MERGE_FORBIDDEN';
 export const ERROR_INVALID_ATTACHMENT = 'INVALID_ATTACHMENT';
+/** NP-120：409 AI 未配置或设置为仅规则；504 AI 超时；502 AI 回复不可用 */
+export const ERROR_AI_UNAVAILABLE = 'AI_UNAVAILABLE';
+export const ERROR_AI_TIMEOUT = 'AI_TIMEOUT';
+export const ERROR_AI_REFINE_FAILED = 'AI_REFINE_FAILED';

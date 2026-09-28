@@ -90,7 +90,7 @@ const npIter2EnUS = {
       'Use the same secret in the repository’s webhook settings. Stored encrypted and never shown again.',
     webhookUrl: 'Webhook URL',
     webhookUrlHint:
-      'Add a webhook with this URL (content type application/json) for pull request, check suite and status events.',
+      'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite and status events. A project’s repository list has the steps for each repository.',
     lastEvent: 'Last delivery {{time}}.',
     noEvents: 'No delivery received yet.',
     set: 'Set',

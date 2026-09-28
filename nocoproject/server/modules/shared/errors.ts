@@ -11,8 +11,10 @@ export type NpErrorKind =
   | 'conflict'
   | 'unauthorized'
   | 'upgradeRequired'
-  /** An upstream service (GitHub) failed: 502. */
-  | 'upstream';
+  /** An upstream service (GitHub, the LLM) failed: 502. */
+  | 'upstream'
+  /** An upstream service did not answer in time: 504. */
+  | 'timeout';
 
 export class NpError extends Error {
   public readonly kind: NpErrorKind;

@@ -378,6 +378,13 @@ describe.skipIf(!db)('GitHub webhook (PostgreSQL)', () => {
       action: 'ready_for_review',
       pull_request: prPayload({ title: target.identifier }),
     });
+    // NP-128: held while the issue is not in review; entering in_review delivers it.
+    expect(await rows(db!, 'inbox_items', "type = 'pr_review'")).toEqual([]);
+    const current = await services.issueQueries.detail(ALICE, target.id);
+    await services.issues.update(ALICE, target.id, {
+      statusKey: 'in_review',
+      revision: current.issue.revision,
+    });
     const cards = await rows(db!, 'inbox_items', "type = 'pr_review'");
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({
