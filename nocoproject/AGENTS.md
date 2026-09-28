@@ -213,6 +213,8 @@ To reword a plugin's string, add an `overrides` block keyed by that plugin's pac
 
 The languages the application offers are its own locale files, not a configured list, and the two sides are read separately: `client/locales/` decides what the picker shows, while `server/locales/` decides which languages the server can answer in. Prefer adding a language to both when server-produced text needs translating, but a client-only language is valid: the interface switches normally and the server falls back to English with an informational notice. `pnpm nocobase locales check` reports one declared on a single side and exits nonzero until the lists align; that check does not block the runtime switch.
 
+The account menu also links to the application-owned `/profile` route (NP-126). This self-service page uses `auth: 'required'`, `authz: 'skip'` and the existing authentication client's `updateUser` / `changePassword`, so every member can edit their own name, login username and password without the Users administration grant. Email is read-only because email-change verification is not configured. Preserve this menu entry when upgrading the shell.
+
 The account menu language control in `client/layouts/components/language-switcher.tsx` uses a shadcn submenu with radio items. Render it inside `DropdownMenuContent` to preserve menu keyboard navigation and selection semantics.
 
 ## Development file watching
