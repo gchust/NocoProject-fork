@@ -1,9 +1,16 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircleIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { Link, Outlet, useParams } from 'react-router';
+import {
+  Link,
+  Navigate,
+  Outlet,
+  useLocation,
+  useParams,
+  useResolvedPath,
+} from 'react-router';
 
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NpDetailLayout } from '@/components/np-detail-layout';
@@ -31,6 +38,10 @@ import { PropertiesPanel } from './properties-panel.js';
  *
  * The detail refreshes through the `np:issues` subscription owned by the list page underneath, and polls while a run
  * is queued or working (`detailRefetchInterval`) so a dropped realtime connection does not leave it stale.
+ *
+ * An identifier in the URL (`/issues/NP-12`, as inbox actions link) is replaced by the issue id: every mutation and
+ * realtime refresh targets `npKeys.issue(issue.id)`, so a detail cached under the identifier would never show a save
+ * and its next edit would send a stale revision (NP-127).
  */
 export default function IssueDetailPage(): ReactElement {
   const { issueId = '' } = useParams();
@@ -51,10 +62,19 @@ function IssueDetailView({
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const matched = useResolvedPath('.');
 
   const detail = useQuery({
     queryKey: npKeys.issue(issueId),
-    queryFn: ({ signal }) => fetchIssueDetail(api, issueId, signal),
+    queryFn: async ({ signal }) => {
+      const loaded = await fetchIssueDetail(api, issueId, signal);
+      // Opened by identifier: seed the id key so the canonical page below renders without reloading.
+      if (loaded.issue.id !== issueId)
+        queryClient.setQueryData(npKeys.issue(loaded.issue.id), loaded);
+      return loaded;
+    },
     refetchInterval: (query) => detailRefetchInterval(query.state.data),
     retry: (count, error) =>
       !(error instanceof ApiClientError && [403, 404].includes(error.status)) &&
@@ -108,6 +128,19 @@ function IssueDetailView({
   }
 
   if (!detail.data) return <NpDetailSkeleton />;
+
+  const canonicalId = detail.data.issue.id;
+  if (canonicalId !== issueId) {
+    // Keep any child route (`runs/:runId`) and the query string.
+    const base = matched.pathname.replace(/[^/]+$/, '');
+    const rest = location.pathname.slice(matched.pathname.length);
+    return (
+      <Navigate
+        replace
+        to={`${base}${encodeURIComponent(canonicalId)}${rest}${location.search}${location.hash}`}
+      />
+    );
+  }
 
   return (
     <IssueLayout detail={detail.data} agents={agents.data ?? []} me={me.data} />
