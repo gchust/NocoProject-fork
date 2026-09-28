@@ -79,7 +79,7 @@ const npIter2ZhCN: NpIter2Resource = {
       '在仓库的 Webhook 设置中填写同一个密钥。加密保存，保存后不再显示。',
     webhookUrl: 'Webhook 地址',
     webhookUrlHint:
-      '在仓库中添加这个地址的 Webhook（内容类型 application/json），订阅 Pull request、Check suite 和 Status 事件。',
+      '每个接入 NocoProject 的仓库都要单独添加这个地址的 Webhook（内容类型 application/json），订阅 Pull request、Check suite 和 Status 事件。项目的代码仓库列表中有每个仓库的步骤。',
     lastEvent: '最近一次投递 {{time}}。',
     noEvents: '尚未收到投递。',
     set: '已设置',

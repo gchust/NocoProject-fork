@@ -7,6 +7,7 @@ import {
   PencilIcon,
   PlusIcon,
   Trash2Icon,
+  WebhookIcon,
 } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { Link } from 'react-router';
@@ -20,12 +21,14 @@ import {
 import type { ProjectResource } from '../../types.js';
 import { EditResourceDialog } from './edit-resource.js';
 import { reorderResources, sortResources } from './resource-order.js';
+import { githubRepoOf } from './resource-url.js';
 import { useProjectMutation } from './use-project-mutation.js';
+import { GithubWebhookDialog } from './webhook-guide.js';
 
 /**
  * Repositories the project's agents may check out (§F, §I). Adding opens the `resources/new` route dialog; editing
- * opens a dialog, and the arrows reorder (iteration 1 leftovers). Only the project lead and owner/admin see the
- * controls.
+ * opens a dialog, and the arrows reorder (iteration 1 leftovers). GitHub repositories also open the webhook steps
+ * (NP-118). Only the project lead and owner/admin see the controls.
  */
 export function ResourcesSection({
   projectId,
@@ -43,6 +46,7 @@ export function ResourcesSection({
     t('np.resources.removed'),
   );
   const [editing, setEditing] = useState<ProjectResource | null>(null);
+  const [webhookFor, setWebhookFor] = useState<string | null>(null);
   const reorder = useProjectMutation(
     async (move: { readonly from: number; readonly to: number }) => {
       for (const change of reorderResources(resources, move.from, move.to)) {
@@ -96,6 +100,18 @@ export function ResourcesSection({
               </div>
               {canEdit ? (
                 <div className='flex shrink-0 items-center'>
+                  {githubRepoOf(resource.url) ? (
+                    <Button
+                      variant='ghost'
+                      size='icon-xs'
+                      aria-label={t('np.repoWebhook.open', {
+                        name: resource.label || resource.url,
+                      })}
+                      onClick={() => setWebhookFor(resource.url)}
+                    >
+                      <WebhookIcon />
+                    </Button>
+                  ) : null}
                   <Button
                     variant='ghost'
                     size='icon-xs'
@@ -154,6 +170,10 @@ export function ResourcesSection({
         projectId={projectId}
         resource={editing}
         onClose={() => setEditing(null)}
+      />
+      <GithubWebhookDialog
+        repoUrl={webhookFor}
+        onClose={() => setWebhookFor(null)}
       />
     </section>
   );

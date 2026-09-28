@@ -231,6 +231,25 @@ const npIter4ZhCN: NpIter4Resource = {
       failed: '出错了，请重试。',
     },
   },
+  repoWebhook: {
+    open: '{{name}} 的 Webhook 设置',
+    title: '在 GitHub 上添加 Webhook',
+    description:
+      '每个 GitHub 仓库都要单独添加 Webhook，否则 PR 合并后任务状态不会自动更新。',
+    newHint: '添加后，还要在 GitHub 上为这个仓库添加 NocoProject 的 Webhook：',
+    stepOpen: '打开 {{repo}} 的 Webhook 设置。',
+    openSettings: '在 GitHub 打开',
+    stepOpenGeneric:
+      '在 GitHub 打开这个仓库，进入 Settings → Webhooks → Add webhook。',
+    settingsLink: '设置 → GitHub',
+    askAdmin: '在「设置 → GitHub」中，请工作区所有者或管理员提供。',
+    secret: '与 NocoProject 中保存的 Webhook 密钥相同。',
+    secretNotSet: '密钥未设置',
+    events:
+      '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses。',
+    stepSave:
+      '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
+  },
 };
 
 export default npIter4ZhCN;

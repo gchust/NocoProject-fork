@@ -249,6 +249,26 @@ const npIter4EnUS = {
       failed: 'Something went wrong. Please try again.',
     },
   },
+  repoWebhook: {
+    open: 'Webhook setup for {{name}}',
+    title: 'Add the webhook on GitHub',
+    description:
+      'Each GitHub repository needs its own webhook. Without it, merged pull requests do not update issues.',
+    newHint:
+      'After adding it, add the NocoProject webhook to this repository on GitHub:',
+    stepOpen: 'Open the webhook settings of {{repo}}.',
+    openSettings: 'Open on GitHub',
+    stepOpenGeneric:
+      'Open the repository on GitHub, then Settings → Webhooks → Add webhook.',
+    settingsLink: 'Settings → GitHub',
+    askAdmin: 'Ask a workspace owner or admin: it is under Settings → GitHub.',
+    secret: 'The webhook secret saved in NocoProject.',
+    secretNotSet: 'Secret not set',
+    events:
+      'Let me select individual events: Pull requests, Check suites, Statuses.',
+    stepSave:
+      'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
+  },
 };
 
 export default npIter4EnUS;
