@@ -127,7 +127,37 @@ const enUS = {
     languageChangeFailed:
       'Unable to complete the language change. Please try again.',
   },
+  profile: {
+    reloadFailed:
+      'Unable to refresh account data. Your edits are kept. Please retry.',
+    description: 'Manage your name, username and password.',
+    details: 'Personal information',
+    detailsDescription: 'Your display name appears on tasks and comments.',
+    name: 'Display name',
+    save: 'Save',
+    saving: 'Saving…',
+    currentPassword: 'Current password',
+    passwordDescription: 'Other sessions will be signed out after saving.',
+    changePassword: 'Change password',
+    saved: 'Profile saved',
+    passwordChanged: 'Password changed',
+    loadFailed: 'Unable to load your profile. Please retry.',
+    signInAgain: 'Your session has expired. Sign in again.',
+    saveFailed: 'Unable to save. Please try again.',
+    refreshFailed:
+      'Saved, but account data could not refresh. Reload the page.',
+    nameRequired: 'Enter a display name.',
+    usernameInvalid: 'Use 3–30 letters, numbers, underscores or dots.',
+    usernameTaken: 'This username is taken. Choose another.',
+    wrongPassword: 'The current password is incorrect. Try again.',
+    passwordRequired: 'Enter a password.',
+    passwordTooShort: 'This password is too short. Use a longer password.',
+    passwordTooLong: 'This password is too long. Use a shorter password.',
+    noPassword:
+      'This account has no password. Use your existing sign-in method.',
+  },
   account: {
+    profile: 'Profile',
     signOutFailed: 'Unable to sign out. Please try again.',
     openMenu: 'Open account menu',
     fallback: 'Account',
