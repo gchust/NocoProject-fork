@@ -466,3 +466,43 @@ describe('AI draft tab attachments (NP-78)', () => {
     expect(posted[0]).toMatchObject({ rawContent: '', attachmentIds: ['f1'] });
   });
 });
+
+describe('draft title (NP-123)', () => {
+  it('shows the whole title in a growing box and keeps it on one line', async () => {
+    const user = userEvent.setup();
+    const long =
+      'Let the owner reassign a running issue to another agent without losing the branch, the linked pull request or the comments';
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'POST np/intake/batches': {
+          data: {
+            batch: BATCH,
+            parser: 'heuristic',
+            drafts: [
+              { position: 1, parentPosition: null, fields: { title: long } },
+            ],
+          },
+        },
+      }),
+    );
+    await renderNp(<NewIssuePage />, {
+      url: '/issues/new?project=p1',
+      path: '/issues/new',
+    });
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Requirements' }),
+      '- x',
+    );
+    await user.click(screen.getByRole('button', { name: 'Draft issues' }));
+    const title = await screen.findByRole('textbox', { name: 'Row 1 Title' });
+    expect(title.tagName).toBe('TEXTAREA');
+    expect(title).toHaveValue(long);
+
+    await user.clear(title);
+    await user.type(title, 'Login{Enter}page');
+    expect(title).toHaveValue('Loginpage');
+    fireEvent.change(title, { target: { value: 'Login\n  page' } });
+    expect(title).toHaveValue('Login page');
+  });
+});
