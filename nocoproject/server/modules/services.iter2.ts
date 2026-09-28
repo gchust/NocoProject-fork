@@ -65,10 +65,10 @@ export function createIteration2Services(
       : createDbApprovalGateway({ tx, ids, users, activity, hooks }),
     gitConnections: createGitConnectionService({ tx, ids, secrets, github }),
     pullRequests: createPullRequestService({
+      ...flow,
       tx,
       ids,
       users,
-      activity,
       secrets,
       github,
     }),
