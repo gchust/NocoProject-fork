@@ -4,6 +4,8 @@
  */
 import {
   canChangeOwner,
+  canInvokeAgent,
+  loadAgentAccess,
   canSeeProject,
   canWriteTerminal,
   forbid,
@@ -362,5 +364,34 @@ export async function computeChanges(
   processChange(ctx.before, patch.process, values, activities);
   designSkip(ctx.before, values, activities);
   await authorizeChanges(ctx, values);
+  // Changing ownership must not hand a private agent to someone who cannot use it.
+  if ('ownerUserId' in values) {
+    const executorType = values.executorType ?? ctx.before.executorType;
+    const executorId = values.executorId ?? ctx.before.executorId;
+    if (executorType === 'agent' && typeof executorId === 'string') {
+      const agent = await loadAgentAccess(ctx.conn, executorId);
+      if (
+        !agent ||
+        typeof values.ownerUserId !== 'string' ||
+        !(await canInvokeAgent(ctx.conn, values.ownerUserId, agent))
+      ) {
+        values.executorType = 'none';
+        values.executorId = null;
+        // Report the final change once, including when the request also supplied an executor.
+        const index = activities.findIndex(
+          (entry) => entry.action === 'executor_changed',
+        );
+        if (index >= 0) activities.splice(index, 1);
+        activities.push({
+          action: 'executor_changed',
+          details: {
+            from: { type: ctx.before.executorType, id: ctx.before.executorId },
+            to: { type: 'none', id: null },
+            reason: 'ownerCannotInvoke',
+          },
+        });
+      }
+    }
+  }
   return { values, activities, labelIds };
 }

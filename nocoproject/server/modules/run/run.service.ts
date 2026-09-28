@@ -76,9 +76,13 @@ export interface RunService {
   cancelAck(runId: string): Promise<Run>;
   /**
    * Withdraws a run that was not handed to a daemon yet (queued / deferred) inside `tx`: cancelled with
-   * failureReason `blocked` (iteration 2 §K). False when it had already moved on.
+   * the supplied reason (defaults to `blocked`, iteration 2 §K). False when it had already moved on.
    */
-  withdrawQueued(tx: Tx, run: Run): Promise<boolean>;
+  withdrawQueued(
+    tx: Tx,
+    run: Run,
+    reason?: 'blocked' | 'cancelled',
+  ): Promise<boolean>;
 }
 
 export interface RunServiceDeps {
@@ -424,7 +428,7 @@ export function createRunService(deps: RunServiceDeps): RunService {
     complete: (runId, input) => complete(deps, runId, input),
     requestCancel: (actor, runId) => requestCancel(deps, actor, runId),
     cancelAck: (runId) => cancelAck(deps, runId),
-    async withdrawQueued(tx, run) {
+    async withdrawQueued(tx, run, reason = 'blocked') {
       const timestamp = now();
       const moved = await transitionRun(
         tx.conn,
@@ -433,7 +437,7 @@ export function createRunService(deps: RunServiceDeps): RunService {
         {
           status: 'cancelled',
           // `blocked` is the iteration 2 reason (FailureReasonV2); the column is free text.
-          failureReason: 'blocked',
+          failureReason: reason,
           finishedAt: timestamp,
         },
       );
