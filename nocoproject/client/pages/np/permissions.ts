@@ -3,7 +3,8 @@ import type { Member, MemberRole } from './types.js';
 /**
  * The application-level rules of `docs/phase1/iteration-1-contract.md` §B, as the browser applies them: to hide or
  * disable a control the server would refuse. The server enforces every rule itself; these predicates only keep the
- * interface from offering what will fail.
+ * interface from offering what will fail. `members.role` is the projection of the built-in permission sets
+ * `np-owner` / `np-admin` (NP-117); settings tabs use their own settings checks (`config/config-access.ts`).
  */
 
 export interface Viewer {
@@ -72,27 +73,27 @@ export interface RoleOption {
 }
 
 /**
- * The role choices `viewer` has for `target` (member roles, §B): owner/admin change admin and member; only an owner grants
- * or revokes owner; the last owner cannot be demoted. The target's current role is always listed and enabled so the
- * select can show it.
+ * The role choices `viewer` has for `target` (member roles, §B; NP-117): only an owner grants or revokes owner, and the
+ * last owner keeps it; admin and member are ordinary role assignments, changed by whoever may assign roles in user
+ * management (`assignRoles`, the `user` `assign-role` check). The target's current role is always listed and enabled
+ * so the select can show it.
  */
 export function memberRoleOptions(
   viewer: Viewer | null,
   target: Member,
   members: readonly Member[],
+  assignRoles: boolean,
 ): RoleOption[] {
   const viewerIsOwner = viewer?.role === 'owner';
-  const admin = isWorkspaceAdmin(viewer);
   const owners = members.filter((member) => member.role === 'owner').length;
   const lastOwner = target.role === 'owner' && owners <= 1;
 
   const allowed = (role: MemberRole): boolean => {
     if (role === target.role) return true;
-    if (!admin) return false;
     if (lastOwner) return false;
     // Granting owner, or changing anything about an owner, is the owners' decision alone.
     if (role === 'owner' || target.role === 'owner') return viewerIsOwner;
-    return true;
+    return assignRoles;
   };
 
   return MEMBER_ROLES.map((value) => ({ value, disabled: !allowed(value) }));
@@ -103,8 +104,9 @@ export function canChangeMemberRole(
   viewer: Viewer | null,
   target: Member,
   members: readonly Member[],
+  assignRoles: boolean,
 ): boolean {
-  return memberRoleOptions(viewer, target, members).some(
+  return memberRoleOptions(viewer, target, members, assignRoles).some(
     (option) => option.value !== target.role && !option.disabled,
   );
 }

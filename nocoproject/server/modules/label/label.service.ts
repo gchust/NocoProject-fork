@@ -1,9 +1,11 @@
 /**
  * Issue labels (docs/phase1/iteration-1-contract.md §F): a flat, workspace-wide list with a semantic color, linked
- * to issues through `issueLabelLinks`. Any member may manage labels.
+ * to issues through `issueLabelLinks`. Every member reads the list; creating, renaming, recoloring and deleting need
+ * `update` on the settings item `nocoproject.labels` (NP-117; owner/admin by default).
  */
 import type { Actor } from '../shared/activity.js';
-import { viewerOf } from '../shared/authz.js';
+import { NP_SETTINGS } from '../shared/access.js';
+import { requireSetting } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { isUniqueViolation, now, str, unique } from '../shared/db.js';
 import { conflict, invalid, notFound } from '../shared/errors.js';
@@ -17,6 +19,16 @@ import type {
 import { requiredName, validateLabelColor } from '../shared/validate.js';
 
 const MAX_LABEL_NAME = 64;
+
+function requireLabelManager(conn: Conn, actor: Actor): Promise<void> {
+  return requireSetting(
+    conn,
+    actor,
+    NP_SETTINGS.labels,
+    'update',
+    'You may not manage labels.',
+  );
+}
 
 export interface LabelService {
   list(): Promise<Label[]>;
@@ -197,9 +209,9 @@ export function createLabelService(deps: {
       const color =
         input.color === undefined ? 'gray' : validateLabelColor(input.color);
       const id = deps.ids.next();
+      await requireLabelManager(deps.tx.read(), actor);
       try {
         await deps.tx.run(async (tx) => {
-          await viewerOf(tx.conn, actor);
           const timestamp = now();
           await tx.conn.query
             .insertInto('issueLabels')
@@ -224,9 +236,9 @@ export function createLabelService(deps: {
         values.name = requiredName(patch.name, MAX_LABEL_NAME);
       if (patch?.color !== undefined)
         values.color = validateLabelColor(patch.color);
+      await requireLabelManager(deps.tx.read(), actor);
       try {
         await deps.tx.run(async (tx) => {
-          await viewerOf(tx.conn, actor);
           await get(tx.conn, id);
           if (Object.keys(values).length === 0) return;
           await tx.conn.query
@@ -242,8 +254,8 @@ export function createLabelService(deps: {
     },
 
     async remove(actor, id) {
+      await requireLabelManager(deps.tx.read(), actor);
       await deps.tx.run(async (tx) => {
-        await viewerOf(tx.conn, actor);
         await get(tx.conn, id);
         const linked = await tx.conn.query
           .selectFrom('issueLabelLinks')

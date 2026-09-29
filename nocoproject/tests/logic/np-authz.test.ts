@@ -18,6 +18,7 @@ import {
   openNpTestDatabase,
   registerRuntime,
   resetData,
+  rows,
   runRows,
   setRole,
   type NpTestDatabase,
@@ -174,11 +175,18 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
     );
   });
 
-  it('bootstraps the first member as owner and later ones as members', async () => {
+  it('records newcomers with their projected role; arriving first makes nobody owner (NP-117)', async () => {
     await db!.knex.raw(`TRUNCATE "${db!.schema}".members`);
-    expect(await services.members.ensure(BOB.id!)).toBe('owner');
-    expect(await services.members.ensure(CAROL.id!)).toBe('member');
-    expect(await services.members.ensure(BOB.id!)).toBe('owner');
+    await services.members.ensure(BOB.id!);
+    await services.members.ensure(CAROL.id!);
+    await services.members.ensure(BOB.id!);
+    const members = await rows(db!, 'members');
+    expect(members.map((row) => [row.user_id, row.role]).sort()).toEqual(
+      [
+        [BOB.id, 'member'],
+        [CAROL.id, 'member'],
+      ].sort(),
+    );
   });
 
   it('enforces agent access levels on assign, mention and the list', async () => {
@@ -314,12 +322,16 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
     await services.projects.updateResource(BOB, project.id, resource.id, {
       label: 'Main repo',
     });
-    const label = await services.labels.create(CAROL, {
+    // NP-117: labels are managed by whoever may change the settings item nocoproject.labels (owner/admin by default).
+    await expect(
+      services.labels.create(CAROL, { name: 'bug' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    const label = await services.labels.create(ALICE, {
       name: 'bug',
       color: 'red',
     });
     await expect(
-      services.labels.create(CAROL, { name: 'bug' }),
+      services.labels.create(ALICE, { name: 'bug' }),
     ).rejects.toMatchObject({ code: 'LABEL_EXISTS' });
     const issue = await services.issues.create(CAROL, {
       title: 'Tracked',

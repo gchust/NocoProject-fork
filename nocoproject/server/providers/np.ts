@@ -9,7 +9,10 @@
  *
  * Iteration 3 (docs/phase1/iteration-3-contract.md §A, §G): the settings items `np-members`, `np-settings` and
  * `np-github` are no longer registered — settings moved into the application's own `/config` page (page `np-config`).
- * The members, settings and GitHub APIs keep enforcing owner/admin themselves.
+ *
+ * NP-117: member roles are the built-in permission sets `np-owner` / `np-admin` / `np-member`, and each `/config` tab is
+ * a settings item `nocoproject.*` checked by its API (`np-authorization.ts`, `shared/access.ts`). The provider registers
+ * them in `boot`, and keeps the `members.role` projection in step at start and whenever assignments change.
  *
  * Page grants for the NocoProject pages are given to the default `member` permission set once, by the seeds
  * `2026092800003_np_member_page_grants`, `2026092900003_np_iter2_page_grants`, `2026092900004_np_github_settings_grant`
@@ -27,6 +30,7 @@ import { driveManagerToken } from '@nocobase/app-server/drive';
 import { idGeneratorToken } from '@nocobase/app-server/id-generator';
 import { loggingToken } from '@nocobase/app-server/logging';
 import { realtimeServiceToken } from '@nocobase/app-server/realtime';
+import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
 import { createCronJobManager, type CronJobManager } from '@nocobase/cron';
 import { databaseManagerToken } from '@nocobase/db';
 import {
@@ -107,6 +111,11 @@ import {
   type NpRealtimeTopics,
 } from '../modules/shared/realtime-bridge.js';
 import type { TriggerService } from '../modules/trigger/trigger.service.js';
+import {
+  createBuiltinRoles,
+  reconcileRoleProjection,
+  registerNpAuthorization,
+} from './np-authorization.js';
 
 export const npServicesToken: ServiceToken<NpServices> =
   createServiceToken<NpServices>('nocoproject/services');
@@ -220,6 +229,8 @@ export default class NpProvider extends ServiceProvider<Application> {
   private cron: CronJobManager | undefined;
   private topics: NpRealtimeTopics | undefined;
   private sweeping = false;
+  private releaseAuthorization: (() => void)[] = [];
+  private reconciling: Promise<void> = Promise.resolve();
 
   public override register(): void {
     const { container } = this.app;
@@ -240,6 +251,7 @@ export default class NpProvider extends ServiceProvider<Application> {
         aiProcess: ai ? createAiProcessClassifier(ai) : null,
         mailer: () => createNotificationMailer(this.app),
         accounts: () => createPluginAccounts(this.app),
+        roles: () => createBuiltinRoles(resolver.resolve(authorizationToken)),
         aiConfigured: () =>
           (this.app.config.get<AIApplicationConfig>('ai')?.llmServices
             ?.length ?? 0) > 0,
@@ -360,6 +372,13 @@ export default class NpProvider extends ServiceProvider<Application> {
 
   public override async boot(): Promise<void> {
     const { container } = this.app;
+    if (container.has(authorizationToken)) {
+      const authz = container.resolve(authorizationToken);
+      this.releaseAuthorization.push(
+        registerNpAuthorization(authz),
+        authz.onGrantsChanged(() => this.reconcileRoles()),
+      );
+    }
     if (!container.has(realtimeServiceToken)) return;
     this.topics = connectRealtime(
       container.resolve(realtimeServiceToken),
@@ -367,7 +386,24 @@ export default class NpProvider extends ServiceProvider<Application> {
     );
   }
 
+  /** Rewrites the `members.role` projection; passes never overlap and a failure is only logged. */
+  private reconcileRoles(): Promise<void> {
+    const { container } = this.app;
+    this.reconciling = this.reconciling.then(async () => {
+      try {
+        await reconcileRoleProjection(
+          container.resolve(authorizationToken),
+          container.resolve(databaseManagerToken).connection(),
+        );
+      } catch (error) {
+        this.logError(error, 'NocoProject role projection failed.');
+      }
+    });
+    return this.reconciling;
+  }
+
   public override async start(): Promise<void> {
+    if (this.app.container.has(authorizationToken)) await this.reconcileRoles();
     this.cron = createCronJobManager();
     this.cron.addJob({
       cronTime: SWEEP_CRON_TIME,
@@ -377,6 +413,8 @@ export default class NpProvider extends ServiceProvider<Application> {
   }
 
   public override async shutdown(): Promise<void> {
+    for (const release of this.releaseAuthorization.splice(0)) release();
+    await this.reconciling;
     this.cron?.close();
     this.cron = undefined;
     this.topics?.close();

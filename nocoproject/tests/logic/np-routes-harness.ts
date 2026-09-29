@@ -5,6 +5,7 @@
  */
 import { vi } from 'vitest';
 import { authenticationToken } from '@nocobase/app-plugin-authentication';
+import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
 import type { Application } from '@nocobase/app-server/application';
 import type { AppApiRouteContribution } from '@nocobase/app-server/router';
 import { ServiceContainer } from '@nocobase/service-provider';
@@ -74,6 +75,21 @@ const testAuth = {
     await next();
   },
   optional: (): MiddlewareHandler => async (_context, next) => next(),
+};
+
+/**
+ * The authorization plugin as far as the browser guard needs it (NP-117): a request context for the signed-in user
+ * that permits nothing. The services here are doubles, so no check reaches it.
+ */
+const testAuthz = {
+  middleware: (): MiddlewareHandler => async (context, next) => {
+    const auth = context.get('auth') as { user: { id: string } } | undefined;
+    context.set('authz', {
+      identity: { principal: { type: 'user', id: auth?.user.id ?? '' } },
+      can: async () => false,
+    });
+    await next();
+  },
 };
 
 export const PENDING = { id: 'ap1', status: 'pending', toStatus: 'done' };
@@ -218,6 +234,7 @@ export async function build(
 ) {
   const container = new ServiceContainer();
   container.instance(authenticationToken, testAuth as never);
+  container.instance(authorizationToken, testAuthz as never);
   container.instance(npProjectServiceToken, {
     list: async () => [],
     create: vi.fn(),

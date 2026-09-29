@@ -1,4 +1,5 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, TagIcon } from 'lucide-react';
@@ -24,22 +25,23 @@ import { npKeys } from '../constants.js';
 import type { Label, LabelColor } from '../types.js';
 import { ConfigSectionHeading } from './config-section.js';
 import { ColorSwatches, LabelRow } from './label-row.js';
-import { useWorkspaceViewer } from '../use-workspace-viewer.js';
+import { settingsCheck } from './config-access.js';
 
 /**
- * Tab `/config/labels` (§G): every label with its color. Owner/admin create, rename, recolor and delete (delete asks
- * first and unlinks the label from its issues); everyone else sees the list read-only. A duplicate name answers 409.
+ * Tab `/config/labels` (§G): every label with its color. Whoever may change the settings item `nocoproject.labels`
+ * (NP-117; owner/admin by default) creates, renames, recolors and deletes (delete asks first and unlinks the label
+ * from its issues); everyone else sees the list read-only. A duplicate name answers 409.
  */
 export default function LabelsConfigTab(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const queryClient = useQueryClient();
-  const viewer = useWorkspaceViewer();
+  const edit = useCan(settingsCheck('labels', 'update'));
   const labels = useQuery({
     queryKey: npKeys.labels,
     queryFn: () => fetchLabels(api),
   });
-  const canEdit = viewer.isAdmin;
+  const canEdit = edit.can;
 
   function failed(error: unknown): void {
     toast.add({
@@ -109,7 +111,7 @@ export default function LabelsConfigTab(): ReactElement {
         onRetry={() => void labels.refetch()}
       />
     );
-  } else if (!labels.data || viewer.isLoading) {
+  } else if (!labels.data || edit.isPending) {
     content = <NpListSkeleton rows={4} />;
   } else if (labels.data.length === 0) {
     content = (

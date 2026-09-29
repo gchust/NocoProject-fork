@@ -1,8 +1,9 @@
 /**
  * Email invitations (NP-88, docs/phase2/invitations.md).
  *
- * - Who may invite: owner/admin into any projects (or none); a project lead only into projects they lead, and at
- *   least one. Everyone else is refused with 403.
+ * - Who may invite: whoever holds `invite` on the settings item `nocoproject.members` (NP-117; owner/admin by default)
+ *   into any projects (or none), and sees and revokes every pending invitation; a project lead only into projects they
+ *   lead, and at least one. Everyone else is refused with 403.
  * - One request takes several addresses. An address that already has an account is added to the chosen projects
  *   directly (`added` / `alreadyMember`); an address with a pending invitation gets the projects merged and a fresh
  *   link; any other address gets a new invitation. Invitees join every project as `member`.
@@ -12,7 +13,13 @@
  *   it a workspace member and adds it to the projects that still exist, all in one transaction.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, projectAccess, viewerOf } from '../shared/authz.js';
+import { NP_SETTINGS } from '../shared/access.js';
+import {
+  canUseSetting,
+  forbid,
+  projectAccess,
+  viewerOf,
+} from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
 import { isPostgres, knexOf, now, num, str, toDate } from '../shared/db.js';
 import { conflict, invalid, notFound } from '../shared/errors.js';
@@ -29,12 +36,13 @@ import type {
 import type { UserDirectory } from '../shared/users.js';
 import {
   deliver,
-  ensureWorkspaceMember,
   joinProject,
   upsertPending,
   type Outgoing,
 } from './invitation.write.js';
 import type { InvitationMailer } from './invitation.mail.js';
+import { admitMember } from './member.service.js';
+import type { RoleAssignments } from './member.roles.js';
 import {
   hashInvitationToken,
   mapInvitations,
@@ -91,6 +99,8 @@ export interface InvitationDeps {
   readonly users: UserDirectory;
   readonly mailer: () => InvitationMailer;
   readonly accounts: () => InvitationAccounts | null;
+  /** NP-117: where roles are stored; an accepted invitee is admitted as a member through it. */
+  readonly roles: () => RoleAssignments;
 }
 
 const MAX_NAME_LENGTH = 100;
@@ -103,14 +113,22 @@ async function lockInvitations(conn: Conn): Promise<void> {
   await knex.raw("SELECT pg_advisory_xact_lock(hashtext('np:invitations'))");
 }
 
-/** Owner/admin: any existing projects. Others: at least one project, and they must lead every one. */
+/** Whether `actor` manages every invitation: `invite` on the settings item `nocoproject.members`. */
+function managesInvitations(conn: Conn, actor: Actor): Promise<boolean> {
+  return canUseSetting(conn, actor, NP_SETTINGS.members, 'invite');
+}
+
+/**
+ * An invitation manager (`admin`, from `managesInvitations` before the transaction): any existing projects. Others:
+ * at least one project, and they must lead every one.
+ */
 async function checkInviter(
   conn: Conn,
   actor: Actor,
   projectIds: readonly string[],
+  admin: boolean,
 ): Promise<string> {
   const viewer = await viewerOf(conn, actor);
-  const admin = isAdmin(viewer);
   if (!admin && projectIds.length === 0)
     forbid('Only an owner or admin may invite without choosing a project.');
   for (const projectId of projectIds) {
@@ -185,11 +203,12 @@ function validateAccept(input: AcceptInvitationRequest): {
   return { name, password };
 }
 
-/** The row an inviter may manage: owner/admin any, others only their own. */
+/** The row an inviter may manage: an invitation manager (`manager`) any, others only their own. */
 async function managedRow(
   conn: Conn,
   actor: Actor,
   id: string,
+  manager: boolean,
 ): Promise<Record<string, unknown>> {
   const viewer = await viewerOf(conn, actor);
   const row = await conn.query
@@ -197,7 +216,7 @@ async function managedRow(
     .selectAll()
     .where('id', '=', id)
     .executeTakeFirst();
-  if (!row || (!isAdmin(viewer) && str(row.invitedById) !== viewer.userId))
+  if (!row || (str(row.invitedById) !== viewer.userId && !manager))
     throw notFound('Invitation');
   return row;
 }
@@ -213,7 +232,7 @@ export function createInvitationService(
         .selectFrom('npInvitations')
         .selectAll()
         .where('status', '=', 'pending');
-      if (!isAdmin(viewer))
+      if (!(await managesInvitations(conn, actor)))
         query = query.where('invitedById', '=', viewer.userId);
       const rows = await query.orderBy('createdAt', 'desc').execute();
       return mapInvitations(conn, deps.users, rows, now());
@@ -223,8 +242,9 @@ export function createInvitationService(
       const emails = validateEmails(input?.emails);
       const projectIds = validateProjectIds(input?.projectIds);
       const direct: InvitationResult[] = [];
+      const manager = await managesInvitations(deps.tx.read(), actor);
       const { inviterId, outgoing } = await deps.tx.run(async (tx) => {
-        const inviter = await checkInviter(tx.conn, actor, projectIds);
+        const inviter = await checkInviter(tx.conn, actor, projectIds, manager);
         await lockInvitations(tx.conn);
         const accounts = await usersByEmail(tx.conn, emails);
         const links: Outgoing[] = [];
@@ -252,8 +272,9 @@ export function createInvitationService(
     },
 
     async resend(actor, id, context) {
+      const manager = await managesInvitations(deps.tx.read(), actor);
       const { inviterId, outgoing } = await deps.tx.run(async (tx) => {
-        const row = await managedRow(tx.conn, actor, id);
+        const row = await managedRow(tx.conn, actor, id, manager);
         if (str(row.status) !== 'pending')
           throw conflict(
             'INVITATION_CLOSED',
@@ -276,8 +297,9 @@ export function createInvitationService(
     },
 
     async revoke(actor, id) {
+      const manager = await managesInvitations(deps.tx.read(), actor);
       await deps.tx.run(async (tx) => {
-        const row = await managedRow(tx.conn, actor, id);
+        const row = await managedRow(tx.conn, actor, id, manager);
         if (str(row.status) !== 'pending')
           throw conflict(
             'INVITATION_CLOSED',
@@ -337,7 +359,7 @@ export function createInvitationService(
             );
           userId = await accounts.create(tx.conn, { name, email, password });
         }
-        await ensureWorkspaceMember(tx, deps.ids, userId);
+        await admitMember(tx, deps.ids, deps.roles(), userId);
         for (const projectId of await existingProjects(
           tx.conn,
           projectIdsOf(row),

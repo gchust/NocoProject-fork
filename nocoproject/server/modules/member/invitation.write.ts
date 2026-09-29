@@ -57,31 +57,6 @@ export async function joinProject(
   return true;
 }
 
-export async function ensureWorkspaceMember(
-  tx: Tx,
-  ids: IdSource,
-  userId: string,
-): Promise<void> {
-  const existing = await tx.conn.query
-    .selectFrom('members')
-    .select('id')
-    .where('userId', '=', userId)
-    .executeTakeFirst();
-  if (existing) return;
-  const timestamp = now();
-  await tx.conn.query
-    .insertInto('members')
-    .values({
-      id: ids.next(),
-      userId,
-      role: 'member',
-      joinedAt: timestamp,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })
-    .execute();
-}
-
 /** Writes a pending invitation for `email` (merging into the pending one) and returns the link to deliver. */
 export async function upsertPending(
   tx: Tx,

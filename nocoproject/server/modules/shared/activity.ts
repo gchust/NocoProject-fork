@@ -3,6 +3,7 @@
  * Activity recorder: one row in `activities` per change to an issue, written in the caller's transaction so the
  * activity exists exactly when the change does.
  */
+import type { ActorAccess } from './access.js';
 import type { Conn } from './db.js';
 import { now, toJson } from './db.js';
 import type { IdSource } from './ids.js';
@@ -17,13 +18,15 @@ export type ActorVia = 'cli' | 'api_key';
 
 /**
  * Who performed an operation. `runId` is set when an agent acts through a run token; `via` when a user acts through
- * an API key instead of a browser session.
+ * an API key instead of a browser session; `access` (NP-117) when a signed-in user's request carries the built-in
+ * authorization, which then decides the user's role and settings capabilities.
  */
 export interface Actor {
   readonly type: ActorType;
   readonly id: string | null;
   readonly runId?: string;
   readonly via?: ActorVia;
+  readonly access?: ActorAccess;
 }
 
 export const SYSTEM_ACTOR: Actor = { type: 'system', id: null };

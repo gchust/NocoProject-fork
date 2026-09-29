@@ -1,4 +1,5 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -35,10 +36,11 @@ import type { GitConnectionView } from '../types.js';
 import { ConfigSectionHeading } from './config-section.js';
 import { generateSecret, gitConnectionChanges } from './github-model.js';
 import { SecretInput } from './secret-input.js';
-import { useWorkspaceViewer } from '../use-workspace-viewer.js';
+import { settingsCheck } from './config-access.js';
 
 /**
- * Tab `/config/github` (iteration 2 §C, moved from the system settings shell in iteration 3 §G; owner/admin): the API
+ * Tab `/config/github` (iteration 2 §C, moved from the system settings shell in iteration 3 §G; the settings item
+ * `nocoproject.github`, owner/admin by default, NP-117): the API
  * base URL, the token used to read pull requests, and the webhook secret GitHub signs deliveries with. Secrets are
  * write-only — the tab only shows whether each is set. The webhook URL is what to paste into the repository's webhook
  * settings; "Test connection" signs in with the token. Members see why the tab is empty instead of a 403.
@@ -46,17 +48,17 @@ import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 export default function GithubConfigTab(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const viewer = useWorkspaceViewer();
+  const access = useCan(settingsCheck('github', 'read'));
   const connection = useQuery({
     queryKey: npKeys.gitConnection,
     queryFn: () => fetchGitConnection(api),
-    enabled: viewer.isAdmin,
+    enabled: access.can,
     retry: (count, error) =>
       !(error instanceof ApiClientError && error.status === 403) && count < 2,
   });
 
-  if (viewer.isLoading) return <NpDetailSkeleton />;
-  if (!viewer.isAdmin) {
+  if (access.isPending) return <NpDetailSkeleton />;
+  if (!access.can) {
     return (
       <NpEmpty
         icon={<LockIcon />}

@@ -32,6 +32,7 @@ import {
   runTokenAuth,
 } from '../../server/modules/run/agent-api.routes.ts';
 import { createSecretBox } from '../../server/modules/shared/crypto.ts';
+import { membersTableRoles } from './np-role-double.ts';
 import { guarded } from '../../server/modules/shared/http.ts';
 import type { Actor } from '../../server/modules/shared/activity.ts';
 import {
@@ -251,6 +252,7 @@ export function buildServices(
     idGenerator: new SnowflakeIdGenerator({ workerId }),
     bus,
     secrets: createSecretBox(TEST_SECRET_KEY),
+    roles: () => membersTableRoles,
     ...options,
   });
   return { services, events };

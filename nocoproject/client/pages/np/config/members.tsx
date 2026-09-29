@@ -1,9 +1,11 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { UserPlusIcon } from 'lucide-react';
+import { UserPlusIcon, UsersIcon } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
 import { DataTable } from '@/components/data-table';
 import { NpActorAvatar } from '@/components/np-actor-avatar';
@@ -24,11 +26,11 @@ import { npKeys } from '../constants.js';
 import {
   type Viewer,
   canChangeMemberRole,
-  isWorkspaceAdmin,
   memberRoleOptions,
   viewerFrom,
 } from '../permissions.js';
 import type { Member, MemberRole } from '../types.js';
+import { settingsCheck } from './config-access.js';
 import { ConfigSectionHeading } from './config-section.js';
 import { InvitationsSection } from './invitations-section.js';
 import { InviteDialog } from './invite-dialog.js';
@@ -37,17 +39,19 @@ function RoleSelect({
   member,
   members,
   viewer,
+  assignRoles,
   busy,
   onChange,
 }: {
   readonly member: Member;
   readonly members: readonly Member[];
   readonly viewer: Viewer | null;
+  readonly assignRoles: boolean;
   readonly busy: boolean;
   readonly onChange: (role: MemberRole) => void;
 }): ReactElement {
   const { t } = useTranslation();
-  const options = memberRoleOptions(viewer, member, members);
+  const options = memberRoleOptions(viewer, member, members, assignRoles);
   const items = options.map((option) => ({
     value: option.value,
     label: t(`np.members.role.${option.value}`),
@@ -56,7 +60,9 @@ function RoleSelect({
     <Select
       items={items}
       value={member.role}
-      disabled={busy || !canChangeMemberRole(viewer, member, members)}
+      disabled={
+        busy || !canChangeMemberRole(viewer, member, members, assignRoles)
+      }
       onValueChange={(value: MemberRole | null) => {
         if (value && value !== member.role) onChange(value);
       }}
@@ -85,11 +91,14 @@ function RoleSelect({
 
 /**
  * Tab `/config/members` (iteration 1 §J 6, moved into the front-end settings in iteration 3 §G): the workspace
- * members and their roles. Everyone can open it, but only owner/admin change roles, only an owner grants or revokes
- * owner, and the last owner keeps the role (`memberRoleOptions`); `PATCH /np/members/:userId` enforces the same rules.
+ * members and their roles. Since NP-117 the roles are built-in permission sets: only an owner grants or revokes
+ * owner, and the last owner keeps it; admin and member change here only for whoever may assign roles in user
+ * management, which the "User management" button opens (`memberRoleOptions`); `PATCH /np/members/:userId` enforces the same
+ * rules.
  *
- * NP-88: owner/admin, and a project lead for the projects they lead, invite people by email ("Invite members"); the
- * invitations not accepted yet are listed under the members.
+ * NP-88: whoever may invite (`nocoproject.members` `invite`; owner/admin by default), and a project lead for the
+ * projects they lead, invite people by email ("Invite members"); the invitations not accepted yet are listed under
+ * the members.
  */
 export default function MembersConfigTab(): ReactElement {
   const { t } = useTranslation();
@@ -106,6 +115,15 @@ export default function MembersConfigTab(): ReactElement {
     queryFn: () => fetchProjects(api),
   });
   const [inviting, setInviting] = useState(false);
+  const assignRoles = useCan({
+    resource: { type: 'user', id: '*' },
+    action: 'assign-role',
+  }).can;
+  const usersPage = useCan({
+    resource: { type: 'page', id: 'users' },
+    action: 'access',
+  }).can;
+  const inviteAll = useCan(settingsCheck('members', 'invite')).can;
 
   const change = useMutation({
     mutationFn: ({ member, role }: { member: Member; role: MemberRole }) =>
@@ -166,20 +184,20 @@ export default function MembersConfigTab(): ReactElement {
             member={row.original}
             members={rows ?? []}
             viewer={viewer}
+            assignRoles={assignRoles}
             busy={change.isPending}
             onChange={(role) => change.mutate({ member: row.original, role })}
           />
         ),
       },
     ],
-    [t, viewer, rows, change],
+    [t, viewer, rows, change, assignRoles],
   );
 
-  const admin = isWorkspaceAdmin(viewer);
   const invitable = (projects.data ?? []).filter(
-    (project) => admin || project.leadUserId === viewer?.userId,
+    (project) => inviteAll || project.leadUserId === viewer?.userId,
   );
-  const canInvite = admin || invitable.length > 0;
+  const canInvite = inviteAll || invitable.length > 0;
 
   let content: ReactElement;
   if (members.isError && !rows) {
@@ -211,12 +229,25 @@ export default function MembersConfigTab(): ReactElement {
         title={t('np.members.title')}
         description={t('np.members.description')}
         actions={
-          canInvite ? (
-            <Button size='sm' onClick={() => setInviting(true)}>
-              <UserPlusIcon />
-              {t('np.invitations.invite')}
-            </Button>
-          ) : null
+          <>
+            {usersPage ? (
+              <Button
+                variant='outline'
+                size='sm'
+                nativeButton={false}
+                render={<Link to='/settings/users' />}
+              >
+                <UsersIcon data-icon='inline-start' />
+                {t('np.members.manageUsers')}
+              </Button>
+            ) : null}
+            {canInvite ? (
+              <Button size='sm' onClick={() => setInviting(true)}>
+                <UserPlusIcon />
+                {t('np.invitations.invite')}
+              </Button>
+            ) : null}
+          </>
         }
       />
       {content}
@@ -227,7 +258,7 @@ export default function MembersConfigTab(): ReactElement {
           id: project.id,
           name: project.name,
         }))}
-        requireProject={!admin}
+        requireProject={!inviteAll}
         onClose={() => setInviting(false)}
       />
     </section>

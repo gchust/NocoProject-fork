@@ -307,7 +307,8 @@ const npCollabEnUS = {
   members: {
     title: 'Members',
     description:
-      'Everyone who has signed in to NocoProject. Owners and admins manage roles.',
+      'Everyone who has signed in to NocoProject. Owners grant the owner role; other roles are assigned in user management.',
+    manageUsers: 'User management',
     loadFailed: 'Unable to load members',
     forbidden: 'You cannot change this role.',
     roleFor: 'Role of {{name}}',

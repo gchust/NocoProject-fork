@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { Route } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { authzDouble } from './np-authz-double.js';
+
 import ConfigPage from '../../client/pages/np/config/index.js';
 import GeneralConfigTab from '../../client/pages/np/config/general.js';
 import GithubConfigTab from '../../client/pages/np/config/github.js';
@@ -25,18 +27,25 @@ vi.mock('@nocobase/app-client', async (original) => ({
   useService: () => ({ subscribe: () => () => {}, onOpen: () => () => {} }),
 }));
 vi.mock('@/components/ui/toast', () => ({ toast }));
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 
 afterEach(() => {
   api.request.mockReset();
   toast.add.mockReset();
 });
 
-const members = (role: 'owner' | 'member') => ({
-  'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
-  'GET np/members': {
-    data: [{ userId: 'u1', name: 'Zhou', email: null, role }],
-  },
-});
+const members = (role: 'owner' | 'member') => {
+  authzDouble.as(role);
+  return {
+    'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
+    'GET np/members': {
+      data: [{ userId: 'u1', name: 'Zhou', email: null, role }],
+    },
+  };
+};
 
 describe('metrics report (§C)', () => {
   it('renders the six groups with status badges from the server and the thresholds', async () => {

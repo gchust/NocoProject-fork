@@ -339,14 +339,24 @@ describe('navigation helpers (§G)', () => {
   });
 
   it('shows GitHub settings to owner/admin only', () => {
-    expect(visibleConfigTabs(true)).toEqual([
+    const all = {
+      general: true,
+      members: true,
+      workflows: true,
+      labels: true,
+      github: true,
+    };
+    expect(visibleConfigTabs(all)).toEqual([
       'general',
       'members',
       'workflows',
       'labels',
       'github',
     ]);
-    expect(visibleConfigTabs(false)).not.toContain('github');
+    // NP-117: each tab follows its own settings item.
+    expect(visibleConfigTabs({ ...all, github: false, labels: false })).toEqual(
+      ['general', 'members', 'workflows'],
+    );
   });
 
   it('sends old batch-entry links to the new issue dialog and cleans the query when it closes', () => {

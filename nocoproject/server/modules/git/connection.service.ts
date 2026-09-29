@@ -4,7 +4,8 @@
  * returned; the view only says whether each is set.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, viewerOf } from '../shared/authz.js';
+import { NP_SETTINGS, type NpSettingsAction } from '../shared/access.js';
+import { requireSetting } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { isoOrNull, now, str } from '../shared/db.js';
 import { conflict, invalid, NpError } from '../shared/errors.js';
@@ -114,9 +115,19 @@ export function githubError(error: unknown): NpError {
   );
 }
 
-async function requireAdmin(conn: Conn, actor: Actor): Promise<void> {
-  if (!isAdmin(await viewerOf(conn, actor)))
-    forbid('Only an owner or admin may manage the GitHub connection.');
+/** NP-117: the settings item `nocoproject.github` — `read` to see the connection, `update` to change or test it. */
+function requireGitHub(
+  conn: Conn,
+  actor: Actor,
+  action: NpSettingsAction,
+): Promise<void> {
+  return requireSetting(
+    conn,
+    actor,
+    NP_SETTINGS.github,
+    action,
+    'You may not manage the GitHub connection.',
+  );
 }
 
 function toView(
@@ -210,12 +221,12 @@ export function createGitConnectionService(
   return {
     async view(actor, webhookUrl) {
       const conn = deps.tx.read();
-      await requireAdmin(conn, actor);
+      await requireGitHub(conn, actor, 'read');
       return toView(await loadConnection(conn, deps.secrets), webhookUrl);
     },
     async update(actor, input, webhookUrl) {
+      await requireGitHub(deps.tx.read(), actor, 'update');
       await deps.tx.run(async (tx) => {
-        await requireAdmin(tx.conn, actor);
         await update(deps, tx, actor, input);
       });
       return toView(
@@ -225,7 +236,7 @@ export function createGitConnectionService(
     },
     async test(actor) {
       const conn = deps.tx.read();
-      await requireAdmin(conn, actor);
+      await requireGitHub(conn, actor, 'update');
       const credentials = credentialsOf(
         await loadConnection(conn, deps.secrets),
       );

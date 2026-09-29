@@ -19,11 +19,12 @@ import { requireCapability } from '../agent/capabilities.js';
  * The admin `PUT /np/workflows/:id` (no page) takes the same path without a proposal, under the same lock
  * (409 `REVISION_CONFLICT`). Agents cannot write templates any other way.
  */
+import { NP_SETTINGS } from '../shared/access.js';
 import type { Actor } from '../shared/activity.js';
 import {
   adminUserIds,
   canSeeIssue,
-  isAdmin,
+  canUseSetting,
   viewerOf,
 } from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
@@ -159,7 +160,10 @@ export function createWorkflowProposalService(
     const viewer = actor ? await viewerOf(conn, actor) : null;
     return mapProposal(conn, row, {
       users: deps.users,
-      canDecide: viewer ? isAdmin(viewer) : false,
+      canDecide:
+        actor && viewer
+          ? await canUseSetting(conn, actor, NP_SETTINGS.workflows, 'update')
+          : false,
       canSeeIssue: async (issueId) => {
         if (!viewer) return true;
         const issue = await findIssue(conn, issueId);
@@ -168,12 +172,10 @@ export function createWorkflowProposalService(
     });
   }
 
+  /** NP-117: deciding proposals and the admin `PUT` need `update` on the settings item `nocoproject.workflows`. */
   async function requireAdmin(conn: Conn, actor: Actor): Promise<void> {
-    if (!isAdmin(await viewerOf(conn, actor)))
-      throw forbidden(
-        'FORBIDDEN',
-        'Only an owner or admin may change workflow templates.',
-      );
+    if (!(await canUseSetting(conn, actor, NP_SETTINGS.workflows, 'update')))
+      throw forbidden('FORBIDDEN', 'You may not change workflow templates.');
   }
 
   return {
@@ -296,8 +298,8 @@ export function createWorkflowProposalService(
     async decide(actor, proposalId, decision, input) {
       const comment = validateComment(input?.comment);
       let changed = false;
+      await requireAdmin(deps.tx.read(), actor);
       const stale = await deps.tx.run(async (tx) => {
-        await requireAdmin(tx.conn, actor);
         const row = await tx.conn.query
           .selectFrom('workflowProposals')
           .selectAll()
@@ -450,8 +452,8 @@ export function createWorkflowProposalService(
         typeof input.note === 'string' && input.note.trim()
           ? input.note.trim()
           : null;
+      await requireAdmin(deps.tx.read(), actor);
       await deps.tx.run(async (tx) => {
-        await requireAdmin(tx.conn, actor);
         const template = await requireTemplate(tx.conn, templateId);
         assertEditable(template);
         const definition = await checkDefinition(

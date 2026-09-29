@@ -42,19 +42,18 @@ import {
 } from './model-prices.js';
 import { ThresholdFields } from './threshold-fields.js';
 import { thresholdDraft, thresholdsFromDraft } from './thresholds-model.js';
-import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 
 /**
  * Tab `/config/general` (iteration 2 §I settings, moved to the front end in iteration 3 §G): the status a merged PR
  * moves its issue to, whether new issues let agents run the sub-issues they create, how batch entry parses text, the
  * model prices usage costs are estimated from, the metric thresholds (§C), and since iteration 4 the default process,
- * the project manager agent and the retrospective switch. Owner/admin edit; everyone else sees the values read-only.
+ * the project manager agent and the retrospective switch. Whoever may change the settings item `nocoproject.general`
+ * (NP-117; owner/admin by default) edits — the server says so in `canEdit`; everyone else sees the values read-only.
  * Above them sits the viewer's own inbox chime switch (NP-108), which every member can change.
  */
 export default function GeneralConfigTab(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const viewer = useWorkspaceViewer();
   const settings = useQuery({
     queryKey: npKeys.settings,
     queryFn: () => fetchWorkspaceSettings(api),
@@ -71,14 +70,14 @@ export default function GeneralConfigTab(): ReactElement {
         onRetry={() => void settings.refetch()}
       />
     );
-  } else if (!settings.data || viewer.isLoading) {
+  } else if (!settings.data) {
     content = <NpDetailSkeleton />;
   } else {
     content = (
       <SettingsForm
         key={JSON.stringify(settings.data)}
         settings={settings.data}
-        canEdit={settings.data.canEdit ?? viewer.isAdmin}
+        canEdit={settings.data.canEdit ?? false}
       />
     );
   }

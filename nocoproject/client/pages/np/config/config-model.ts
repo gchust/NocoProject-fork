@@ -10,9 +10,11 @@ export const CONFIG_TABS: readonly ConfigTab[] = [
 ];
 
 /**
- * The settings tabs a viewer sees (§G): owner/admin all five; everyone else the read-only ones — general values, the
- * member list, workflow templates and labels. GitHub is owner/admin only (its endpoints answer 403 to members).
+ * The settings tabs a viewer sees (§G; NP-117): the ones whose settings item they may read (`config-access.ts`). By
+ * default members read general values, the member list, workflow templates and labels; owner/admin also GitHub.
  */
-export function visibleConfigTabs(isAdmin: boolean): readonly ConfigTab[] {
-  return isAdmin ? CONFIG_TABS : CONFIG_TABS.filter((tab) => tab !== 'github');
+export function visibleConfigTabs(
+  readable: Readonly<Record<ConfigTab, boolean>>,
+): readonly ConfigTab[] {
+  return CONFIG_TABS.filter((tab) => readable[tab]);
 }

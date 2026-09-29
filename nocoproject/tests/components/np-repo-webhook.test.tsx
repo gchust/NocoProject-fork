@@ -2,6 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { authzDouble } from './np-authz-double.js';
+
 import { ResourcesSection } from '../../client/pages/np/projects/detail/resources-section.js';
 import { GithubWebhookGuide } from '../../client/pages/np/projects/detail/webhook-guide.js';
 import type { ProjectResource } from '../../client/pages/np/types.js';
@@ -15,18 +17,25 @@ vi.mock('@nocobase/app-client', async (original) => ({
   useApiClient: () => api,
 }));
 vi.mock('@/components/ui/toast', () => ({ toast }));
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 
 afterEach(() => {
   api.request.mockReset();
   toast.add.mockReset();
 });
 
-const members = (role: 'owner' | 'member') => ({
-  'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
-  'GET np/members': {
-    data: [{ userId: 'u1', name: 'Zhou', email: null, role }],
-  },
-});
+const members = (role: 'owner' | 'member') => {
+  authzDouble.as(role);
+  return {
+    'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
+    'GET np/members': {
+      data: [{ userId: 'u1', name: 'Zhou', email: null, role }],
+    },
+  };
+};
 
 const resource = (id: string, url: string): ProjectResource => ({
   id,

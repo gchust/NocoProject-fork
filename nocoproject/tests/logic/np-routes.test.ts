@@ -123,7 +123,7 @@ describe('browser API /np/*', () => {
       nextCursor: null,
     });
     expect(doubles.issueQueries.page).toHaveBeenCalledWith(
-      { type: 'user', id: 'u1' },
+      expect.objectContaining({ type: 'user', id: 'u1' }),
       {
         statusKey: 'todo',
         projectId: null,
@@ -171,7 +171,7 @@ describe('browser API /np/*', () => {
     );
     expect(response.status).toBe(201);
     expect(doubles.comments.create).toHaveBeenCalledWith(
-      { type: 'user', id: 'u1' },
+      expect.objectContaining({ type: 'user', id: 'u1' }),
       'NP-1',
       { content: 'hi' },
     );
@@ -189,7 +189,7 @@ describe('browser API /np/*', () => {
       nextCursor: null,
     });
     expect(doubles.inbox.list).toHaveBeenCalledWith(
-      { type: 'user', id: 'u1' },
+      expect.objectContaining({ type: 'user', id: 'u1' }),
       {
         kind: 'decision',
         archived: null,
@@ -208,10 +208,9 @@ describe('browser API /np/*', () => {
       headers: signedIn,
     });
     await expect(pending.json()).resolves.toEqual({ data: { decision: 3 } });
-    expect(doubles.inbox.pendingCount).toHaveBeenCalledWith({
-      type: 'user',
-      id: 'u1',
-    });
+    expect(doubles.inbox.pendingCount).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'user', id: 'u1' }),
+    );
   });
 });
 

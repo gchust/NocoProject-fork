@@ -1,4 +1,5 @@
 import { useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery } from '@tanstack/react-query';
 import { CheckIcon, CopyIcon, ExternalLinkIcon } from 'lucide-react';
@@ -18,13 +19,14 @@ import { toast } from '@/components/ui/toast';
 
 import { fetchGitConnection } from '../../api-iter2.js';
 import { npKeys } from '../../constants.js';
-import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
+import { settingsCheck } from '../../config/config-access.js';
 import { githubRepoOf } from './resource-url.js';
 
 /**
  * How to add NocoProject's webhook to one GitHub repository (NP-118): each repository needs its own, or merged pull
- * requests never close their cards or move their issues. Owner/admin see the webhook URL from `/config/github`;
- * the connection is admin-only, so everyone else is pointed at an admin. The secret is write-only and never shown.
+ * requests never close their cards or move their issues. Whoever may read the settings item `nocoproject.github`
+ * (NP-117; owner/admin by default) sees the webhook URL from `/config/github`; everyone else is pointed at an admin.
+ * The secret is write-only and never shown.
  */
 export function GithubWebhookGuide({
   repoUrl,
@@ -33,11 +35,11 @@ export function GithubWebhookGuide({
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const viewer = useWorkspaceViewer();
+  const github = useCan(settingsCheck('github', 'read'));
   const connection = useQuery({
     queryKey: npKeys.gitConnection,
     queryFn: () => fetchGitConnection(api),
-    enabled: viewer.isAdmin,
+    enabled: github.can,
     retry: false,
   });
   const repo = githubRepoOf(repoUrl);
@@ -73,7 +75,7 @@ export function GithubWebhookGuide({
             <CopyValue value={connection.data.webhookUrl} />
           ) : (
             <span className='text-muted-foreground'>
-              {viewer.isAdmin ? settingsLink : t('np.repoWebhook.askAdmin')}
+              {github.can ? settingsLink : t('np.repoWebhook.askAdmin')}
             </span>
           )}
         </Step>
@@ -86,7 +88,7 @@ export function GithubWebhookGuide({
       <li>
         <Step label='Secret'>
           <span>
-            {t('np.repoWebhook.secret')} {viewer.isAdmin ? settingsLink : null}
+            {t('np.repoWebhook.secret')} {github.can ? settingsLink : null}
           </span>
           {connection.data && !connection.data.webhookSecretSet ? (
             <NpTag tone='amber' dot>
