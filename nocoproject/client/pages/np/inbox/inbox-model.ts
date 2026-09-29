@@ -5,7 +5,7 @@ export function readInboxTab(value: string | null): InboxKind {
   return value === 'info' ? 'info' : 'decision';
 }
 
-/** The inbox list filter (nocosolution/frontend/nocosolution-frontend-standard.md §2): both groups by default, or one of them. */
+/** The inbox list filter (nocosolution/guidelines/NocoSolution 前端规范.md §S2): both groups by default, or one of them. */
 export type InboxFilter = 'all' | InboxKind;
 
 export const INBOX_FILTERS: readonly InboxFilter[] = [
@@ -112,5 +112,7 @@ export function inboxItemLink(
       ? `/knowledge/${encodeURIComponent(docId)}`
       : '/knowledge';
   }
+  // NP-150: a daemon that must be upgraded; the runtimes page shows the command.
+  if (type === 'runtime_upgrade_required') return '/runtimes';
   return null;
 }

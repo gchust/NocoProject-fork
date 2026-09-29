@@ -179,6 +179,117 @@ async function pendingCounts(
   return new Map(rows.map((row) => [str(row.docId) ?? '', num(row.count)]));
 }
 
+/** Direct, non-archived child counts of the given documents (NP-147). */
+export async function childCounts(
+  conn: Conn,
+  docIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (docIds.length === 0) return new Map();
+  const rows = await conn.query
+    .selectFrom('knowledgeDocs')
+    .select((eb) => ['parentId', eb.fn.countAll().as('count')])
+    .where('parentId', 'in', unique(docIds))
+    .where('archivedAt', 'is', null)
+    .groupBy('parentId')
+    .execute();
+  return new Map(rows.map((row) => [str(row.parentId) ?? '', num(row.count)]));
+}
+
+/** The next sibling position: the count of existing documents in the same scope under the same parent. */
+export async function nextSortOrder(
+  conn: Conn,
+  key: string,
+  parentId: string | null,
+): Promise<number> {
+  let select = conn.query
+    .selectFrom('knowledgeDocs')
+    .select((eb) => [eb.fn.countAll().as('count')])
+    .where('projectId', '=', key);
+  select =
+    parentId === null
+      ? select.where('parentId', 'is', null)
+      : select.where('parentId', '=', parentId);
+  const row = await select.executeTakeFirst();
+  return num(row?.count);
+}
+
+const MAX_DEPTH_WALK = 100;
+
+/** The document's depth (1 = root), walking `parentId` to the root; a cycle stops the walk rather than looping. */
+export async function depthOf(conn: Conn, id: string): Promise<number> {
+  let depth = 1;
+  const seen = new Set<string>([id]);
+  let current = await findDocRow(conn, id);
+  for (let steps = 0; steps < MAX_DEPTH_WALK; steps += 1) {
+    const parentId = current ? str(current.parentId) : null;
+    if (!parentId || seen.has(parentId)) break;
+    seen.add(parentId);
+    depth += 1;
+    current = await findDocRow(conn, parentId);
+  }
+  return depth;
+}
+
+/** The tallest chain of descendants under `id`, counting `id` itself as 1 (a leaf has height 1). */
+export async function subtreeHeight(conn: Conn, id: string): Promise<number> {
+  const children = await conn.query
+    .selectFrom('knowledgeDocs')
+    .select('id')
+    .where('parentId', '=', id)
+    .execute();
+  if (children.length === 0) return 1;
+  let max = 1;
+  for (const child of children) {
+    const height = await subtreeHeight(conn, str(child.id) ?? '');
+    if (height + 1 > max) max = height + 1;
+  }
+  return max;
+}
+
+/** Whether `candidateParentId` is `docId` itself or one of its descendants (an invalid move target). */
+export async function isSelfOrDescendant(
+  conn: Conn,
+  candidateParentId: string,
+  docId: string,
+): Promise<boolean> {
+  if (candidateParentId === docId) return true;
+  const seen = new Set<string>([candidateParentId]);
+  let current = await findDocRow(conn, candidateParentId);
+  for (let steps = 0; steps < MAX_DEPTH_WALK; steps += 1) {
+    const parentId = current ? str(current.parentId) : null;
+    if (!parentId) return false;
+    if (parentId === docId) return true;
+    if (seen.has(parentId)) return false;
+    seen.add(parentId);
+    current = await findDocRow(conn, parentId);
+  }
+  return false;
+}
+
+/** Ancestors of `id` from the root to its immediate parent, in the same scope, root first. */
+export async function breadcrumbsOf(
+  conn: Conn,
+  id: string,
+): Promise<{ id: string; title: string; slug: string }[]> {
+  const chain: { id: string; title: string; slug: string }[] = [];
+  const seen = new Set<string>([id]);
+  const self = await findDocRow(conn, id);
+  let parentId = self ? str(self.parentId) : null;
+  for (let steps = 0; steps < MAX_DEPTH_WALK && parentId; steps += 1) {
+    if (seen.has(parentId)) break;
+    seen.add(parentId);
+    const parent = await findDocRow(conn, parentId);
+    if (!parent) break;
+    chain.unshift({
+      id: parentId,
+      title: str(parent.title) ?? '',
+      slug: str(parent.slug) ?? '',
+    });
+    parentId = str(parent.parentId);
+  }
+  return chain;
+}
+
 export interface DocDecoration {
   readonly users: UserDirectory;
   /** Whether the viewer may edit a document of this scope (null = system). */
@@ -211,6 +322,10 @@ export async function decorateDocs(
     conn,
     live.map((row) => str(row.id) ?? ''),
   );
+  const children = await childCounts(
+    conn,
+    live.map((row) => str(row.id) ?? ''),
+  );
   return live.map((row) => {
     const id = str(row.id) ?? '';
     const projectId = projectIdOf(row.projectId);
@@ -225,6 +340,9 @@ export async function decorateDocs(
       slug: str(row.slug) ?? '',
       summary: str(row.summary) ?? '',
       content: str(row.content) ?? '',
+      parentId: str(row.parentId),
+      sortOrder: num(row.sortOrder),
+      childCount: children.get(id) ?? 0,
       version: num(row.version, 1),
       updatedByType,
       updatedById,
@@ -241,6 +359,41 @@ export async function decorateDocs(
 export function toSummary(doc: KnowledgeDoc): KnowledgeDocSummary {
   const { content: _content, ...summary } = doc;
   return summary;
+}
+
+const EXCERPT_RADIUS = 60;
+
+/** Whether `needle` (already lower-cased) appears in the title, slug, summary or content of a document row. */
+export function matchesNeedle(
+  row: Record<string, unknown>,
+  needle: string,
+): boolean {
+  return ['title', 'slug', 'summary', 'content'].some((key) =>
+    (str(row[key]) ?? '').toLowerCase().includes(needle),
+  );
+}
+
+/**
+ * A short window of `content` around the first case-insensitive hit of `needle` (already lower-cased), or null when
+ * it isn't there — the match came from the title, slug or summary instead, which are shown on the row already.
+ */
+export function matchExcerpt(content: string, needle: string): string | null {
+  const index = content.toLowerCase().indexOf(needle);
+  if (index < 0) return null;
+  const start = Math.max(0, index - EXCERPT_RADIUS);
+  const end = Math.min(content.length, index + needle.length + EXCERPT_RADIUS);
+  const flatten = (text: string) => text.replace(/\s+/gu, ' ').trim();
+  return `${start > 0 ? '…' : ''}${flatten(content.slice(start, end))}${end < content.length ? '…' : ''}`;
+}
+
+/** A document summary, with `matchExcerpt` set when `needle` only matched the content. */
+export function toSearchSummary(
+  doc: KnowledgeDoc,
+  needle: string | null | undefined,
+): KnowledgeDocSummary {
+  const summary = toSummary(doc);
+  const excerpt = needle ? matchExcerpt(doc.content, needle) : null;
+  return excerpt ? { ...summary, matchExcerpt: excerpt } : summary;
 }
 
 export async function mapVersions(

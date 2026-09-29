@@ -56,6 +56,17 @@ export type DomainEvent =
     }
   | { readonly type: 'agents.changed' }
   | {
+      /** NP-150: a daemon's runtimes entered or left `upgrade_required` (the owner's inbox). */
+      readonly type: 'runtime.compatibilityChanged';
+      readonly ownerUserId: string;
+      readonly daemonId: string;
+      readonly deviceName: string | null;
+      readonly upgradeRequired: boolean;
+      readonly daemonVersion: string | null;
+      readonly latestVersion: string;
+      readonly reason: string;
+    }
+  | {
       readonly type: 'daemon.workAvailable';
       readonly userId: string;
       readonly runtimeId: string;
@@ -245,6 +256,16 @@ export type DomainEvent =
       readonly outcome: 'skipped' | 'failed' | 'suppressed';
       /** The skip reason or the error message. */
       readonly reason: string | null;
+    }
+  // Phase 2 signals.
+  | {
+      /** A signal rule reached its limit of runs in a row: the owner takes over. */
+      readonly type: 'issue.signalSuppressed';
+      readonly issueId: string;
+      readonly kind: string;
+      readonly title: string;
+      readonly url: string | null;
+      readonly limit: number;
     }
   | {
       /** An approved transition no longer met its entry conditions: the request was cancelled as stale. */

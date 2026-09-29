@@ -14,6 +14,10 @@ import type {
 
 import type { StandaloneServer } from '../../server/standalone.ts';
 import { cookiesOf, startNpApp } from './np-app-harness.ts';
+import {
+  LATEST_CLI_VERSION,
+  PROTOCOL_VERSION,
+} from '../../server/modules/shared/protocol.ts';
 
 const cleanups: (() => Promise<void> | void)[] = [];
 
@@ -116,8 +120,8 @@ async function openSession(): Promise<Session> {
 const REGISTER = {
   daemonId: 'daemon-auth-test',
   deviceName: 'ci',
-  version: '0.0.0',
-  protocolVersion: 1,
+  version: LATEST_CLI_VERSION,
+  protocolVersion: PROTOCOL_VERSION,
   runtimes: [
     {
       provider: 'echo',
@@ -143,15 +147,31 @@ describe('daemon authentication through the application', () => {
     expect((await post('/np/daemon/register', REGISTER, apiKey)).status).toBe(
       200,
     );
-    const mismatch = await post(
+    // A daemon newer than the server is registered but told it cannot work here (NP-150): never a bare 426.
+    const tooNew = await post(
       '/np/daemon/register',
-      { ...REGISTER, protocolVersion: 99 },
+      { ...REGISTER, protocolVersion: 99, minProtocolVersion: 99 },
       apiKey,
     );
-    expect(mismatch.status).toBe(426);
-    await expect(mismatch.json()).resolves.toMatchObject({
-      code: 'PROTOCOL_MISMATCH',
+    expect(tooNew.status).toBe(200);
+    await expect(tooNew.json()).resolves.toMatchObject({
+      data: {
+        compatibility: { status: 'unsupported', reason: 'daemonTooNew' },
+      },
     });
+    const compatibility = await app.fetch(
+      new Request(`${base}/np/daemon/compatibility`, { headers: apiKey }),
+    );
+    expect(compatibility.status).toBe(200);
+    await expect(compatibility.json()).resolves.toMatchObject({
+      data: {
+        latestVersion: LATEST_CLI_VERSION,
+        downloadPath: `/assets/cli/nocoproject-cli-${LATEST_CLI_VERSION}.tgz`,
+      },
+    });
+    expect(
+      (await app.fetch(new Request(`${base}/np/daemon/compatibility`))).status,
+    ).toBe(401);
     const unknown = await post(
       '/np/daemon/heartbeat',
       { daemonId: 'never-registered', runtimeIds: ['x'] },

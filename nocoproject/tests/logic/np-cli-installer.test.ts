@@ -10,6 +10,7 @@ import {
   cliInstallCommand,
 } from '../../client/pages/np/constants.js';
 import cliPlugins from '../../cli/plugins.js';
+import { LATEST_CLI_VERSION } from '../../server/modules/shared/protocol.js';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -22,6 +23,8 @@ describe('CLI installer served by the application', () => {
       readFileSync(path.join(root, '../nocoproject-cli/package.json'), 'utf8'),
     ) as { version: string };
     expect(CLI_VERSION).toBe(cli.version);
+    // The server names the same version to daemons (NP-150, `GET /np/daemon/compatibility`).
+    expect(LATEST_CLI_VERSION).toBe(cli.version);
   });
 
   it('installs from the application address, not from GitHub', () => {

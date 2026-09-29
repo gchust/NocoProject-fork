@@ -13,13 +13,14 @@ import type { AgentListItem, IssueDetail, InboxItem } from '../types.js';
 import { latestAgentComment, latestFinishedRun } from './decision-model.js';
 import { DesignProposalContent } from './proposal-content.js';
 import { KnowledgeProposalContent } from './knowledge-content.js';
+import { RuntimeUpgradeContent } from './runtime-upgrade-content.js';
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
 /**
- * The thing being decided, in full (nocosolution/frontend/nocosolution-frontend-standard.md §3, the lesson taken from NocoSupport): never an
+ * The thing being decided, in full (nocosolution/guidelines/NocoSolution 前端规范.md §S3, the lesson taken from NocoSupport): never an
  * "accept" button without what is being accepted. Shared by the inbox's detail pane and the issue page's decision
  * card. `detail` is the issue (the same cached query the issue page reads); while it loads the blocks that need it
  * show skeletons, the ones that come from the item itself render at once.
@@ -72,6 +73,8 @@ export function DecisionContent({
           loading={detailLoading}
         />
       );
+    case 'runtime_upgrade_required':
+      return <RuntimeUpgradeContent item={item} />;
     default:
       return <NoticeContent item={item} />;
   }

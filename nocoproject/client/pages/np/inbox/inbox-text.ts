@@ -65,6 +65,13 @@ export function inboxBodyText(
       const identifier = text(payload.releasedByIdentifier);
       return identifier ? key('dependency_released', { identifier }) : null;
     }
+    case 'signal_suppressed': {
+      const limit = count(payload.limit);
+      const title = text(payload.title);
+      return limit !== null && title
+        ? key('signal_suppressed', { limit, title })
+        : null;
+    }
     case 'commented':
       return key('commented');
     case 'mentioned':
@@ -103,6 +110,15 @@ export function inboxBodyText(
     // Iteration 4 §B: the executor submitted a design proposal and the owner reviews it.
     case 'design_review':
       return key('design_review');
+    case 'runtime_upgrade_required': {
+      const latest = text(payload.latestVersion);
+      return latest
+        ? key('runtime_upgrade_required', {
+            version: text(payload.daemonVersion) ?? '—',
+            latest,
+          })
+        : null;
+    }
     case 'knowledge_decided': {
       const doc = text(payload.docTitle) ?? text(payload.title);
       const decision = text(payload.decision) ?? text(payload.status);

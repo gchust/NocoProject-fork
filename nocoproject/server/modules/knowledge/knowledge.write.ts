@@ -58,6 +58,8 @@ export async function insertDoc(
   input: DocContent & {
     readonly projectId: string | null;
     readonly slug: string;
+    readonly parentId?: string | null;
+    readonly sortOrder?: number;
   },
   author: DocAuthor,
 ): Promise<string> {
@@ -74,6 +76,8 @@ export async function insertDoc(
           slug: input.slug,
           summary: input.summary,
           content: input.content,
+          parentId: input.parentId ?? null,
+          sortOrder: input.sortOrder ?? 0,
           version: 1,
           updatedByType: author.type,
           updatedById: author.id,
@@ -130,4 +134,28 @@ export async function appendVersion(
     );
   await insertVersion(conn, ids, docId, version, content, author, timestamp);
   return version;
+}
+
+/**
+ * Moves a document to a new parent/position (NP-147). Only touches `parentId`, `sortOrder` and the "last updated"
+ * fields — a move is not a content change, so it does not bump `version` or write a `knowledgeDocVersions` row.
+ */
+export async function moveDoc(
+  conn: Conn,
+  docId: string,
+  parentId: string | null,
+  sortOrder: number,
+  author: DocAuthor,
+): Promise<void> {
+  await conn.query
+    .updateTable('knowledgeDocs')
+    .set({
+      parentId,
+      sortOrder,
+      updatedByType: author.type,
+      updatedById: author.id,
+      updatedAt: now(),
+    })
+    .where('id', '=', docId)
+    .execute();
 }

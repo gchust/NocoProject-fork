@@ -427,11 +427,6 @@ export interface ConfirmIntakeResponse {
   }[];
 }
 
-export interface RevertIntakeResponse {
-  readonly reverted: readonly string[];
-  readonly kept: readonly string[];
-}
-
 // ---------- Usage and settings (§I) ----------
 
 export type UsageGroupBy = 'agent' | 'issue' | 'project' | 'day' | 'model';

@@ -16,12 +16,36 @@ import type { IdSource } from '../shared/ids.js';
 import type { UserDirectory } from '../shared/users.js';
 import {
   PROTOCOL_VERSION,
+  type DaemonCompatibility,
+  type DaemonCompatibilityResponse,
+  type DaemonCredential,
   type DaemonHeartbeatRequest,
+  type DaemonHeartbeatRequestV2,
   type DaemonRegisterRequest,
+  type DaemonRegisterRequestV2,
   type DaemonRegisterResponse,
   type Runtime,
 } from '../shared/protocol.js';
+import {
+  daemonDeviceInfo,
+  deviceNameOf,
+  evaluateDaemon,
+  markDaemonSeen,
+  storedCredential,
+  storedIdentity,
+  type DaemonRow,
+} from './daemon-compat.js';
 import { isAgentProvider, mapRuntime } from './runtime.records.js';
+
+export type RegisterRequest = DaemonRegisterRequest & DaemonRegisterRequestV2;
+export type RegisterResponse = DaemonRegisterResponse &
+  DaemonCompatibilityResponse;
+export type HeartbeatRequest = DaemonHeartbeatRequest &
+  DaemonHeartbeatRequestV2;
+export interface HeartbeatResult {
+  readonly count: number;
+  readonly compatibility: DaemonCompatibility | null;
+}
 
 export const POLL_INTERVAL_MS = 15_000;
 export const HEARTBEAT_INTERVAL_MS = 15_000;
@@ -29,14 +53,16 @@ export const HEARTBEAT_INTERVAL_MS = 15_000;
 export type RunAccess = 'ok' | 'notFound' | 'forbidden';
 
 export interface RuntimeService {
+  /** An unsupported daemon is registered too, with its runtimes `upgrade_required` (NP-150). */
   register(
     ownerUserId: string,
-    request: DaemonRegisterRequest,
-  ): Promise<DaemonRegisterResponse>;
+    request: RegisterRequest,
+    credential?: DaemonCredential,
+  ): Promise<RegisterResponse>;
   heartbeat(
     ownerUserId: string,
-    request: DaemonHeartbeatRequest,
-  ): Promise<number>;
+    request: HeartbeatRequest,
+  ): Promise<HeartbeatResult>;
   deregister(ownerUserId: string, daemonId: string): Promise<number>;
   list(): Promise<Runtime[]>;
   /** Only the runtime owner may change its visibility (contract §B). */
@@ -49,7 +75,7 @@ export interface RuntimeService {
   runAccess(runId: string, userId: string): Promise<RunAccess>;
 }
 
-function validateRegister(request: DaemonRegisterRequest): void {
+function validateRegister(request: RegisterRequest): void {
   if (
     !request ||
     typeof request.daemonId !== 'string' ||
@@ -59,16 +85,6 @@ function validateRegister(request: DaemonRegisterRequest): void {
     throw invalid(
       'INVALID_REGISTER',
       'daemonId is required (at most 128 characters).',
-    );
-  }
-  if (
-    request.protocolVersion !== undefined &&
-    request.protocolVersion !== PROTOCOL_VERSION
-  ) {
-    throw new NpError(
-      'upgradeRequired',
-      'PROTOCOL_MISMATCH',
-      `Server speaks protocol ${PROTOCOL_VERSION}; daemon sent ${String(request.protocolVersion)}.`,
     );
   }
   if (!isArrayValue(request.runtimes))
@@ -92,14 +108,18 @@ export interface RuntimeDeps {
 async function registerRuntimes(
   deps: RuntimeDeps,
   ownerUserId: string,
-  request: DaemonRegisterRequest,
-): Promise<DaemonRegisterResponse> {
+  request: RegisterRequest,
+  credential: DaemonCredential | null,
+): Promise<RegisterResponse> {
   validateRegister(request);
+  const compatibility = evaluateDaemon(request);
+  const deviceInfo = daemonDeviceInfo(request, compatibility, credential);
   const result = await deps.tx.run(async (tx) => {
     const registered: {
       id: string;
       provider: DaemonRegisterResponse['runtimes'][number]['provider'];
     }[] = [];
+    const seen: DaemonRow[] = [];
     for (const runtime of request.runtimes) {
       const timestamp = now();
       const values = {
@@ -109,17 +129,11 @@ async function registerRuntimes(
             ? runtime.version.slice(0, 64)
             : null,
         capabilities: toJson(runtime.capabilities ?? null),
-        deviceInfo: toJson({
-          deviceName: request.deviceName ?? null,
-          daemonVersion: request.version ?? null,
-        }),
-        status: 'online',
-        lastSeenAt: timestamp,
         updatedAt: timestamp,
       };
       const existing = await tx.conn.query
         .selectFrom('runtimes')
-        .select(['id', 'ownerUserId'])
+        .select(['id', 'ownerUserId', 'status', 'deviceInfo'])
         .where('daemonId', '=', request.daemonId)
         .where('provider', '=', runtime.provider)
         .executeTakeFirst();
@@ -136,9 +150,12 @@ async function registerRuntimes(
           .set(values)
           .where('id', '=', existing.id)
           .execute();
-        registered.push({
-          id: String(existing.id),
-          provider: runtime.provider,
+        const id = String(existing.id);
+        registered.push({ id, provider: runtime.provider });
+        seen.push({
+          id,
+          status: str(existing.status) ?? null,
+          deviceInfo: existing.deviceInfo,
         });
         continue;
       }
@@ -153,28 +170,56 @@ async function registerRuntimes(
           ownerUserId,
           visibility: 'private',
           createdAt: timestamp,
+          status: 'offline',
           ...values,
         })
         .execute();
       registered.push({ id, provider: runtime.provider });
+      seen.push({ id, status: 'offline' });
     }
+    // The daemon's runtimes for tools it no longer registers (for example after a reinstall).
+    const others = (
+      await tx.conn.query
+        .selectFrom('runtimes')
+        .select(['id', 'status', 'deviceInfo'])
+        .where('daemonId', '=', request.daemonId)
+        .where('ownerUserId', '=', ownerUserId)
+        .execute()
+    )
+      .filter((row) => !seen.some((item) => item.id === String(row.id)))
+      .map((row) => ({
+        id: String(row.id),
+        status: str(row.status) ?? null,
+        deviceInfo: row.deviceInfo,
+      }));
+    await markDaemonSeen(tx, {
+      ownerUserId,
+      daemonId: request.daemonId,
+      deviceName: str(request.deviceName) ?? null,
+      rows: seen,
+      others,
+      compatibility,
+      deviceInfo,
+    });
     tx.emit({ type: 'agents.changed' });
     return registered;
   });
   return {
     runtimes: result,
     serverTime: new Date().toISOString(),
-    protocolVersion: PROTOCOL_VERSION,
+    // The protocol both sides agreed on: a daemon checks this against what it speaks.
+    protocolVersion: compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
     pollIntervalMs: POLL_INTERVAL_MS,
     heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
+    compatibility,
   };
 }
 
 async function heartbeat(
   deps: RuntimeDeps,
   ownerUserId: string,
-  request: DaemonHeartbeatRequest,
-): Promise<number> {
+  request: HeartbeatRequest,
+): Promise<HeartbeatResult> {
   if (
     !request ||
     typeof request.daemonId !== 'string' ||
@@ -185,7 +230,7 @@ async function heartbeat(
   return deps.tx.run(async (tx) => {
     const known = await tx.conn.query
       .selectFrom('runtimes')
-      .select(['id', 'status'])
+      .select(['id', 'status', 'deviceInfo'])
       .where('ownerUserId', '=', ownerUserId)
       .where('daemonId', '=', request.daemonId)
       .execute();
@@ -197,24 +242,37 @@ async function heartbeat(
     const before = known.filter((row) =>
       request.runtimeIds.includes(String(row.id as string)),
     );
-    if (before.length === 0) return 0;
-    const timestamp = now();
-    await tx.conn.query
-      .updateTable('runtimes')
-      .set({
-        status: 'online',
-        lastSeenAt: timestamp,
-        updatedAt: timestamp,
-      })
-      .where(
-        'id',
-        'in',
-        before.map((row) => String(row.id as string)),
-      )
-      .execute();
-    if (before.some((row) => row.status !== 'online'))
-      tx.emit({ type: 'agents.changed' });
-    return before.length;
+    if (before.length === 0) return { count: 0, compatibility: null };
+    // A protocol 2 daemon repeats its identity, so a server upgraded since register re-evaluates it at once.
+    const reported = request.version !== undefined;
+    const stored = storedIdentity(before[0]?.deviceInfo);
+    const identity = reported
+      ? {
+          version: request.version,
+          protocolVersion: request.protocolVersion,
+          minProtocolVersion: request.minProtocolVersion,
+        }
+      : stored;
+    const compatibility = evaluateDaemon(identity);
+    const deviceName = deviceNameOf(before[0]?.deviceInfo);
+    await markDaemonSeen(tx, {
+      ownerUserId,
+      daemonId: request.daemonId,
+      deviceName,
+      rows: before.map((row) => ({
+        id: String(row.id as string),
+        status: str(row.status) ?? null,
+      })),
+      compatibility,
+      deviceInfo: reported
+        ? daemonDeviceInfo(
+            { ...identity, deviceName },
+            compatibility,
+            storedCredential(before[0]?.deviceInfo),
+          )
+        : undefined,
+    });
+    return { count: before.length, compatibility };
   });
 }
 
@@ -314,8 +372,8 @@ async function runAccess(
 
 export function createRuntimeService(deps: RuntimeDeps): RuntimeService {
   return {
-    register: (ownerUserId, request) =>
-      registerRuntimes(deps, ownerUserId, request),
+    register: (ownerUserId, request, credential) =>
+      registerRuntimes(deps, ownerUserId, request, credential ?? null),
     heartbeat: (ownerUserId, request) => heartbeat(deps, ownerUserId, request),
     deregister: (ownerUserId, daemonId) =>
       deregister(deps, ownerUserId, daemonId),

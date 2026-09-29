@@ -8,6 +8,7 @@ import type { AgentEntryBindings } from './agent-capabilities.js';
  */
 import type { ActorType, ExecutorRef, IssuePriority } from './types.js';
 import type { MetricThresholds } from './types-iter3.js';
+import type { SignalKindInfo, SignalRules } from './types-signals.js';
 import type {
   ProcessChoice,
   WorkspaceSettingsPhase1Iter4,
@@ -288,11 +289,6 @@ export interface IntakeConfirmInput {
   readonly defaultExecutor?: ExecutorRef;
 }
 
-export interface IntakeRevertResult {
-  readonly reverted: readonly string[];
-  readonly kept: readonly string[];
-}
-
 // ---------- §I usage and settings ----------
 
 export type UsageGroupBy = 'agent' | 'issue' | 'project' | 'day' | 'model';
@@ -349,6 +345,9 @@ export interface WorkspaceSettings {
   readonly defaultProcess?: WorkspaceSettingsPhase1Iter4['defaultProcess'];
   readonly pmAgentId?: WorkspaceSettingsPhase1Iter4['pmAgentId'];
   readonly retrospectiveOnDone?: WorkspaceSettingsPhase1Iter4['retrospectiveOnDone'];
+  /** Phase 2 signals: which kinds wake the executor agent, and the kinds the server can report. */
+  readonly signalRules?: SignalRules;
+  readonly signalKinds?: readonly SignalKindInfo[];
   /** Whether the viewer may change the settings (owner/admin). */
   readonly canEdit?: boolean;
   readonly [key: string]: unknown;
@@ -366,6 +365,7 @@ export type WorkspaceSettingsInput = Partial<
     | 'agentEntries'
     | 'pmAgentId'
     | 'retrospectiveOnDone'
+    | 'signalRules'
   >
 >;
 

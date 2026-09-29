@@ -121,6 +121,10 @@ export type ActivityLabel =
   // NP-78
   | 'attachmentAdded'
   | 'attachmentRemoved'
+  // Phase 2 signals
+  | 'signalReceived'
+  | 'signalSuppressed'
+  | 'signalResolved'
   | 'updated';
 
 /** Iteration 2 actions are matched exactly (snake case, as the contract spells them) before the keyword rules. */
@@ -153,6 +157,9 @@ const EXACT_LABELS: Readonly<Record<string, ActivityLabel>> = {
   pr_merge_requested: 'prMergeRequested',
   attachment_added: 'attachmentAdded',
   attachment_removed: 'attachmentRemoved',
+  signal_received: 'signalReceived',
+  signal_suppressed: 'signalSuppressed',
+  signal_resolved: 'signalResolved',
 };
 
 /** Labels whose details carry a status change to show as badges. */

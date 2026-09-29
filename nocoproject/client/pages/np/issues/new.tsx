@@ -5,7 +5,6 @@ import { useLocation, useSearchParams } from 'react-router';
 import { NpTabBar } from '@/components/np-route-tabs';
 import { RouteDialog } from '@/components/route-dialog';
 
-import { BatchesList } from '../intake/batches-list.js';
 import { IntakeBatchView, IntakeComposer } from '../intake/intake-panels.js';
 import { ManualIssueFooter, ManualIssueForm } from './new-manual.js';
 import {
@@ -23,7 +22,7 @@ import {
  * - **AI draft** (the default): describe the work or paste a list or meeting notes, choose the project, "Draft
  *   issues" sends it to batch entry's parser (`POST /np/intake/batches`), and the drafts open in batch entry's
  *   table — with a Process column — to create one issue or many. The draft batch sits in `?batch=` so a reload
- *   keeps it; the viewer's recent batches are listed under the composer.
+ *   keeps it.
  * - **Manual**: the single-issue form.
  *
  * `?project=` preselects the project in both. The old batch-entry links (`/issues/intake`, `/projects/:id/intake`,
@@ -103,13 +102,10 @@ export default function NewIssuePage(): ReactElement {
               onClose={() => setBatch(null)}
             />
           ) : (
-            <div className='space-y-6'>
-              <IntakeComposer
-                initialProjectId={params.get('project')}
-                onParsed={(id) => setBatch(id)}
-              />
-              <BatchesList onOpen={(id) => setBatch(id)} />
-            </div>
+            <IntakeComposer
+              initialProjectId={params.get('project')}
+              onParsed={(id) => setBatch(id)}
+            />
           )}
         </div>
       </div>

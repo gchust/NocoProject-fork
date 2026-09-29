@@ -1,12 +1,15 @@
 /**
- * NocoProject protocol types (Phase 0, protocolVersion 1).
+ * NocoProject protocol types (Phase 0 protocol 1; the version history is in protocol.daemon-compat.ts).
  *
  * This is the shared contract between the server, the daemon / CLI, and the frontend. The daemon
  * package keeps an identical copy (nocoproject-cli/src/protocol.ts); a change here must be
  * mirrored there, and docs/phase0/protocol.md updated.
  */
 
-export const PROTOCOL_VERSION = 1 as const;
+import type { RuntimeDaemonInfo } from './protocol.daemon-compat.js';
+
+/** The protocol a daemon of this release speaks (NP-150: 2). What the server accepts is `SUPPORTED_PROTOCOLS`. */
+export const PROTOCOL_VERSION = 2 as const;
 
 // ---------- Status catalog ----------
 
@@ -329,7 +332,8 @@ export const RUN_ENV = {
 export type AgentAccess = 'ownerOnly' | 'everyone';
 export type RuntimeKind = 'personal' | 'server';
 export type RuntimeVisibility = 'private' | 'public';
-export type RuntimeStatus = 'online' | 'offline';
+/** `upgrade_required` (NP-150): the daemon is alive but must be upgraded before it may claim runs. */
+export type RuntimeStatus = 'online' | 'offline' | 'upgrade_required';
 export type CommentKind = 'comment' | 'system';
 
 /** Failure response body: `{ code, message }` with the corresponding HTTP status code */
@@ -540,6 +544,8 @@ export interface Runtime {
   readonly version: string | null;
   readonly capabilities: RuntimeCapabilities | null;
   readonly deviceInfo: Readonly<Record<string, unknown>> | null;
+  /** NP-150: the daemon's CLI version and compatibility; null for rows registered before it recorded them. */
+  readonly daemon?: RuntimeDaemonInfo | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -1167,9 +1173,19 @@ export * from './protocol.phase2-workflow-server.js';
 
 export * from './protocol.phase2-workflow-proposals.js';
 
+// ---------- Phase 2 signals ----------
+
+export * from './protocol.phase2-signals.js';
+
 // ---------- Email invitations (NP-88) ----------
 
 // Server- and browser-only (the CLI's sync-protocol drops this line)
 export * from './protocol.invitations-server.js';
 
 export * from './protocol.capabilities.js';
+
+// ---------- Daemon version compatibility (NP-150) ----------
+
+export * from './protocol.daemon-compat.js';
+// Server- and browser-only (the CLI's sync-protocol drops this line)
+export * from './protocol.computers-server.js';

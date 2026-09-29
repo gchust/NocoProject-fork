@@ -7,6 +7,7 @@ import type {
   AgentKnowledgeProposalRequest,
   CreateKnowledgeDocRequest,
   DecideKnowledgeProposalRequest,
+  MoveKnowledgeDocRequest,
   UpdateKnowledgeDocRequest,
 } from '../shared/protocol.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
@@ -29,7 +30,8 @@ async function optionalJson<T>(context: Context): Promise<T> {
 /**
  * `/np/knowledge` (browser, iteration-3 contract §B). Readers: members who can see the project (system-level
  * documents: every member); writers: the project lead or owner/admin (system-level: owner/admin). `GET /` takes
- * `projectId` (an id, or `none` for system-level only), `q` and `includeArchived=1`.
+ * `projectId` (an id, or `none` for system-level only), `q` and `includeArchived=1`. `q` matches the title, slug,
+ * summary and content (case-insensitive); a hit that only comes from the content carries `matchExcerpt` (NP-142).
  */
 export function createKnowledgeRoutes(
   knowledge: KnowledgeService,
@@ -86,15 +88,24 @@ export function createKnowledgeRoutes(
       ),
     }),
   );
-  routes.patch('/:id', async (context) =>
-    context.json({
-      data: await knowledge.update(
-        sessionActor(context),
-        context.req.param('id'),
-        await readJson<UpdateKnowledgeDocRequest>(context),
-      ),
-    }),
-  );
+  // A move body carries `parentId` and/or `sortOrder` (NP-147); a content edit carries `expectedVersion` plus the
+  // fields to change. Both are `PATCH /np/knowledge/:id`.
+  routes.patch('/:id', async (context) => {
+    const body = await readJson<Record<string, unknown>>(context);
+    const isMove = 'parentId' in body || 'sortOrder' in body;
+    const data = isMove
+      ? await knowledge.move(
+          sessionActor(context),
+          context.req.param('id'),
+          body as unknown as MoveKnowledgeDocRequest,
+        )
+      : await knowledge.update(
+          sessionActor(context),
+          context.req.param('id'),
+          body as unknown as UpdateKnowledgeDocRequest,
+        );
+    return context.json({ data });
+  });
   routes.get('/:id/versions/:version', async (context) => {
     const version = Number(context.req.param('version'));
     if (!Number.isInteger(version) || version < 1)
@@ -126,14 +137,20 @@ export function createKnowledgeRoutes(
 
 /**
  * `/np/agent/knowledge*` (run token, iteration-3 contract §B): the run's project and system-level documents only;
- * archived documents are invisible. Mounted inside the agent API's guarded router, so paths carry the prefix.
+ * archived documents are invisible. `GET /knowledge` takes `q` (NP-142), matching the browser list. Mounted inside
+ * the agent API's guarded router, so paths carry the prefix.
  */
 export function createAgentKnowledgeRoutes(
   knowledge: KnowledgeService,
 ): Hono<RunTokenEnv> {
   const routes = npRouter<RunTokenEnv>();
   routes.get('/knowledge', async (context) =>
-    context.json({ data: await knowledge.agentList(context.get('runAuth')) }),
+    context.json({
+      data: await knowledge.agentList(
+        context.get('runAuth'),
+        queryText(context, 'q'),
+      ),
+    }),
   );
   routes.post('/knowledge/proposals', async (context) =>
     context.json(

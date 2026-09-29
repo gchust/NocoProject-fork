@@ -8,7 +8,9 @@
  * by the provider's sweep.
  *
  * Events: `pull_request` (upsert, link rules, merge / close / ready flows), `check_suite` completed and `status`
- * (CI state by head SHA), `ping`; anything else is acknowledged and ignored. After a completed check suite the head's
+ * (CI state by head SHA), `push` (merge checks of the open pull requests based on the pushed branch, only while the
+ * conflict signal rule is on), `ping`; anything else is acknowledged and ignored. Every stored change reports its
+ * signals to the linked issues (`pr-signals.ts`); `checkMerges` runs the due merge checks from the sweeper. After a completed check suite the head's
  * Actions run and `screenshots` artifact links are fetched with the stored token, outside the transaction (NP-85);
  * failures there are ignored.
  */
@@ -32,11 +34,14 @@ import {
   type GitHubPullRequestPayload,
 } from './github-client.js';
 import {
+  findPullRequestById,
   linkPullRequest,
   linksOfPullRequest,
   upsertPullRequest,
 } from './git.records.js';
 import { matchIssueIdentifiers } from './link-rules.js';
+import { reportPullRequestSignals, scheduleMergeChecks } from './pr-signals.js';
+import { runMergeChecks } from './merge-checks.js';
 import {
   onPullRequestStateChanged,
   requestReviews,
@@ -55,6 +60,14 @@ const PULL_REQUEST_ACTIONS = new Set([
   'closed',
 ]);
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'ready_for_review']);
+/** A new head or base: GitHub recomputes mergeability, so read it again later. */
+const MERGE_CHECK_ACTIONS = new Set([
+  'opened',
+  'reopened',
+  'synchronize',
+  'ready_for_review',
+  'edited',
+]);
 
 export interface WebhookDelivery {
   readonly deliveryId: string | null;
@@ -77,6 +90,8 @@ export interface WebhookService {
   receive(delivery: WebhookDelivery): Promise<WebhookResult>;
   /** Deletes delivery records older than the retention window; returns how many. */
   purge(at?: Date): Promise<number>;
+  /** Runs the due merge checks (`merge-checks.ts`); returns how many pull requests were read. */
+  checkMerges(at?: Date): Promise<number>;
 }
 
 export interface WebhookDeps extends GitFlowDeps {
@@ -167,10 +182,14 @@ async function handlePullRequest(
       : newlyLinked;
     await requestReviews(tx, pr, unique(reviewIssueIds));
   }
+  await reportPullRequestSignals(deps, tx, pr);
+  if (MERGE_CHECK_ACTIONS.has(payload.action ?? ''))
+    await scheduleMergeChecks(deps, tx, { pullRequestId: pr.id });
   return true;
 }
 
 async function updateCi(
+  deps: WebhookDeps,
   tx: Tx,
   repo: string | undefined,
   sha: string | undefined,
@@ -190,9 +209,28 @@ async function updateCi(
     .set({ ciState: state, updatedAt: now() })
     .where('id', 'in', ids)
     .execute();
-  for (const id of ids)
+  for (const id of ids) {
     for (const link of await linksOfPullRequest(tx.conn, id))
       tx.emit({ type: 'issue.changed', issueId: link.issueId });
+    const pr = await findPullRequestById(tx.conn, id);
+    if (pr) await reportPullRequestSignals(deps, tx, pr);
+  }
+  return true;
+}
+
+/** A push to `refs/heads/<branch>`: merge checks for the open pull requests based on it. */
+async function handlePush(
+  deps: WebhookDeps,
+  tx: Tx,
+  repo: string | undefined,
+  ref: unknown,
+): Promise<boolean> {
+  if (!repo || typeof ref !== 'string' || !ref.startsWith('refs/heads/'))
+    return false;
+  await scheduleMergeChecks(deps, tx, {
+    repo,
+    baseRef: ref.slice('refs/heads/'.length),
+  });
   return true;
 }
 
@@ -216,6 +254,7 @@ async function dispatch(
         | undefined;
       if (payload.action !== 'completed') return false;
       return updateCi(
+        deps,
         tx,
         repo,
         suite?.head_sha,
@@ -224,11 +263,14 @@ async function dispatch(
     }
     case 'status':
       return updateCi(
+        deps,
         tx,
         repo,
         typeof payload.sha === 'string' ? payload.sha : undefined,
         ciStateOfStatus(payload.state),
       );
+    case 'push':
+      return handlePush(deps, tx, repo, payload.ref);
     default:
       return false;
   }
@@ -366,5 +408,6 @@ export function createWebhookService(deps: WebhookDeps): WebhookService {
         .execute();
       return result.deletedCount ?? 0;
     },
+    checkMerges: (at) => runMergeChecks(deps, at),
   };
 }

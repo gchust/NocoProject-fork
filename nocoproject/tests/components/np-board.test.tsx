@@ -137,6 +137,10 @@ describe('issue board', () => {
     const todo = within(board).getByRole('region', { name: /Todo/ });
     expect(within(todo).getByText('Write the docs')).toBeVisible();
     expect(within(board).getAllByText('No issues').length).toBeGreaterThan(0);
+    // A card keeps native touch scrolling, so a swipe on it scrolls the column on a phone (NP-144).
+    const card = within(todo).getByRole('button', { name: /Write the docs/ });
+    expect(card).toHaveClass('touch-manipulation');
+    expect(card).not.toHaveClass('touch-none');
     // The filter in the URL reaches the request.
     expect(api.request).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -40,7 +40,6 @@ const COMMON = {
   },
   'GET np/labels': { data: [] },
   'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
-  'GET np/intake/batches': { data: [] },
 };
 
 beforeEach(() => {

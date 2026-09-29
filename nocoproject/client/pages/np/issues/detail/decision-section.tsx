@@ -16,6 +16,7 @@ import {
   useDecisionTitle,
 } from '../../decision/decision-model.js';
 import { InboxTypeIcon } from '../../decision/decision-meta.js';
+import { StaleProposalDialog } from '../../decision/stale-proposal-dialog.js';
 import {
   type DecisionRunner,
   useDecisionRunner,
@@ -32,7 +33,7 @@ interface ResolvedHere {
 }
 
 /**
- * "Waiting for you" on the issue page (nocosolution/frontend/nocosolution-frontend-standard.md §3). Each open decision the viewer has on this issue is a
+ * "Waiting for you" on the issue page (nocosolution/guidelines/NocoSolution 前端规范.md §S3). Each open decision the viewer has on this issue is a
  * card: what it is, one sentence, the thing being decided in full, and the actions right under it. Deciding runs
  * through `useDecisionRunner` (the inbox's code): the card shows the action in flight, then folds into a one-line
  * done state ("✓" plus the action label) that can be expanded again for the rest of the visit. Nothing renders when nothing waits.
@@ -60,7 +61,9 @@ export function DecisionSection({
   const open = decisions.filter(
     (item) =>
       !resolved.some((entry) => entry.item.id === item.id) &&
-      (item.resolvedAt === null || runner.pendingKey(item.id) !== null),
+      (item.resolvedAt === null ||
+        runner.pendingKey(item.id) !== null ||
+        runner.stale?.item.id === item.id),
   );
   if (open.length === 0 && resolved.length === 0) return null;
   return (
@@ -87,6 +90,7 @@ export function DecisionSection({
           agents={agents}
         />
       ))}
+      <StaleProposalDialog runner={runner} />
     </section>
   );
 }

@@ -152,7 +152,7 @@ export function DateField({
         locale={locale}
         formatString='PP'
         disabled={disabled}
-        // An empty date shows a dash; the row's label names the field (nocosolution/frontend/nocobase3-frontend-best-practices.md §6).
+        // An empty date shows a dash; the row's label names the field (nocosolution/guidelines/NocoSolution 前端规范.md §6).
         placeholder='—'
         onChange={(date) => onChange(toDateOnly(date))}
       />

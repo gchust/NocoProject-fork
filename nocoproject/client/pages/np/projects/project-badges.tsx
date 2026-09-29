@@ -8,7 +8,7 @@ import type { StatusTone } from '../constants.js';
 import type { ProjectStatus } from '../types.js';
 import { projectStatusKey } from './progress.js';
 
-/** Project statuses in the issue tones (nocosolution/frontend/nocosolution-frontend-standard.md §7.2). */
+/** Project statuses in the issue tones (nocosolution/guidelines/NocoSolution 前端规范.md §S7.2). */
 const PROJECT_STATUS_TONE: Readonly<Record<ProjectStatus, StatusTone>> = {
   planned: 'grey',
   in_progress: 'blue',

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { detectAdapters } from '../../src/daemon/adapters/index.js';
 import { Daemon, type DaemonIntervals } from '../../src/daemon/lifecycle.js';
 import { createLogger } from '../../src/util/log.js';
-import { API_KEY, type MockServer } from './mock-server.js';
+import { API_KEY, COMPUTER_KEY, type MockServer } from './mock-server.js';
 
 export async function waitFor<T>(fn: () => T | undefined | false | null, timeoutMs = 15_000, label = 'condition'): Promise<T> {
   const deadline = Date.now() + timeoutMs;
@@ -24,7 +24,7 @@ export interface Harness {
 
 export async function startDaemon(
   mock: MockServer,
-  opts: { pollIntervalMs?: number; intervals?: DaemonIntervals; idleWatchdogMs?: number; maxConcurrent?: number; provider?: string } = {},
+  opts: { pollIntervalMs?: number; intervals?: DaemonIntervals; idleWatchdogMs?: number; maxConcurrent?: number; provider?: string; computerKey?: boolean } = {},
 ): Promise<Harness> {
   const home = mkdtempSync(join(tmpdir(), 'ncp-e2e-'));
   const logs: string[] = [];
@@ -32,7 +32,13 @@ export async function startDaemon(
   const { detected } = await detectAdapters([provider]);
   if (detected.length === 0) throw new Error(`${provider} adapter not found (for echo: is dist/ built?)`);
   const daemon = new Daemon({
-    config: { home, serverUrl: mock.url, apiKey: API_KEY, daemonId: 'daemon-test-1', deviceName: 'test-box' },
+    config: {
+      home,
+      serverUrl: mock.url,
+      ...(opts.computerKey ? { apiKey: undefined, computerKey: COMPUTER_KEY } : { apiKey: API_KEY }),
+      daemonId: 'daemon-test-1',
+      deviceName: 'test-box',
+    },
     settings: {
       maxConcurrent: opts.maxConcurrent ?? 4,
       pollIntervalMs: opts.pollIntervalMs ?? 60_000,

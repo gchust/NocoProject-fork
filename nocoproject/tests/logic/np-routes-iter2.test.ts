@@ -21,7 +21,7 @@ describe('iteration 2 browser routes', () => {
   it.each([
     '/np/integrations/github',
     '/np/approvals',
-    '/np/intake/batches',
+    '/np/intake/batches/b1',
     '/np/skills',
     '/np/usage',
     '/np/settings',
@@ -31,6 +31,17 @@ describe('iteration 2 browser routes', () => {
   ])('answers 401 to an anonymous GET %s', async (path) => {
     const { router } = await build(npApiRoutes);
     expect((await router.request(path)).status).toBe(401);
+  });
+
+  // NP-151: the recent-batches list and batch revert were removed.
+  it.each([
+    ['GET', '/np/intake/batches'],
+    ['POST', '/np/intake/batches/b1/revert'],
+  ])('answers 404 to %s %s', async (method, path) => {
+    const { router } = await build(npApiRoutes);
+    expect(
+      (await router.request(path, { method, headers: signedIn })).status,
+    ).toBe(404);
   });
 
   it('protects agent deletion from anonymous requests and run tokens', async () => {

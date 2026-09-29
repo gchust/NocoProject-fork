@@ -22,7 +22,7 @@ import type { IdSource } from '../shared/ids.js';
 import type {
   ActorType,
   InboxItemTypeV4,
-  InboxItemTypeV6,
+  InboxItemTypeV8,
   InboxItemV4,
   InboxKind,
   SubscriptionReason,
@@ -34,7 +34,7 @@ import { mergeActionSources } from './inbox.pr-merge.js';
 export interface NewInboxItem {
   readonly userId: string;
   readonly kind: InboxKind;
-  readonly type: InboxItemTypeV6;
+  readonly type: InboxItemTypeV8;
   readonly issueId: string | null;
   readonly title: string;
   readonly body: string;
@@ -47,7 +47,7 @@ export interface NewInboxItem {
 
 export function dedupeKey(
   userId: string,
-  type: InboxItemTypeV6,
+  type: InboxItemTypeV8,
   issueId: string | null,
 ): string {
   return `user:${userId}:${type}:${issueId ?? '-'}`;
@@ -123,7 +123,7 @@ export async function deliver(
 /** Resolves unresolved items of `type` on an issue (only `userId`'s when given); returns the affected users. */
 export async function resolveItems(
   tx: Tx,
-  filter: { type: InboxItemTypeV6; issueId: string; userId?: string | null },
+  filter: { type: InboxItemTypeV8; issueId: string; userId?: string | null },
 ): Promise<string[]> {
   let select = tx.conn.query
     .selectFrom('inboxItems')
@@ -153,7 +153,7 @@ async function resolveRows(
 /** Resolves unresolved items of `type` whose dedupe key ends with `suffix` (cards keyed by something other than the issue). */
 export async function resolveByDedupeSuffix(
   tx: Tx,
-  type: InboxItemTypeV6,
+  type: InboxItemTypeV8,
   suffix: string,
 ): Promise<string[]> {
   const rows = await tx.conn.query

@@ -1,7 +1,7 @@
 /**
  * NocoProject provider: binds every module service to its token, connects domain events to realtime topics and runs
- * the run sweeper every 30 seconds (which also purges old webhook delivery records and, since NP-78, attachment uploads
- * never attached to an issue within a day).
+ * the run sweeper every 30 seconds (which also purges old webhook delivery records, runs the due GitHub merge checks
+ * behind the conflict signal and, since NP-78, purges attachment uploads never attached to an issue within a day).
  *
  * Iteration 2: the secret key for stored secrets comes from the `nocoproject` configuration section
  * (`NOCOPROJECT_SECRET_KEY`), falling back to a key derived from `auth.secret` with a warning; the AI intake parser is
@@ -101,6 +101,9 @@ import type { RunTokenService } from '../modules/run/token.js';
 import type { RuntimeService } from '../modules/runtime/runtime.service.js';
 import { createNpServices, type NpServices } from '../modules/services.js';
 import type { InvitationService } from '../modules/member/invitation.service.js';
+import { createPluginComputerKeys } from './np-computer-keys.js';
+import type { ComputerService } from '../modules/computer/computer.service.js';
+import type { DaemonWakeups } from '../modules/runtime/daemon-wakeups.js';
 import {
   createNotificationMailer,
   createPluginAccounts,
@@ -129,6 +132,10 @@ export const npCommentServiceToken: ServiceToken<CommentService> =
   createServiceToken<CommentService>('nocoproject/comment-service');
 export const npAgentServiceToken: ServiceToken<AgentService> =
   createServiceToken<AgentService>('nocoproject/agent-service');
+export const npDaemonWakeupsToken: ServiceToken<DaemonWakeups> =
+  createServiceToken<DaemonWakeups>('nocoproject/daemon-wakeups');
+export const npComputerServiceToken: ServiceToken<ComputerService> =
+  createServiceToken<ComputerService>('nocoproject/computer-service');
 export const npRuntimeServiceToken: ServiceToken<RuntimeService> =
   createServiceToken<RuntimeService>('nocoproject/runtime-service');
 export const npTriggerServiceToken: ServiceToken<TriggerService> =
@@ -251,6 +258,7 @@ export default class NpProvider extends ServiceProvider<Application> {
         aiProcess: ai ? createAiProcessClassifier(ai) : null,
         mailer: () => createNotificationMailer(this.app),
         accounts: () => createPluginAccounts(this.app),
+        computerKeys: () => createPluginComputerKeys(this.app),
         roles: () => createBuiltinRoles(resolver.resolve(authorizationToken)),
         aiConfigured: () =>
           (this.app.config.get<AIApplicationConfig>('ai')?.llmServices
@@ -263,6 +271,8 @@ export default class NpProvider extends ServiceProvider<Application> {
     bindModule(container, npCommentServiceToken, 'comments');
     bindModule(container, npAgentServiceToken, 'agents');
     bindModule(container, npRuntimeServiceToken, 'runtimes');
+    bindModule(container, npComputerServiceToken, 'computers');
+    bindModule(container, npDaemonWakeupsToken, 'daemonWakeups');
     bindModule(container, npTriggerServiceToken, 'triggers');
     bindModule(container, npRunServiceToken, 'runs');
     bindModule(container, npRunRecoveryServiceToken, 'runRecovery');
@@ -419,6 +429,9 @@ export default class NpProvider extends ServiceProvider<Application> {
     this.cron = undefined;
     this.topics?.close();
     this.topics = undefined;
+    // Release daemons waiting in a wakeup long poll (NP-150).
+    if (this.app.container.has(npServicesToken))
+      this.app.container.resolve(npServicesToken).daemonWakeups.close();
   }
 
   /** The cron tick: resolve the sweeper and run one pass, never overlapping a pass still in progress. */
@@ -428,7 +441,9 @@ export default class NpProvider extends ServiceProvider<Application> {
     try {
       const now = new Date();
       await this.app.container.resolve(npSweeperServiceToken).sweep(now);
-      await this.app.container.resolve(npWebhookServiceToken).purge(now);
+      const webhooks = this.app.container.resolve(npWebhookServiceToken);
+      await webhooks.purge(now);
+      await webhooks.checkMerges(now);
       await this.app.container
         .resolve(npAttachmentServiceToken)
         .purgeOrphans(now);

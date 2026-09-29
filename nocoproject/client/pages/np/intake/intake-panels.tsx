@@ -80,7 +80,6 @@ export function IntakeComposer({
         title: t('np.intake.parsedToast', { count: detail.drafts.length }),
       });
       queryClient.setQueryData(npKeys.intakeBatch(detail.batch.id), detail);
-      void queryClient.invalidateQueries({ queryKey: npKeys.intakeBatches });
       onParsed(detail.batch.id);
     },
     onError: (failure) =>

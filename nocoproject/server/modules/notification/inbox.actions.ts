@@ -20,7 +20,7 @@
  */
 import type {
   InboxActionV4,
-  InboxItemTypeV6,
+  InboxItemTypeV8,
   PullRequestMergeBlocker,
 } from '../shared/protocol.js';
 
@@ -34,7 +34,7 @@ export interface MergeActionSource {
 }
 
 export interface ActionSource {
-  readonly type: InboxItemTypeV6;
+  readonly type: InboxItemTypeV8;
   readonly issueId: string | null;
   readonly issueIdentifier: string | null;
   readonly payload: Readonly<Record<string, unknown>> | null;

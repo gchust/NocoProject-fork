@@ -37,13 +37,16 @@ import { ConfigSectionHeading } from './config-section.js';
 import { generateSecret, gitConnectionChanges } from './github-model.js';
 import { SecretInput } from './secret-input.js';
 import { settingsCheck } from './config-access.js';
+import { SignalRulesSection } from './signal-rules.js';
 
 /**
  * Tab `/config/github` (iteration 2 §C, moved from the system settings shell in iteration 3 §G; the settings item
  * `nocoproject.github`, owner/admin by default, NP-117): the API
  * base URL, the token used to read pull requests, and the webhook secret GitHub signs deliveries with. Secrets are
  * write-only — the tab only shows whether each is set. The webhook URL is what to paste into the repository's webhook
- * settings; "Test connection" signs in with the token. Members see why the tab is empty instead of a 403.
+ * settings; "Test connection" signs in with the token. Below the connection, the GitHub signal rules
+ * (`signal-rules.tsx`): whether failed checks or merge conflicts on a linked pull request wake the executor agent.
+ * Members see why the tab is empty instead of a 403.
  */
 export default function GithubConfigTab(): ReactElement {
   const { t } = useTranslation();
@@ -88,6 +91,7 @@ export default function GithubConfigTab(): ReactElement {
         key={`${connection.data.apiBaseUrl}:${connection.data.tokenSet}:${connection.data.webhookSecretSet}`}
         connection={connection.data}
       />
+      <SignalRulesSection source='github' />
     </section>
   );
 }

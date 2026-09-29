@@ -81,7 +81,7 @@ export function statusColor(
 }
 
 /**
- * The tone a status is drawn in (nocosolution/frontend/nocosolution-frontend-standard.md §7.1, `NpTag`): by meaning, not by the workflow's colour name, so
+ * The tone a status is drawn in (nocosolution/guidelines/NocoSolution 前端规范.md §S7.1, `NpTag`): by meaning, not by the workflow's colour name, so
  * every workflow reads the same — not started grey, started blue, in review violet, blocked amber, done green,
  * cancelled slate. A custom started status the workflow marks purple reads as review, red / orange as blocked.
  */
@@ -184,6 +184,7 @@ export const npKeys = {
   issueAttachments: (id: string) => ['np', 'issue', id, 'attachments'] as const,
   agents: ['np', 'agents'] as const,
   runtimes: ['np', 'runtimes'] as const,
+  computers: ['np', 'computers'] as const,
   run: (id: string) => ['np', 'run', id] as const,
   members: ['np', 'members'] as const,
   /** NP-88: pending invitations; under `members`, so a members refresh refetches them. */
@@ -201,7 +202,6 @@ export const npKeys = {
   // Phase 1 iteration 2
   gitConnection: ['np', 'integrations', 'github'] as const,
   approvals: ['np', 'approvals'] as const,
-  intakeBatches: ['np', 'intake'] as const,
   intakeBatch: (id: string) => ['np', 'intake', id] as const,
   skills: ['np', 'skills'] as const,
   skill: (id: string) => ['np', 'skills', id] as const,
@@ -279,7 +279,7 @@ export const LABEL_COLORS: readonly LabelColor[] = [
 ];
 
 /**
- * Label colour names mapped onto the tag hues (nocosolution/frontend/nocosolution-frontend-standard.md §7.2), so a label's dot and chip match the
+ * Label colour names mapped onto the tag hues (nocosolution/guidelines/NocoSolution 前端规范.md §S7.2), so a label's dot and chip match the
  * status and priority tags in light and dark. The name beside the dot carries the meaning; the colour helps scanning.
  */
 export const LABEL_TONE: Readonly<
@@ -312,7 +312,7 @@ export const LABEL_DOT_CLASS: Readonly<Record<LabelColor, string>> = {
  * `dist/client/assets/cli/nocoproject-cli-<version>.tgz` (`scripts/pack-cli.sh`, a build hook in `cli/plugins.ts`) and
  * fails when this does not match its package.json; bump both together.
  */
-export const CLI_VERSION = '0.4.0';
+export const CLI_VERSION = '0.5.0';
 
 /** How to install the daemon/CLI on another computer: npm fetches the tarball this application serves. */
 export function cliInstallCommand(serverUrl: string): string {

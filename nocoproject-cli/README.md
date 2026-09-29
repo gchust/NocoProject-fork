@@ -22,8 +22,12 @@ Without a global install, run `node dist/cli.js ...`. The daemon also writes shi
 ## Log in
 
 ```bash
-nocoproject login --server http://127.0.0.1:13000/main --api-key <NocoBase API key>
+nocoproject login --server http://127.0.0.1:13000/main --computer-key <credential from "Add a computer">
+nocoproject login --server http://127.0.0.1:13000/main --api-key <NocoBase API key>   # user commands, older servers
 ```
+
+- **The daemon uses a computer credential** (NP-150): "Add a computer" in the app issues one per computer. It reaches only the daemon API (`/np/daemon/*`, header `x-np-computer-key`), is bound to this computer's daemon at its first register, and can be revoked on its own from the runtimes page. Saving one removes a personal API key from the config unless `--keep-api-key`; `--computer-key-stdin` reads it from stdin. A revoked credential pauses the daemon (it keeps running, `daemon status` and the log say how to log in again).
+- A personal API key is still what `nocoproject user …` uses, and the daemon falls back to it when there is no computer credential (older setups; the runtimes page flags such computers).
 
 - `--server` is the application URL **including its mount path** (`APP_BASE_PATH`, `/main` by default). If you give only an origin, login probes `<origin>/api/healthz` and then `<origin>/main/api/healthz`.
 - The key is verified with `GET /api/np/me`. Use `--no-verify` to save the key without contacting the server. `--api-key-stdin` keeps the key out of the shell history: on a terminal it prompts and reads one line without echoing; from a pipe it reads to EOF (`printf '%s' "$KEY" | nocoproject login --server <url> --api-key-stdin`).
@@ -37,6 +41,9 @@ nocoproject daemon start                   # background; log in ~/.nocoproject/l
 nocoproject daemon status [--json]
 nocoproject daemon logs [-n 100] [-f]
 nocoproject daemon stop
+nocoproject daemon install [--no-start] [--force]   # boot service running this CLI (launchd / systemd --user)
+nocoproject daemon uninstall
+nocoproject upgrade [--to x.y.z] [--force] [--wait <minutes>]
 ```
 
 Options for `start`: `--providers claude,opencode,codex,echo` (the default is `claude,opencode,codex`; tools that are not installed are skipped) and `--max-concurrent <n>` (the default is 20).
@@ -54,7 +61,15 @@ What it does:
 9. Reports `complete` (with session id, summary and usage), `fail` (with a classified `FailureReason`) or `cancel-ack`. When the agent checked out a repository, `complete` and `fail` also carry `branchName` and `repoUrl` from `<workDir>/.nocoproject/checkout.json`.
 10. On SIGINT or SIGTERM, kills running agents and reports them as `runtimeRecovery`, which the server retries. It then deregisters.
 
-A `426 PROTOCOL_MISMATCH` stops claiming and logs a loud upgrade message.
+### Boot service and upgrades (NP-150)
+
+`nocoproject daemon install` writes a launchd agent (`~/Library/LaunchAgents/ai.nocobase.nocoproject-daemon.plist`) on macOS or a systemd user unit (`~/.config/systemd/user/nocoproject-daemon.service`) on Linux and (re)starts the daemon through it. The service runs the CLI that ran the command (`process.execPath` and the real path of its entry), with the `PATH` of your shell (so it finds `claude`, `codex`, `gh`), logs to `~/.nocoproject/logs/daemon.log`, and is recorded in `~/.nocoproject/service.json`. A hand-written service of the same name is replaced (the changed lines are printed first); a non-default `NOCOPROJECT_HOME` gets a service name with a suffix. On Linux, `loginctl enable-linger $USER` keeps it running while you are logged out. It refuses while agents run (`--force` restarts anyway; their runs are retried) and inside an agent run.
+
+`nocoproject upgrade` asks the server which CLI it serves (`GET /np/daemon/compatibility`), runs `npm i -g <server>/assets/cli/nocoproject-cli-<version>.tgz`, waits until no agent runs (`--wait`, 60 minutes; `--force` does not wait), and restarts the daemon with the new CLI: `daemon install` when the boot service is installed, otherwise `daemon stop` + `daemon start` when a daemon runs. It refuses inside an agent run. `daemon start` and `daemon status` warn when the boot service or the running daemon is not this CLI.
+
+### Version compatibility
+
+The daemon offers protocols 1 to 2 (`minProtocolVersion`, `protocolVersion`) and the server answers register, heartbeat and claim with `compatibility` (`ok`, `deprecated`, `unsupported`). When the server says the daemon must be upgraded, the daemon keeps heartbeating (the computer shows "Upgrade required" with the command instead of going offline), pauses claiming, writes `upgradeRequired` (reason, versions, command) to `~/.nocoproject/daemon.state.json`, and logs `PROTOCOL MISMATCH` with the command every 10 minutes. It resumes by itself when the server accepts it again. A server from before NP-150 that refuses protocol 2 (`426`) is retried with protocol 1; a `426` on every protocol pauses the daemon the same way and it registers again every minute.
 
 ### Environment variables
 

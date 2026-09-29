@@ -18,7 +18,7 @@ import type {
   StatusCatalogEntry,
 } from '@/pages/np/types';
 
-/** An issue status: a tag with a dot in the status's tone (nocosolution/frontend/nocosolution-frontend-standard.md §7.1) and its name. */
+/** An issue status: a tag with a dot in the status's tone (nocosolution/guidelines/NocoSolution 前端规范.md §S7.1) and its name. */
 export function NpStatusBadge({
   statusKey,
   catalog,
@@ -43,7 +43,7 @@ export function NpStatusBadge({
 
 /**
  * A run's status as a tag: running work in blue with a pulse (the "happening now" signal), success green, failure
- * red, cancelled slate, waiting grey (nocosolution/frontend/nocosolution-frontend-standard.md §7.2).
+ * red, cancelled slate, waiting grey (nocosolution/guidelines/NocoSolution 前端规范.md §S7.2).
  */
 export function NpRunStatusBadge({
   status,

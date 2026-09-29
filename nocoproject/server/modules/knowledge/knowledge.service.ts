@@ -23,9 +23,10 @@ import type {
   KnowledgeDocSummary,
   KnowledgeDocVersion,
   KnowledgeProposal,
+  MoveKnowledgeDocRequest,
   UpdateKnowledgeDocRequest,
 } from '../shared/protocol.js';
-import { KNOWLEDGE_NOTE_MAX } from '../shared/protocol.js';
+import { KNOWLEDGE_MAX_DEPTH, KNOWLEDGE_NOTE_MAX } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import type { RunAuth } from '../run/token.js';
 import {
@@ -43,22 +44,29 @@ import {
   pendingForDoc,
 } from './knowledge.proposals.js';
 import {
+  breadcrumbsOf,
+  childCounts,
   decorateDocs,
+  depthOf,
   findDocRow,
   findDocRowBySlug,
+  isSelfOrDescendant,
   mapVersions,
+  matchesNeedle,
+  nextSortOrder,
   projectIdOf,
   projectKey,
   slugify,
+  subtreeHeight,
   SYSTEM_PROJECT_KEY,
-  toSummary,
+  toSearchSummary,
   uniqueSlug,
   validateContent,
   validateSlug,
   validateSummary,
   validateTitle,
 } from './knowledge.records.js';
-import { appendVersion, insertDoc } from './knowledge.write.js';
+import { appendVersion, insertDoc, moveDoc } from './knowledge.write.js';
 
 export interface KnowledgeListQuery {
   /** A project id, `none` for system-level documents only; absent = every visible project + system-level. */
@@ -79,6 +87,12 @@ export interface KnowledgeService {
     id: string,
     input: UpdateKnowledgeDocRequest,
   ): Promise<KnowledgeDocDetail>;
+  /** Moves a document to a new parent/position (NP-147); does not create a new content version. */
+  move(
+    actor: Actor,
+    id: string,
+    input: MoveKnowledgeDocRequest,
+  ): Promise<KnowledgeDocDetail>;
   version(
     actor: Actor,
     id: string,
@@ -98,7 +112,8 @@ export interface KnowledgeService {
     decision: 'accept' | 'reject',
     input: DecideKnowledgeProposalRequest,
   ): Promise<KnowledgeProposal>;
-  agentList(auth: RunAuth): Promise<KnowledgeDocSummary[]>;
+  /** `q` matches the same fields as the browser list (title, slug, summary, content). */
+  agentList(auth: RunAuth, q?: string | null): Promise<KnowledgeDocSummary[]>;
   agentGet(auth: RunAuth, idOrSlug: string): Promise<KnowledgeDoc>;
   agentPropose(
     auth: RunAuth,
@@ -172,6 +187,7 @@ async function detailOf(
     proposals: await pendingForDoc(conn, deps.users, doc.id, (projectId) =>
       canEdit(scope, projectId),
     ),
+    breadcrumbs: await breadcrumbsOf(conn, doc.id),
   };
 }
 
@@ -193,14 +209,10 @@ async function list(
   );
   const needle = query.q?.trim().toLowerCase();
   const matched = needle
-    ? rows.filter((row) =>
-        [row.title, row.slug, row.summary].some((value) =>
-          (str(value) ?? '').toLowerCase().includes(needle),
-        ),
-      )
+    ? rows.filter((row) => matchesNeedle(row, needle))
     : rows;
   const docs = await decorateDocs(conn, decoration(deps, scope), matched);
-  return docs.map(toSummary);
+  return docs.map((doc) => toSearchSummary(doc, needle));
 }
 
 async function create(
@@ -229,20 +241,49 @@ async function create(
     }
     requireEdit(scope, projectId);
     const key = projectKey(projectId);
+    const parentId = await resolveParent(tx.conn, key, input.parentId ?? null);
     if (slugInput && (await findDocRowBySlug(tx.conn, key, slugInput)))
       throw conflict(
         'KNOWLEDGE_SLUG_TAKEN',
         `The slug ${slugInput} is already used in this scope.`,
       );
     const slug = slugInput ?? (await uniqueSlug(tx.conn, key, slugify(title)));
+    const sortOrder = await nextSortOrder(tx.conn, key, parentId);
     return insertDoc(
       tx.conn,
       deps.ids,
-      { projectId, title, slug, summary, content },
+      { projectId, title, slug, summary, content, parentId, sortOrder },
       { type: 'user', id: actor.id },
     );
   });
   return detail(deps, actor, id);
+}
+
+/** Validates a create `parentId`: it must be a live, non-archived document in the same scope, within depth. */
+async function resolveParent(
+  conn: Conn,
+  key: string,
+  parentId: string | null,
+): Promise<string | null> {
+  if (!parentId) return null;
+  const parentRow = await findDocRow(conn, parentId);
+  if (!parentRow || str(parentRow.projectId) !== key)
+    throw invalid(
+      'INVALID_PARENT',
+      'parentId must be a document in the same scope.',
+    );
+  if (parentRow.archivedAt)
+    throw conflict(
+      'KNOWLEDGE_ARCHIVED',
+      'Cannot place a document under an archived parent.',
+    );
+  const parentDepth = await depthOf(conn, parentId);
+  if (parentDepth + 1 > KNOWLEDGE_MAX_DEPTH)
+    throw invalid(
+      'KNOWLEDGE_DEPTH_EXCEEDED',
+      `Documents can be nested at most ${KNOWLEDGE_MAX_DEPTH} levels deep.`,
+    );
+  return parentId;
 }
 
 async function detail(
@@ -308,6 +349,79 @@ async function update(
   return detail(deps, actor, id);
 }
 
+/**
+ * Moves a document to a new parent and/or position (NP-147). Same scope only, cannot move under its own descendant,
+ * depth limit enforced against the moved document's whole subtree, same permission as editing. `expectedVersion` is
+ * optional here (a move never changes it) and, when given, only guards against a content change since it was read.
+ */
+async function move(
+  deps: KnowledgeDeps,
+  actor: Actor,
+  id: string,
+  input: MoveKnowledgeDocRequest,
+): Promise<KnowledgeDocDetail> {
+  if (input.parentId !== null && typeof input.parentId !== 'string')
+    throw invalid('INVALID_PARENT', 'parentId must be a document id or null.');
+  if (!Number.isInteger(input.sortOrder))
+    throw invalid('INVALID_SORT_ORDER', 'sortOrder must be an integer.');
+  if (
+    input.expectedVersion !== undefined &&
+    !Number.isInteger(input.expectedVersion)
+  )
+    throw invalid(
+      'INVALID_VERSION',
+      'expectedVersion must be an integer when given.',
+    );
+  await deps.tx.run(async (tx) => {
+    const scope = await scopeOf(tx.conn, actor);
+    const doc = await requireDoc(deps, tx.conn, scope, id);
+    requireEdit(scope, doc.projectId);
+    if (doc.archivedAt)
+      throw conflict('KNOWLEDGE_ARCHIVED', 'Archived documents are read-only.');
+    if (
+      input.expectedVersion !== undefined &&
+      input.expectedVersion !== doc.version
+    )
+      throw conflict(
+        'KNOWLEDGE_VERSION_CONFLICT',
+        `The document is at version ${doc.version}.`,
+      );
+    const key = projectKey(doc.projectId);
+    let parentId: string | null = null;
+    if (input.parentId) {
+      const parentRow = await findDocRow(tx.conn, input.parentId);
+      if (!parentRow || str(parentRow.projectId) !== key)
+        throw invalid(
+          'INVALID_PARENT',
+          'parentId must be a document in the same scope.',
+        );
+      if (parentRow.archivedAt)
+        throw conflict(
+          'KNOWLEDGE_ARCHIVED',
+          'Cannot move a document under an archived parent.',
+        );
+      if (await isSelfOrDescendant(tx.conn, input.parentId, doc.id))
+        throw conflict(
+          'KNOWLEDGE_INVALID_MOVE',
+          'Cannot move a document under itself or one of its own descendants.',
+        );
+      parentId = input.parentId;
+    }
+    const parentDepth = parentId ? await depthOf(tx.conn, parentId) : 0;
+    const height = await subtreeHeight(tx.conn, doc.id);
+    if (parentDepth + 1 + (height - 1) > KNOWLEDGE_MAX_DEPTH)
+      throw invalid(
+        'KNOWLEDGE_DEPTH_EXCEEDED',
+        `Documents can be nested at most ${KNOWLEDGE_MAX_DEPTH} levels deep.`,
+      );
+    await moveDoc(tx.conn, doc.id, parentId, input.sortOrder, {
+      type: 'user',
+      id: actor.id,
+    });
+  });
+  return detail(deps, actor, id);
+}
+
 async function version(
   deps: KnowledgeDeps,
   actor: Actor,
@@ -338,6 +452,19 @@ async function setArchived(
     const doc = await requireDoc(deps, tx.conn, scope, id);
     requireEdit(scope, doc.projectId);
     if (!!doc.archivedAt === archived) return;
+    if (archived) {
+      const hasLiveChildren = await tx.conn.query
+        .selectFrom('knowledgeDocs')
+        .select('id')
+        .where('parentId', '=', doc.id)
+        .where('archivedAt', 'is', null)
+        .exists();
+      if (hasLiveChildren)
+        throw conflict(
+          'KNOWLEDGE_HAS_CHILDREN',
+          'Move or archive the child documents first.',
+        );
+    }
     await tx.conn.query
       .updateTable('knowledgeDocs')
       .set({ archivedAt: archived ? now() : null })
@@ -388,6 +515,7 @@ export function createKnowledgeService(deps: KnowledgeDeps): KnowledgeService {
     create: (actor, input) => create(deps, actor, input),
     detail: (actor, id) => detail(deps, actor, id),
     update: (actor, id, input) => update(deps, actor, id, input),
+    move: (actor, id, input) => move(deps, actor, id, input),
     version: (actor, id, number) => version(deps, actor, id, number),
     setArchived: (actor, id, archived) =>
       setArchived(deps, actor, id, archived),
@@ -395,24 +523,38 @@ export function createKnowledgeService(deps: KnowledgeDeps): KnowledgeService {
     proposals: (actor, status) => listPendingProposals(deps, actor, status),
     decide: (actor, proposalId, decision, input) =>
       decideProposal(deps, actor, proposalId, decision, input),
-    async agentList(auth) {
-      await requireCapability(deps.tx.read(), auth, 'context.read');
+    async agentList(auth, q) {
       const conn = deps.tx.read();
+      await requireCapability(conn, auth, 'context.read');
       const rows = await agentRows(conn, await runProject(conn, auth));
-      return (await decorateDocs(conn, decoration(deps, null), rows)).map(
-        toSummary,
-      );
+      const needle = q?.trim().toLowerCase();
+      const matched = needle
+        ? rows.filter((row) => matchesNeedle(row, needle))
+        : rows;
+      const docs = await decorateDocs(conn, decoration(deps, null), matched);
+      return docs.map((doc) => toSearchSummary(doc, needle));
     },
     agentGet: (auth, idOrSlug) => agentGet(deps, auth, idOrSlug),
     agentPropose: (auth, input) => agentPropose(deps, auth, input),
     async claimIndex(conn, projectId) {
-      return (await agentRows(conn, projectId)).map((row) => ({
-        id: str(row.id) ?? '',
-        slug: str(row.slug) ?? '',
-        title: str(row.title) ?? '',
-        summary: str(row.summary) ?? '',
-        projectId: projectIdOf(row.projectId),
-      }));
+      const rows = (await agentRows(conn, projectId)).filter(
+        (row) => !str(row.parentId),
+      );
+      const children = await childCounts(
+        conn,
+        rows.map((row) => str(row.id) ?? ''),
+      );
+      return rows.map((row) => {
+        const id = str(row.id) ?? '';
+        return {
+          id,
+          slug: str(row.slug) ?? '',
+          title: str(row.title) ?? '',
+          summary: str(row.summary) ?? '',
+          projectId: projectIdOf(row.projectId),
+          childCount: children.get(id) ?? 0,
+        };
+      });
     },
   };
 }

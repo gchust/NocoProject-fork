@@ -10,6 +10,7 @@ import {
   type RuntimeKind,
   type RuntimeVisibility,
 } from '../shared/protocol.js';
+import { runtimeDaemonInfo } from './daemon-compat.js';
 
 export const AGENT_PROVIDERS: readonly AgentProvider[] = [
   'claude',
@@ -49,12 +50,16 @@ export function mapRuntime(row: Record<string, unknown>): Runtime {
     ownerUserId: str(row.ownerUserId) ?? '',
     ownerName: null,
     visibility: (str(row.visibility) ?? 'private') as RuntimeVisibility,
-    status: row.status === 'online' ? 'online' : 'offline',
+    status:
+      row.status === 'online' || row.status === 'upgrade_required'
+        ? row.status
+        : 'offline',
     online: isOnline(row.status, row.lastSeenAt),
     lastSeenAt: isoOrNull(row.lastSeenAt),
     version: str(row.version),
     capabilities: fromJson<RuntimeCapabilities>(row.capabilities),
     deviceInfo: fromJson<Record<string, unknown>>(row.deviceInfo),
+    daemon: runtimeDaemonInfo(row.deviceInfo),
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };

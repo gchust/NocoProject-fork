@@ -28,7 +28,7 @@ import { INBOX_ACTION_ICON } from './inbox-icons.js';
 import { inboxActionsFor, isSettled } from './inbox-model.js';
 
 /**
- * One compact card of the inbox list (nocosolution/frontend/nocosolution-frontend-standard.md §2). Selecting it shows its context in the detail
+ * One compact card of the inbox list (nocosolution/guidelines/NocoSolution 前端规范.md §S2). Selecting it shows its context in the detail
  * pane (and marks it read); Enter on a focused card opens its issue. A decision that still waits carries an amber
  * bar, an unread card a primary dot and a bold title (with a text alternative), a settled decision is dimmed with a
  * check. The menu button and a right-click offer read / unread and archive / unarchive.

@@ -60,6 +60,7 @@ import {
 import { createProjectRoutes } from '../modules/project/project.routes.js';
 import { createRunRoutes } from '../modules/run/run.routes.js';
 import { createRuntimeRoutes } from '../modules/runtime/runtime.routes.js';
+import { createComputerRoutes } from '../modules/computer/computer.routes.js';
 import { createSubtaskRoutes } from '../modules/subtask/subtask.routes.js';
 import { createWorkflowRoutes } from '../modules/workflow/workflow.routes.js';
 import {
@@ -104,6 +105,7 @@ import {
   npRunQueriesToken,
   npRunRecoveryServiceToken,
   npRunServiceToken,
+  npComputerServiceToken,
   npRuntimeServiceToken,
 } from '../providers/np.js';
 import { npAccess } from '../providers/np-authorization.js';
@@ -221,6 +223,13 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
         guard,
         createAgentRoutes(container.resolve(npAgentServiceToken)),
         createAgentEnvRoutes(container.resolve(npAgentEnvServiceToken)),
+      ),
+    );
+    router.route(
+      '/np/computers',
+      guarded(
+        guard,
+        createComputerRoutes(container.resolve(npComputerServiceToken)),
       ),
     );
     router.route(
