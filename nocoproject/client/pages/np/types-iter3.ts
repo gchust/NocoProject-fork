@@ -27,6 +27,12 @@ export interface KnowledgeDocSummary {
   readonly title: string;
   readonly slug: string;
   readonly summary: string | null;
+  /** null = a root document; otherwise the id of its parent document in the same scope (NP-147). */
+  readonly parentId?: string | null;
+  /** Position among its siblings (NP-147). */
+  readonly sortOrder?: number;
+  /** Number of direct, non-archived child documents (NP-147). */
+  readonly childCount?: number;
   readonly version: number;
   readonly updatedByType?: 'user' | 'agent';
   readonly updatedById?: string | null;
@@ -96,6 +102,12 @@ export interface KnowledgeDetail {
   readonly doc: KnowledgeDoc;
   readonly versions: readonly KnowledgeVersionSummary[];
   readonly proposals: readonly KnowledgeProposal[];
+  /** Ancestors from the root to this document's parent (NP-147); empty for a root document. */
+  readonly breadcrumbs: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly slug: string;
+  }[];
 }
 
 export interface CreateKnowledgeInput {
@@ -104,6 +116,18 @@ export interface CreateKnowledgeInput {
   readonly slug?: string;
   readonly summary?: string;
   readonly content: string;
+  /** The parent document's id, in the same scope; omitted/null = a root document (NP-147). */
+  readonly parentId?: string | null;
+}
+
+/**
+ * `PATCH /np/knowledge/:id` (NP-147): moves a document to a new parent/position. Distinguished from
+ * `UpdateKnowledgeInput` by carrying `parentId` and/or `sortOrder`; does not create a new content version.
+ */
+export interface MoveKnowledgeInput {
+  readonly parentId: string | null;
+  readonly sortOrder: number;
+  readonly expectedVersion?: number;
 }
 
 export interface UpdateKnowledgeInput {

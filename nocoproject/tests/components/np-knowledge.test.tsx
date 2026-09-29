@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import KnowledgePage from '../../client/pages/np/knowledge/index.js';
 import KnowledgeDetailPage from '../../client/pages/np/knowledge/detail/index.js';
+import NewKnowledgePage from '../../client/pages/np/knowledge/new.js';
+import { ProjectKnowledge } from '../../client/pages/np/projects/detail/knowledge-tab.js';
 import { answer, type RequestOptions, renderNp } from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
@@ -52,6 +54,41 @@ const PROPOSAL = {
   status: 'pending',
   createdAt: NOW,
 };
+const ROOT_DOC = {
+  id: 'k1',
+  projectId: 'p1',
+  projectName: 'Website',
+  title: 'Product manual',
+  slug: 'product-manual',
+  summary: 'How to use the product',
+  content: 'The product manual, from the top.',
+  parentId: null,
+  sortOrder: 0,
+  childCount: 1,
+  version: 1,
+  updatedByType: 'user',
+  updatedByName: 'Zhou',
+  updatedAt: NOW,
+  canEdit: true,
+};
+const CHILD_DOC = {
+  id: 'k2',
+  projectId: 'p1',
+  projectName: 'Website',
+  title: 'Inbox',
+  slug: 'inbox',
+  summary: 'How the inbox works',
+  content: 'What the inbox shows and how to clear it.',
+  parentId: 'k1',
+  sortOrder: 0,
+  childCount: 0,
+  version: 1,
+  updatedByType: 'user',
+  updatedByName: 'Zhou',
+  updatedAt: NOW,
+  canEdit: true,
+};
+
 const COMMON = {
   'GET np/projects': {
     data: [{ id: 'p1', name: 'Website', leadUserId: 'u1' }],
@@ -437,5 +474,173 @@ describe('knowledge base (§B)', () => {
     });
     await user.click(deployLink);
     expect(document.getElementById('deploy')).not.toBeNull();
+  });
+});
+
+describe('knowledge tree (NP-147)', () => {
+  it('shows the document tree by default, highlights the open document, and moves a document to the top level', async () => {
+    const user = userEvent.setup();
+    const patches: unknown[] = [];
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': { data: [ROOT_DOC, CHILD_DOC] },
+        'GET np/knowledge/proposals': { data: [] },
+        'PATCH np/knowledge/k2': (options: RequestOptions) => {
+          patches.push(options.json);
+          return { data: { ...CHILD_DOC, parentId: null } };
+        },
+      }),
+    );
+    await renderNp(<KnowledgePage />, { url: '/knowledge/k2' });
+
+    const tree = await screen.findByRole('tree', { name: 'Document tree' });
+    expect(within(tree).getByRole('link', { name: 'Inbox' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(
+      within(tree).getByRole('link', { name: 'Product manual' }),
+    ).not.toHaveAttribute('aria-current');
+
+    await user.click(screen.getByRole('button', { name: 'Move "Inbox"…' }));
+    await user.click(
+      await screen.findByRole('option', { name: 'Top level (no parent)' }),
+    );
+
+    await waitFor(() =>
+      expect(patches).toEqual([{ parentId: null, sortOrder: 1 }]),
+    );
+    expect(toast.add).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'success', title: '"Inbox" moved' }),
+    );
+  });
+
+  it('switches to the list view, which a search always shows', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': { data: [ROOT_DOC, CHILD_DOC] },
+        'GET np/knowledge/proposals': { data: [] },
+      }),
+    );
+    await renderNp(<KnowledgePage />, { url: '/knowledge' });
+
+    await screen.findByRole('tree', { name: 'Document tree' });
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    expect(screen.queryByRole('tree')).toBeNull();
+    expect(screen.getByRole('table')).toBeVisible();
+  });
+
+  it("shows a document's ancestors and its sub-documents, with a New sub-document action", async () => {
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge/k2': {
+          data: {
+            doc: CHILD_DOC,
+            versions: [],
+            proposals: [],
+            breadcrumbs: [
+              { id: 'k1', title: 'Product manual', slug: 'product-manual' },
+            ],
+          },
+        },
+        'GET np/knowledge': { data: [ROOT_DOC, CHILD_DOC] },
+      }),
+    );
+    await renderNp(<KnowledgeDetailPage />, {
+      url: '/knowledge/k2',
+      path: '/knowledge/:docId',
+    });
+
+    await screen.findByRole('heading', { name: 'Inbox', level: 1 });
+    const ancestors = screen.getByRole('navigation', {
+      name: 'Document ancestors',
+    });
+    expect(
+      within(ancestors).getByRole('link', { name: 'Product manual' }),
+    ).toHaveAttribute('href', '/knowledge/k1');
+
+    expect(
+      await screen.findByRole('heading', { name: /Sub-documents/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'New sub-document' }),
+    ).toHaveAttribute(
+      'href',
+      expect.stringContaining('parent=' + encodeURIComponent('k2')),
+    );
+  });
+
+  it('folds the sub-documents section into one row for a document with none', async () => {
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge/k1': {
+          data: { doc: ROOT_DOC, versions: [], proposals: [], breadcrumbs: [] },
+        },
+        'GET np/knowledge': { data: [ROOT_DOC] },
+      }),
+    );
+    await renderNp(<KnowledgeDetailPage />, {
+      url: '/knowledge/k1',
+      path: '/knowledge/:docId',
+    });
+
+    await screen.findByRole('heading', { name: 'Product manual', level: 1 });
+    // A root document has no ancestors, so the ancestor trail does not render.
+    expect(
+      screen.queryByRole('navigation', { name: 'Document ancestors' }),
+    ).toBeNull();
+    const heading = await screen.findByRole('heading', {
+      name: /Sub-documents/,
+    });
+    expect(heading).toHaveTextContent('none');
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('creates a document with the preset parent (NP-147)', async () => {
+    const user = userEvent.setup();
+    const created: unknown[] = [];
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'POST np/knowledge': (options: RequestOptions) => {
+          created.push(options.json);
+          return { data: { ...CHILD_DOC, id: 'k3', title: 'New page' } };
+        },
+      }),
+    );
+    await renderNp(<NewKnowledgePage />, {
+      url: '/knowledge/new?project=p1&parent=k1',
+    });
+
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'New page');
+    await user.click(screen.getByRole('button', { name: 'Create document' }));
+
+    await waitFor(() =>
+      expect(created).toEqual([expect.objectContaining({ parentId: 'k1' })]),
+    );
+  });
+
+  it("reuses the tree on the project's Knowledge tab", async () => {
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': { data: [ROOT_DOC, CHILD_DOC] },
+        'GET np/knowledge/proposals': { data: [] },
+      }),
+    );
+    await renderNp(<ProjectKnowledge projectId='p1' />);
+
+    const tree = await screen.findByRole('tree', { name: 'Document tree' });
+    const root = within(tree).getByRole('link', { name: 'Product manual' });
+    expect(root).toHaveAttribute('href', '/knowledge/k1');
+    expect(within(tree).getByRole('link', { name: 'Inbox' })).toHaveAttribute(
+      'href',
+      '/knowledge/k2',
+    );
   });
 });

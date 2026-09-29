@@ -20,7 +20,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
-import { createKnowledgeDoc, slugify } from '../api-knowledge.js';
+import {
+  createKnowledgeDoc,
+  fetchKnowledgeDetail,
+  slugify,
+} from '../api-knowledge.js';
 import { fetchProjects } from '../api.js';
 import { npKeys } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
@@ -75,6 +79,12 @@ function Body({
   const [projectId, setProjectId] = useState<string | null>(
     preset && preset !== 'workspace' ? preset : null,
   );
+  const parentId = params.get('parent') || undefined;
+  const parentDoc = useQuery({
+    queryKey: npKeys.knowledgeDoc(parentId ?? ''),
+    queryFn: ({ signal }) => fetchKnowledgeDetail(api, parentId ?? '', signal),
+    enabled: Boolean(parentId),
+  });
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
@@ -92,6 +102,7 @@ function Body({
         slug: (slugEdited ? slug : slugify(title)) || undefined,
         summary: summary.trim() || undefined,
         content,
+        parentId,
       }),
     onMutate: () => onPendingChange(true),
     onSuccess: (doc) => {
@@ -149,6 +160,13 @@ function Body({
             {t('np.knowledge.form.projectHint')}
           </FieldDescription>
         </Field>
+        {parentId ? (
+          <p className='text-sm text-muted-foreground'>
+            {t('np.knowledge.form.parentHint', {
+              title: parentDoc.data?.doc.title ?? parentId,
+            })}
+          </p>
+        ) : null}
         <Field data-invalid={titleError ? true : undefined}>
           <FieldLabel htmlFor='np-knowledge-title'>
             {t('np.knowledge.form.titleLabel')}

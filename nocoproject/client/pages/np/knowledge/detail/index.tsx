@@ -49,8 +49,10 @@ import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { canEditKnowledge } from '../knowledge-model.js';
 import { KnowledgeDiff } from '../knowledge-diff.js';
 import { KnowledgeProposalCard } from '../proposal-card.js';
+import { KnowledgeAncestors } from './ancestors.js';
 import { KnowledgeEditor } from './knowledge-editor.js';
 import { KnowledgeSidePanel } from './side-panel.js';
+import { KnowledgeSubDocuments } from './sub-documents.js';
 import { KnowledgeToc } from './toc.js';
 
 /**
@@ -179,6 +181,7 @@ function KnowledgeLayout({
   const main = (
     <div className='space-y-6 p-6 md:p-8'>
       <Breadcrumbs />
+      <KnowledgeAncestors breadcrumbs={detail.breadcrumbs} title={doc.title} />
       <PageHeader
         title={doc.title}
         description={doc.summary ?? undefined}
@@ -292,6 +295,7 @@ function KnowledgeLayout({
               )}
             </CardContent>
           </Card>
+          <KnowledgeSubDocuments doc={doc} />
         </>
       )}
       <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
