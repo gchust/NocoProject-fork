@@ -94,7 +94,7 @@ beforeEach(async () => {
   );
 });
 
-/** Bob's agent-executed issue with the PR linked by its run: Bob holds the `pr_review` card. */
+/** Bob's agent-executed issue in review with the PR linked by its run (the `pr_review` card waits for acceptance). */
 async function agentPullRequest(): Promise<{ issue: IssueV2; prId: string }> {
   const fixture = await registerRuntime(services, ALICE);
   const agentId = await createAgent(services, ALICE, fixture.runtimeId, 'Dev');
@@ -152,10 +152,10 @@ const lateMergedWebhook = () =>
 describe.skipIf(!db)(
   'a PR merged or closed without a webhook (PostgreSQL)',
   () => {
-    it('completes the issue and resolves the card when a refresh finds the PR merged', async () => {
+    it('completes the issue when a refresh finds the PR merged', async () => {
       const { issue, prId } = await agentPullRequest();
-      expect(await reviewCards()).toHaveLength(1);
-      expect((await reviewCards())[0]?.resolved_at).toBeNull();
+      // NP-131: in review is not accepted yet, so there is no merge card.
+      expect(await reviewCards()).toEqual([]);
 
       github.getPullRequest.mockImplementation(async () => prPayload(MERGED));
       const view = await services.pullRequests.refresh(BOB, issue.id, prId);
@@ -165,7 +165,8 @@ describe.skipIf(!db)(
       expect(
         detail.activities.find((item) => item.action === 'pr_merged'),
       ).toMatchObject({ details: { statusChangedTo: 'done' } });
-      expect((await reviewCards())[0]?.resolved_at).not.toBeNull();
+      // The merge completed the issue: no card for a PR that is already merged.
+      expect(await reviewCards()).toEqual([]);
 
       // A second refresh and a late delivery find nothing left to do.
       await services.pullRequests.refresh(BOB, issue.id, prId);
@@ -182,12 +183,14 @@ describe.skipIf(!db)(
       expect(
         (await services.issueQueries.detail(BOB, issue.id)).issue.statusKey,
       ).toBe('done');
-      expect((await reviewCards())[0]?.resolved_at).not.toBeNull();
+      expect(await reviewCards()).toEqual([]);
       expect(await mergedActivities()).toBe(1);
     });
 
     it('resolves the card but keeps the status when the PR was closed without merging', async () => {
       const { issue, prId } = await agentPullRequest();
+      await services.deliveries.accept(BOB, issue.id, {});
+      expect((await reviewCards())[0]?.resolved_at).toBeNull();
       github.getPullRequest.mockImplementation(async () =>
         prPayload({ state: 'closed', closed_at: '2026-10-02T00:00:00Z' }),
       );
@@ -195,7 +198,7 @@ describe.skipIf(!db)(
       expect(view.state).toBe('closed');
       expect(
         (await services.issueQueries.detail(BOB, issue.id)).issue.statusKey,
-      ).toBe('in_review');
+      ).toBe('done');
       expect((await reviewCards())[0]?.resolved_at).not.toBeNull();
       expect(await mergedActivities()).toBe(0);
     });

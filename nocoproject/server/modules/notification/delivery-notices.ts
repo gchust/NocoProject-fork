@@ -7,7 +7,7 @@
  * | approval.decided    | resolves the approvers' cards; approved / rejected → info `approval_decided` to the member |
  * |                     | who asked, or to the issue owner when an agent asked (not for cancellations)              |
  * | pr.reviewRequested  | decision `pr_review` to the owner (`user:<owner>:pr_review:<issueId>`), held until the    |
- * |                     | issue is in_review (or terminal); entering in_review releases it (NP-128)               |
+ * |                     | delivery is accepted (the issue is in a done status); accepting releases it (NP-131)     |
  * | pr.merged           | info `pr_merged` to the subscribers                                                      |
  * | pr.closed           | resolves the issues' `pr_review` cards                                                   |
  */
@@ -105,8 +105,9 @@ async function notifyPullRequestReview(
 }
 
 /**
- * NP-128: the owner accepts the delivery (`review_requested`) before merging, so the merge card waits while the agent
- * is still working — the PR is usually opened before the issue moves to in_review.
+ * NP-128 / NP-131: the owner accepts the delivery (`review_requested`) before merging, so the merge card waits until
+ * the acceptance passed — the issue is in a done status (accepting from the inbox, a status change, or an approved
+ * approval). The PR is usually opened while the agent is still working, long before that.
  */
 export async function onPullRequestReview(
   round: Round,
@@ -115,12 +116,11 @@ export async function onPullRequestReview(
   const issue = await findIssue(round.tx.conn, event.issueId);
   if (!issue?.ownerUserId) return;
   const view = await round.deps.workflows.forIssue(round.tx.conn, issue);
-  if (issue.statusKey !== 'in_review' && !view.isTerminal(issue.statusKey))
-    return;
+  if (!view.isDone(issue.statusKey)) return;
   await notifyPullRequestReview(round, issue, event);
 }
 
-/** The issue entered in_review: the held `pr_review` card of an agent-executed issue follows the delivery. */
+/** The delivery was accepted (the issue entered a done status): the held `pr_review` cards follow the acceptance. */
 export async function releasePullRequestReviews(
   round: Round,
   issue: IssueV1,

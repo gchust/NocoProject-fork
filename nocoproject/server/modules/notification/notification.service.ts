@@ -18,7 +18,7 @@
  * | status_changed      | info     | subscribers        | status changed by a user or an agent (not by the system)  |
  * | approval_pending    | decision | each approver      | a status change waits for approval (iteration 2)          |
  * | approval_decided    | info     | requester (member), else the owner | the request was approved or rejected      |
- * | pr_review           | decision | owner              | a ready PR on an agent-executed issue, once in_review     |
+ * | pr_review           | decision | owner              | a ready PR on an agent-executed issue, once accepted (done) |
  * | pr_merged           | info     | subscribers        | a linked PR was merged                                    |
  * | knowledge_proposal  | decision | project lead(s), else owner/admin | an agent proposed a knowledge change (iteration 3) |
  * | knowledge_decided   | info     | source issue owner | the proposal was accepted or rejected                     |
@@ -148,7 +148,13 @@ async function onStatusChanged(
       });
     }
   }
-  if (status.to === 'in_review') await releasePullRequestReviews(round, issue);
+  // NP-131: the merge card waits for the acceptance. A merge that completes the issue (system) resolves the cards.
+  if (
+    actor.type !== 'system' &&
+    view.isDone(status.to) &&
+    !view.isDone(status.from)
+  )
+    await releasePullRequestReviews(round, issue);
   const designDecider = await onDesignStatus(round, issue, actor, status);
   if (designDecider) deciders.push(designDecider);
   if (actor.type === 'system') return;
