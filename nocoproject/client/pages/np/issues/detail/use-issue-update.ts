@@ -5,6 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useParams } from 'react-router';
 
 import { type IssueUpdateResult, updateIssue } from '../../api.js';
 import { npKeys } from '../../constants.js';
@@ -23,7 +24,10 @@ export function useIssueUpdate(
   const { t } = useTranslation();
   const api = useApiClient();
   const queryClient = useQueryClient();
-  const detailKey = npKeys.issue(issue.id);
+  // The detail route accepts both an internal ID and an identifier (NP-119).
+  // Read and refresh the same cache entry that IssueDetailView subscribes to.
+  const { issueId } = useParams();
+  const detailKey = npKeys.issue(issueId ?? issue.id);
 
   return useMutation({
     mutationFn: (changes: UpdateIssueInput) => {
