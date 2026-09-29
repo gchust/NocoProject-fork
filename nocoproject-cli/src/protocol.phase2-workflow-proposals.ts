@@ -1,9 +1,10 @@
 /**
- * NocoProject 协议类型：Phase 2 工作流模板提议（NP-77 方案第 2 版 §4–§6，stage 2 / NP-82；实现见
- * docs/phase2/protocol-workflow-proposals.md）。
+ * NocoProject protocol types: Phase 2 workflow template proposals (NP-77 plan v2 §4-§6, stage 2 /
+ * NP-82; implementation in docs/phase2/protocol-workflow-proposals.md).
  *
- * 服务端正本；CLI 用 `pnpm sync-protocol` 复制本文件。本文件只从 protocol.ts 与更早的协议文件引用类型。
- * 只增不改：追加的枚举值写成单独的类型再合并。
+ * Server source of truth; the CLI copies this file with `pnpm sync-protocol`. This file only imports
+ * types from protocol.ts and the earlier protocol files.
+ * Additive only: added enum values are written as separate types and then merged in.
  */
 import type {
   InboxItemTypeV5,
@@ -12,31 +13,31 @@ import type {
 } from './protocol.phase2-workflow.js';
 import type { ActorType, Workflow } from './protocol.js';
 
-// ---------- 模板（§4） ----------
+// ---------- Templates (§4) ----------
 
-/** `GET /np/workflows[/:id]`、`GET /np/agent/workflows[/:id]` 的模板：追加修订号与系统模板标记 */
+/** The template of `GET /np/workflows[/:id]`, `GET /np/agent/workflows[/:id]`: adds the revision number and the system-template marker */
 export type WorkflowV5 = Omit<Workflow, 'definition'> & {
   readonly definition: WorkflowDefinitionV5;
-  /** 当前修订号，从 1 开始；每次生效 + 1 */
+  /** Current revision number, starts at 1, +1 each time a change takes effect */
   readonly revision: number;
-  /** 种子模板（`default`、`software-with-approval`）：只能复制，不能改 */
+  /** A seed template (`default`, `software-with-approval`): can only be copied, not modified */
   readonly isSystem: boolean;
 };
 
 export type WorkflowListItemV5 = WorkflowV5 & {
-  /** 使用这个模板的项目数（默认模板含未指定模板的项目） */
+  /** Number of projects using this template (the default template includes projects with no template specified) */
   readonly projectCount: number;
 };
 
-/** `GET /np/agent/workflows[/:id]`：追加“运行所在项目正在用它” */
+/** `GET /np/agent/workflows[/:id]`: adds whether the run's own project is using it */
 export type AgentWorkflowListItem = WorkflowListItemV5 & {
   readonly usedByRunProject: boolean;
 };
 
-// ---------- 提议（§4） ----------
+// ---------- Proposals (§4) ----------
 
 export type WorkflowProposalKind = 'update' | 'copy';
-/** `stale`：接受时模板已不是提议所基于的修订，提议作废，需基于最新版重提 */
+/** `stale`: the template is no longer at the revision the proposal was based on by accept time, so the proposal becomes stale and must be resubmitted against the latest version */
 export type WorkflowProposalStatus =
   'pending' | 'accepted' | 'rejected' | 'stale';
 
@@ -45,8 +46,9 @@ export const WORKFLOW_COMMENT_MAX = 2000;
 export const WORKFLOW_TEMPLATE_NAME_MAX = 100;
 
 /**
- * `POST /np/agent/workflows/proposals`：`templateId`（改现有模板）与 `copyFrom`（复制后新建）二选一；
- * `name` 复制时必填，改现有时可选（改名）。`definition` 是整份新定义。
+ * `POST /np/agent/workflows/proposals`: exactly one of `templateId` (modify an existing template) or
+ * `copyFrom` (create a new one by copying); `name` is required when copying, optional when modifying
+ * an existing one (renames it). `definition` is the entire new definition.
  */
 export interface AgentWorkflowProposalRequest {
   readonly templateId?: string;
@@ -56,21 +58,21 @@ export interface AgentWorkflowProposalRequest {
   readonly reason: string;
 }
 
-/** `POST /np/workflows/proposals/:id/accept|reject`（请求体可省略） */
+/** `POST /np/workflows/proposals/:id/accept|reject` (request body may be omitted) */
 export interface DecideWorkflowProposalRequest {
   readonly comment?: string | null;
 }
 
-/** `PUT /np/workflows/:id`（owner/admin，无界面）：`revision` 是所基于的修订（乐观锁） */
+/** `PUT /np/workflows/:id` (owner/admin, no UI): `revision` is the revision it is based on (optimistic locking) */
 export interface UpdateWorkflowRequest {
   readonly definition: unknown;
   readonly revision: number;
   readonly name?: string;
-  /** 记在修订快照上的说明 */
+  /** A note recorded on the revision snapshot */
   readonly note?: string;
 }
 
-// ---------- 差异摘要（§4） ----------
+// ---------- Diff summary (§4) ----------
 
 export interface WorkflowDiffStatus {
   readonly key: string;
@@ -82,7 +84,7 @@ export interface WorkflowDiffTransition {
   readonly from: string;
   readonly to: string;
   readonly actors: readonly string[];
-  /** 审批人角色；没有审批为 null */
+  /** Approver roles; null when there is no approval */
   readonly approvers: readonly string[] | null;
 }
 
@@ -95,16 +97,16 @@ export interface WorkflowDiff {
   readonly statuses: {
     readonly added: readonly WorkflowDiffStatus[];
     readonly removed: readonly WorkflowDiffStatus[];
-    /** 名称或颜色变化（key 与分类不可改） */
+    /** Name or color changes (key and category cannot change) */
     readonly changed: readonly {
       readonly key: string;
       readonly name?: WorkflowDiffChange<string>;
       readonly color?: WorkflowDiffChange<string>;
     }[];
-    /** 两边都有的状态顺序变了（看板列顺序） */
+    /** The order of statuses present on both sides changed (board column order) */
     readonly order?: WorkflowDiffChange<readonly string[]>;
   };
-  /** 按 `from → to` 对比；同一对的多条合并（角色取并集） */
+  /** Compared by `from → to` pair; multiple entries for the same pair are merged (actors take the union) */
   readonly transitions: {
     readonly added: readonly WorkflowDiffTransition[];
     readonly removed: readonly WorkflowDiffTransition[];
@@ -115,15 +117,16 @@ export interface WorkflowDiff {
       readonly approvers?: WorkflowDiffChange<readonly string[] | null>;
     }[];
   };
-  /** 每个状态的进入动作增删（整条动作对比） */
+  /** Additions and removals of each status's entry actions (compared as whole actions) */
   readonly actions: readonly {
     readonly statusKey: string;
     readonly added: readonly StageAction[];
     readonly removed: readonly StageAction[];
   }[];
   /**
-   * 单独高亮：新定义里所有带 `agentId` 的 `runExecutor`（进入该阶段自动唤醒该 Agent，免负责人确认）。
-   * `isNew`：基准里同一状态没有这个 Agent 的 runExecutor。
+   * Separately highlighted: every `runExecutor` with an `agentId` in the new definition (entering that
+   * stage automatically wakes that agent, without the owner's confirmation).
+   * `isNew`: the same status in the baseline has no runExecutor for this agent.
    */
   readonly runExecutorAgents: readonly {
     readonly statusKey: string;
@@ -132,34 +135,34 @@ export interface WorkflowDiff {
     readonly isNew: boolean;
   }[];
   readonly childBatchDoneWakesParentExecutor?: WorkflowDiffChange<boolean>;
-  /** 名称变化（改名或复制后的新名） */
+  /** Name change (a rename, or the new name after a copy) */
   readonly name?: WorkflowDiffChange<string>;
-  /** 与基准完全相同 */
+  /** Whether it is identical to the baseline */
   readonly empty: boolean;
 }
 
-/** `GET /np/workflows/proposals/:id`、Agent 提交的响应 */
+/** `GET /np/workflows/proposals/:id`, and the response an agent submits */
 export interface WorkflowProposal {
   readonly id: string;
   readonly kind: WorkflowProposalKind;
-  /** 改现有：目标模板；复制：接受后才有（新模板 id） */
+  /** For update: the target template; for copy: only present after accept (the new template's id) */
   readonly templateId: string | null;
   readonly templateName: string | null;
   readonly copyFromId: string | null;
   readonly copyFromName: string | null;
-  /** 提议的名称（复制必有；改现有时为 null 表示不改名） */
+  /** The proposed name (required for copy; null for update means don't rename) */
   readonly name: string | null;
   readonly reason: string;
-  /** 所基于的修订（改现有：目标模板；复制：来源模板） */
+  /** The revision it is based on (for update: the target template; for copy: the source template) */
   readonly baseRevision: number;
-  /** 改现有：目标模板当前修订；复制为 null */
+  /** For update: the target template's current revision; null for copy */
   readonly currentRevision: number | null;
-  /** 待定且目标模板已不是 `baseRevision`：接受会得到 409 `WORKFLOW_PROPOSAL_STALE` */
+  /** Pending and the target template is no longer at `baseRevision`: accepting will get 409 `WORKFLOW_PROPOSAL_STALE` */
   readonly outdated: boolean;
   readonly definition: WorkflowDefinitionV5;
-  /** 相对 `baseRevision` 的定义（复制：来源模板） */
+  /** The diff relative to `baseRevision` (for copy: relative to the source template) */
   readonly diff: WorkflowDiff;
-  /** 改现有：使用该模板的项目数；复制为 0 */
+  /** For update: number of projects using this template; 0 for copy */
   readonly affectedProjectCount: number;
   readonly proposedByAgentId: string;
   readonly proposedByAgentName: string | null;
@@ -171,22 +174,22 @@ export interface WorkflowProposal {
   readonly decidedByName: string | null;
   readonly decidedAt: string | null;
   readonly comment: string | null;
-  /** 接受后生效的修订号 */
+  /** The revision number that took effect after accept */
   readonly resultRevision: number | null;
-  /** 调用者可以决定（owner/admin，且仍待定） */
+  /** Whether the caller can decide it (owner/admin, and it is still pending) */
   readonly canDecide: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
 
-/** `GET /np/workflows/:id/revisions` 的行（新在前） */
+/** Row of `GET /np/workflows/:id/revisions` (newest first) */
 export interface WorkflowRevision {
   readonly revision: number;
   readonly name: string;
   readonly definition: WorkflowDefinitionV5;
-  /** 由提议接受产生；管理员直接写或首次修改前的基线快照为 null */
+  /** Produced by a proposal being accepted; null for an admin's direct write or the baseline snapshot before the first change */
   readonly proposalId: string | null;
-  /** 提议的理由或管理员写入的说明；基线快照为 null */
+  /** The proposal's reason, or the note an admin wrote; null for the baseline snapshot */
   readonly note: string | null;
   readonly createdByType: ActorType;
   readonly createdById: string | null;
@@ -194,9 +197,9 @@ export interface WorkflowRevision {
   readonly createdAt: string;
 }
 
-// ---------- 错误 ----------
+// ---------- Errors ----------
 
-/** 409 `WORKFLOW_STATUS_CONFLICT` 的 `details`：删除的状态上还有任务，按项目计数 */
+/** `details` of a 409 `WORKFLOW_STATUS_CONFLICT`: issues still exist in the deleted status, counted per project */
 export interface WorkflowStatusConflictDetails {
   readonly statuses: readonly {
     readonly statusKey: string;
@@ -213,21 +216,24 @@ export const ERROR_WORKFLOW_STATUS_CONFLICT = 'WORKFLOW_STATUS_CONFLICT';
 export const ERROR_WORKFLOW_PROPOSAL_PENDING = 'WORKFLOW_PROPOSAL_PENDING';
 export const ERROR_WORKFLOW_PROPOSAL_STALE = 'WORKFLOW_PROPOSAL_STALE';
 export const ERROR_WORKFLOW_PROPOSAL_DECIDED = 'WORKFLOW_PROPOSAL_DECIDED';
-/** 系统模板只能复制（`copyFrom`），不能改 */
+/** A system template can only be copied (`copyFrom`), not modified */
 export const ERROR_WORKFLOW_SYSTEM_TEMPLATE = 'WORKFLOW_SYSTEM_TEMPLATE';
 
-// ---------- 活动、收件箱 ----------
+// ---------- Activity, inbox ----------
 
 /**
- * `workflow_proposed`（来源任务，Agent）`{ proposalId, kind, templateId, copyFromId, name }`；
- * `workflow_updated`（来源任务，决定人）`{ proposalId, kind, templateId, name, revision }`
+ * `workflow_proposed` (on the source issue, from the agent) `{ proposalId, kind, templateId,
+ * copyFromId, name }`;
+ * `workflow_updated` (on the source issue, from the decider) `{ proposalId, kind, templateId, name,
+ * revision }`
  */
 export type ActivityActionPhase2WorkflowProposals =
   'workflow_proposed' | 'workflow_updated';
 
 /**
- * `workflow_proposal`：决定卡，发给每个 owner/admin（accept / reject）；
- * `workflow_decided`：结果通知，发给来源任务负责人（accepted / rejected / stale）
+ * `workflow_proposal`: a decision card, sent to every owner/admin (accept / reject);
+ * `workflow_decided`: the result notification, sent to the source issue's owner (accepted / rejected /
+ * stale)
  */
 export type InboxItemTypePhase2WorkflowProposals =
   'workflow_proposal' | 'workflow_decided';

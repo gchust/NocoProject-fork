@@ -1,5 +1,5 @@
 /**
- * Stage effects (NP-77 方案 §1–§3): what entering a status does, run by `triggers().onStatusChanged` inside the
+ * Stage effects (NP-77 proposal §1–§3): what entering a status does, run by `triggers().onStatusChanged` inside the
  * transaction of every status write that goes through `writeStatus` or the browser PATCH (a failed run's reset does
  * not). Entry conditions are separate (`stage-guards.ts`).
  *
@@ -277,7 +277,7 @@ async function runExecutor(
       !access ||
       !(await canInvokeAgent(tx.conn, after.ownerUserId, access))
     ) {
-      // 方案 §2 待定 5: the owner may not invoke the preset agent, so the owner decides instead.
+      // NP-77 proposal §2, open question 5: the owner may not invoke the preset agent, so the owner decides instead.
       const suggested = await suggest(deps, tx, entry, agentId);
       return {
         kind: 'skipped',

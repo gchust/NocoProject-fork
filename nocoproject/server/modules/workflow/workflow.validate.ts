@@ -1,5 +1,5 @@
 /**
- * Workflow definition validation (NP-77 方案 §5): the single source of truth for what a template may contain. Stage 2
+ * Workflow definition validation (NP-77 proposal §5): the single source of truth for what a template may contain. Stage 2
  * (Agent proposals, the admin `PUT`) runs it when a proposal is submitted and again when it is accepted, passing the
  * current revision as `base` so existing statuses keep their key and category.
  *

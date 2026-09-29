@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# 每次 `pnpm build` 都执行（cli/nocoproject-build.ts 声明的 afterClientBuild 钩子）：把同级目录的 nocoproject-cli 打包到
-# dist/client/assets/cli/，应用在 <服务器>/assets/cli/nocoproject-cli-<版本>.tgz 提供下载，“添加电脑”页面的安装命令指向这里。
-# 应用只对 /assets/* 提供静态文件，且按一年 immutable 缓存，所以文件名带版本号：版本取 client/pages/np/constants.ts 的
-# CLI_VERSION，与 CLI 的 package.json 不一致时失败。任何一步失败都让构建失败，构建产物里不会缺安装包。
+# Runs on every `pnpm build` (the afterClientBuild hook declared by cli/nocoproject-build.ts): packs the sibling
+# nocoproject-cli directory into dist/client/assets/cli/. The app serves it for download at
+# <server>/assets/cli/nocoproject-cli-<version>.tgz, and the "add a computer" page's install command points there.
+# The app only serves static files under /assets/* and caches them immutably for a year, so the filename carries
+# the version: the version comes from CLI_VERSION in client/pages/np/constants.ts, and this fails if it doesn't
+# match the CLI's package.json. Any step failing fails the build, so the build output never ends up missing the installer.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

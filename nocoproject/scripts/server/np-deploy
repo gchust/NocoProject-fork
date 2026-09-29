@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# 服务器端部署（装在 ali-agents 的 ~/nocoproject/bin/，由 scripts/deploy-server.sh 同步过去）。说明见 docs/deploy.md。
+# Server-side deploy (installed on ali-agents at ~/nocoproject/bin/, synced there by scripts/deploy-server.sh). See docs/deploy.md.
 #
-#   np-deploy <tag>           用 ~/nocoproject/build/ 里已上传的 dist 部署
-#   np-deploy <tag> --stdin   先从标准输入解开 tar.gz（dist/、Dockerfile、Dockerfile.dockerignore、config.example.yml）
+#   np-deploy <tag>           deploy using the dist already uploaded to ~/nocoproject/build/
+#   np-deploy <tag> --stdin   first unpack the tar.gz from stdin (dist/, Dockerfile, Dockerfile.dockerignore, config.example.yml)
 #
-# 顺序：备份数据库 → 打镜像 → 替换容器 → 等健康检查；不健康就换回上一个镜像并以非零退出。
+# Order: back up the database -> build the image -> replace the container -> wait for the health check; if unhealthy, roll back to the previous image and exit non-zero.
 set -euo pipefail
 
 TAG="${1:?usage: np-deploy <tag> [--stdin]}"
@@ -19,7 +19,7 @@ if [ "${2:-}" = --stdin ]; then
   tar -xzf - -C "$ROOT/build"
 fi
 test -f "$ROOT/build/dist/package.json" || { echo "no dist in $ROOT/build" >&2; exit 1; }
-# “添加电脑”的安装命令从应用下载 CLI，构建钩子（scripts/pack-cli.sh）应已打进 dist；缺了就不部署。
+# The "add a computer" install command downloads the CLI from the app; the build hook (scripts/pack-cli.sh) should have packed it into dist already. Don't deploy if it's missing.
 ls "$ROOT"/build/dist/client/assets/cli/nocoproject-cli-*.tgz >/dev/null 2>&1 ||
   { echo "dist has no CLI installer (dist/client/assets/cli/); rebuild with pnpm build" >&2; exit 1; }
 
@@ -28,10 +28,10 @@ mkdir -p "$ROOT/backups"
 BACKUP="$ROOT/backups/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)-$TAG.dump"
 docker exec nocoproject-postgres pg_dump -U nocoproject -Fc nocoproject > "$BACKUP"
 echo "    $BACKUP ($(du -h "$BACKUP" | cut -f1))"
-# 部署前备份留最近 10 份；每日备份由 np-backup 管理。
+# Keep the 10 most recent pre-deploy backups; daily backups are managed by np-backup.
 ls -1t "$ROOT"/backups/pre-deploy-*.dump | tail -n +11 | xargs -r rm -f
 
-# 没有新上传的产物、而这个标签的镜像还在时直接复用：`np-deploy <旧标签>` 就是回滚。
+# Reuse the image directly when there's no newly uploaded build and this tag's image still exists: `np-deploy <old tag>` is how you roll back.
 if [ "${2:-}" != --stdin ] && [ "${NP_DEPLOY_REBUILD:-0}" != 1 ] && docker image inspect "nocoproject:$TAG" >/dev/null 2>&1; then
   echo "==> reuse existing image nocoproject:$TAG"
 else
@@ -44,10 +44,10 @@ PREVIOUS="$(docker inspect -f '{{.Config.Image}}' "$APP" 2>/dev/null || true)"
 
 run_app() {
   docker rm -f "$APP" >/dev/null 2>&1 || true
-  # rootless Docker 释放端口需要一点时间，端口占用时重试。
+  # Rootless Docker takes a moment to release the port; retry when it's still in use.
   for _ in 1 2 3 4 5 6; do
     sleep 3
-    # 容器 root 即宿主机 agents 用户，才能读写挂载的 config.yml 与 storage；只绑 Tailscale 地址，Caddy 反代到这里。
+    # The container runs as root, which maps to the host's agents user, so it can read and write the mounted config.yml and storage; it only binds the Tailscale address, and Caddy reverse-proxies to it.
     if docker run -d --name "$APP" --user 0:0 --network nocoproject --restart unless-stopped \
       --env-file "$ROOT/app.env" -p "$BIND:13000" \
       -v "$ROOT/config.yml:/app/config.yml:ro" -v "$ROOT/storage:/app/storage" \
@@ -71,7 +71,7 @@ healthy() {
 echo "==> replace container (previous: ${PREVIOUS:-none})"
 if run_app "nocoproject:$TAG" && healthy; then
   echo "healthy: nocoproject:$TAG"
-  # 保留最近 3 个版本的镜像，便于回滚。
+  # Keep the 3 most recent image versions to make rollback easy.
   docker images nocoproject --format '{{.Tag}}' | grep -v '^latest$' | tail -n +4 |
     xargs -r -I{} docker rmi "nocoproject:{}" >/dev/null 2>&1 || true
   exit 0

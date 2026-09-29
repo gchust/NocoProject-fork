@@ -1,4 +1,4 @@
-// @temporary(nocobase-official): 待替换为 NocoBase 官方 工作流审批
+// @temporary(nocobase-official): to be replaced by the official NocoBase workflow approval
 /**
  * Row mapping for the `approvalRequests` table (docs/phase1/iteration-2-contract.md §D).
  */

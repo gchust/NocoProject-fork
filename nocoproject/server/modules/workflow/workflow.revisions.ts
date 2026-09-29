@@ -1,5 +1,5 @@
 /**
- * Writing workflow template definitions (NP-77 方案 §4): the shared steps behind accepting a proposal and the admin
+ * Writing workflow template definitions (NP-77 proposal §4): the shared steps behind accepting a proposal and the admin
  * `PUT /np/workflows/:id`, plus the revision history.
  *
  * - `checkDefinition` runs the §5 validation (`workflow.validate.ts`, with the current definition as `base` for an

@@ -1,4 +1,4 @@
-// @temporary(nocobase-official): 待替换为 NocoBase 官方 活动流与变更事件
+// @temporary(nocobase-official): to be replaced by the official NocoBase activity stream and change events
 /**
  * In-process domain event bus.
  *
