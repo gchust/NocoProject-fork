@@ -247,6 +247,33 @@ describe.skipIf(!db)('knowledge documents (PostgreSQL)', () => {
     expect(systemOnly.body.data.map((doc) => doc.slug)).toEqual(['glossary']);
   });
 
+  it('searches document content and returns an excerpt for a content-only hit', async () => {
+    await createDoc(bob, {
+      projectId,
+      title: 'Deploy',
+      summary: 'How we ship',
+      content: 'Run the release script, then tag the commit and notify #ops.',
+    });
+    // "deploy" already shows up in the title: no excerpt needed.
+    const byTitle = await carol<Data<KnowledgeDocSummary[]>>(
+      'GET',
+      '/np/knowledge?q=deploy',
+    );
+    expect(byTitle.body.data.map((doc) => doc.slug)).toEqual(['deploy']);
+    expect(byTitle.body.data[0]).not.toHaveProperty('matchExcerpt');
+    // "notify" only appears in the content.
+    const byContent = await carol<Data<KnowledgeDocSummary[]>>(
+      'GET',
+      '/np/knowledge?q=notify',
+    );
+    expect(byContent.body.data.map((doc) => doc.slug)).toEqual(['deploy']);
+    expect(byContent.body.data[0].matchExcerpt).toContain('notify');
+    expect(
+      (await carol<Data<KnowledgeDocSummary[]>>('GET', '/np/knowledge?q=nope'))
+        .body.data,
+    ).toEqual([]);
+  });
+
   it('hides documents of private projects from non-members', async () => {
     const secret = await createDoc(bob, {
       projectId: privateId,

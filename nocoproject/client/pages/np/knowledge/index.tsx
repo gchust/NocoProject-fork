@@ -112,6 +112,11 @@ export default function KnowledgePage(): ReactElement {
                 {row.original.summary}
               </p>
             ) : null}
+            {row.original.matchExcerpt ? (
+              <p className='line-clamp-1 text-xs text-muted-foreground italic'>
+                “{row.original.matchExcerpt}”
+              </p>
+            ) : null}
           </div>
         ),
       },
