@@ -41,6 +41,8 @@ export interface CommentComposerProps {
   /** A line shown above the trigger preview (the session panel's "sent after this turn"). */
   readonly notice?: ReactElement | null;
   readonly placeholder?: string;
+  /** Called with the posted comment once it is in the issue detail cache (NP-132: the page brings it into view). */
+  readonly onSent?: (comment: IssueComment) => void;
 }
 
 /**
@@ -60,6 +62,7 @@ export function CommentComposer({
   editorRef,
   notice,
   placeholder,
+  onSent,
 }: CommentComposerProps): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -103,6 +106,7 @@ export function CommentComposer({
       queryClient.setQueryData<IssueDetail>(npKeys.issue(issueId), (detail) =>
         detail ? withComment(detail, comment) : detail,
       );
+      onSent?.(comment);
       void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
       void queryClient.invalidateQueries({ queryKey: npKeys.issues });
     } catch (error: unknown) {

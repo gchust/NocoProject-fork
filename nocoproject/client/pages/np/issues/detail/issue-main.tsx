@@ -37,6 +37,7 @@ import { NpProcessBadge } from '../process-fields.js';
 import { buildTimeline, mergeActivities } from './timeline.js';
 import { useIssueDecisions } from './use-issue-decisions.js';
 import { useOlderActivities } from './use-older-activities.js';
+import { useRevealSentComment } from './use-reveal-sent-comment.js';
 
 /**
  * What the decision section already shows, so the cards below do not repeat it: the approvals it covers, and whether
@@ -82,6 +83,7 @@ export function IssueMain({
   const api = useApiClient();
   const { issue } = detail;
   const editorRef = useRef<NpRichTextHandle>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<IssueComment | null>(null);
   const members = useQuery({
     queryKey: npKeys.members,
@@ -107,6 +109,7 @@ export function IssueMain({
       }),
     [detail, older.activities],
   );
+  const revealSent = useRevealSentComment(composerRef, issue.id, timeline);
   const replyToName = replyTo
     ? (replyTo.authorName ??
       (replyTo.authorType === 'agent' ? agentName(replyTo.authorId) : null))
@@ -328,7 +331,10 @@ export function IssueMain({
           </section>
         </div>
       </div>
-      <div className='sticky bottom-0 border-t bg-background/95 backdrop-blur-md'>
+      <div
+        ref={composerRef}
+        className='sticky bottom-0 border-t bg-background/95 backdrop-blur-md'
+      >
         <div className='w-full px-6 py-3 md:px-8'>
           <CommentComposer
             issueId={issue.id}
@@ -339,6 +345,7 @@ export function IssueMain({
             replyToName={replyToName}
             onCancelReply={() => setReplyTo(null)}
             editorRef={editorRef}
+            onSent={revealSent}
           />
         </div>
       </div>

@@ -195,6 +195,7 @@ function CommentBlock({
   const tag = context.commentTag?.(comment) ?? null;
   return (
     <div
+      data-comment-id={comment.id}
       data-comment-kind={tag ?? undefined}
       className={cn(
         'group space-y-1.5 p-3',
