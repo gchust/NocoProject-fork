@@ -98,7 +98,7 @@ const npIter2EnUS = {
       'Use the same secret in the repository’s webhook settings. Stored encrypted and never shown again.',
     webhookUrl: 'Webhook URL',
     webhookUrlHint:
-      'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite and status events. A project’s repository list has the steps for each repository.',
+      'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite, status and push events. A project’s repository list has the steps for each repository.',
     lastEvent: 'Last delivery {{time}}.',
     noEvents: 'No delivery received yet.',
     set: 'Set',
@@ -429,6 +429,8 @@ const npIter2EnUS = {
     knowledge_accepted: 'Your knowledge proposal “{{doc}}” was accepted.',
     knowledge_rejected: 'Your knowledge proposal “{{doc}}” was rejected.',
     design_review: '{{actor}} submitted a design proposal for your review.',
+    signal_suppressed:
+      '{{title}}: the agent already tried {{limit}} times in a row, so it will not be woken again until the problem is resolved. Please take over.',
   },
   projectMore: {
     label: 'More project actions',

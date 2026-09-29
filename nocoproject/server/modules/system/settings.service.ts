@@ -1,10 +1,11 @@
 import type { AgentEntryBindings } from '../shared/protocol.capabilities.js';
 import { EMPTY_ENTRIES } from './agent-entries.js';
+import { normalizeSignalRules } from './signal-rules.js';
 /**
  * The single `systemSettings` row: the issue prefix, the issue counter and (iteration 1) the `settings` json.
  * Iteration 2 adds `modelPrices` and `intakeParser` to the json, iteration 3 `metricThresholds`, iteration 4
- * `defaultProcess`, `pmAgentId` and `retrospectiveOnDone`, Phase 2 (NP-77) `stageRunLimit` and `stageRunWindowHours`;
- * missing keys read as their defaults.
+ * `defaultProcess`, `pmAgentId` and `retrospectiveOnDone`, Phase 2 (NP-77) `stageRunLimit` and `stageRunWindowHours`,
+ * Phase 2 signals `signalRules`; missing keys read as their defaults.
  */
 import type { Conn } from '../shared/db.js';
 import {
@@ -21,6 +22,7 @@ import type {
   IntakeParserSetting,
   MetricThresholds,
   ModelPrice,
+  SignalRules,
 } from '../shared/protocol.js';
 import {
   DEFAULT_METRIC_THRESHOLDS,
@@ -56,6 +58,8 @@ export interface WorkspaceSettings {
   /** Phase 2: at most this many `runExecutor` stage runs per issue and status within `stageRunWindowHours`. */
   readonly stageRunLimit: number;
   readonly stageRunWindowHours: number;
+  /** Phase 2 signals: which signal kinds wake the executor agent (none by default). */
+  readonly signalRules: SignalRules;
 }
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
@@ -70,6 +74,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   retrospectiveOnDone: true,
   stageRunLimit: DEFAULT_STAGE_RUN_LIMIT,
   stageRunWindowHours: DEFAULT_STAGE_RUN_WINDOW_HOURS,
+  signalRules: {},
 };
 
 function positiveInt(value: unknown, fallback: number): number {
@@ -182,6 +187,7 @@ function normalize(stored: Partial<WorkspaceSettings>): WorkspaceSettings {
       stored.stageRunWindowHours,
       DEFAULT_WORKSPACE_SETTINGS.stageRunWindowHours,
     ),
+    signalRules: normalizeSignalRules(stored.signalRules),
   };
 }
 

@@ -41,6 +41,7 @@ import {
   type ClaimedRunWorkflowExtras,
   type ClaimedTriggerComment,
   type ClaimedTriggerPhase2Extras,
+  type ClaimedTriggerSignalExtras,
   type DaemonClaimRequest,
   type DaemonClaimResponse,
   type RunTriggerType,
@@ -99,12 +100,13 @@ export type ClaimedRunV2 = ClaimedRunV1 & ClaimedRunPhase2Extras;
 export type ClaimedRunV3 = ClaimedRunV2 & ClaimedRunPhase3Extras;
 /** ...and the iteration-4 agent kind, reasoning effort and design state (iteration-4 contract §B, §C). */
 export type ClaimedRunV4 = ClaimedRunV3 & ClaimedRunPhase4Extras;
-/** ...and the Phase 2 checklist and stage instruction (NP-77 §6), and the issue's attachments (NP-111). */
+/** ...and the Phase 2 checklist and stage instruction (NP-77 §6), the issue's attachments (NP-111) and signals. */
 export type ClaimedRunV5 = ClaimedRunV4 &
   ClaimedRunWorkflowExtras &
   ClaimedRunAttachmentExtras & {
     readonly triggers: readonly (ClaimedRun['triggers'][number] &
-      ClaimedTriggerPhase2Extras)[];
+      ClaimedTriggerPhase2Extras &
+      ClaimedTriggerSignalExtras)[];
   };
 
 /** The `stage` of a `stageEntered` trigger, from its payload. */
@@ -115,6 +117,22 @@ function stageOf(type: unknown, payload: unknown): ClaimedTriggerPhase2Extras {
     stage: {
       from: str(value.from) ?? '',
       to: str(value.to) ?? '',
+      instruction: str(value.instruction),
+    },
+  };
+}
+
+/** The `signal` of a `signal` trigger, from its payload. */
+function signalOf(type: unknown, payload: unknown): ClaimedTriggerSignalExtras {
+  if (type !== 'signal') return {};
+  const value = fromJson<Record<string, unknown>>(payload) ?? {};
+  return {
+    signal: {
+      source: str(value.source) ?? '',
+      kind: str(value.kind) ?? '',
+      key: str(value.key) ?? '',
+      title: str(value.title) ?? '',
+      url: str(value.url),
       instruction: str(value.instruction),
     },
   };
@@ -392,7 +410,10 @@ async function buildClaimedRun(
       const comment = row.commentId
         ? comments.get(str(row.commentId) ?? '')
         : undefined;
-      const stage = stageOf(row.type, row.payload);
+      const stage = {
+        ...stageOf(row.type, row.payload),
+        ...signalOf(row.type, row.payload),
+      };
       return comment
         ? { type: str(row.type) as RunTriggerType, comment, ...stage }
         : { type: str(row.type) as RunTriggerType, ...stage };

@@ -72,6 +72,7 @@ export function createIteration4Services(
       settings,
       workflows,
       issues: () => services.issues,
+      triggers: () => services.triggers,
     }),
     design: createDesignService({
       tx,

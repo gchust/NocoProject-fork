@@ -20,3 +20,15 @@ export function renderInstruction(
     )
     .trim();
 }
+
+/** The same placeholder syntax over any set of names (signal titles and instructions); unknown names stay as written. */
+export function fillPlaceholders(
+  template: string,
+  values: Readonly<Record<string, string>>,
+): string {
+  return template
+    .replace(TEMPLATE_VARIABLE, (match, name: string) =>
+      Object.hasOwn(values, name) ? (values[name] ?? '') : match,
+    )
+    .trim();
+}
