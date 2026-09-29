@@ -128,6 +128,27 @@ describe('issue list', () => {
     );
   });
 
+  it('drops the title labels on a phone so they never cover the title (NP-163)', async () => {
+    api.request.mockImplementation(
+      withMe(() => ({
+        data: [
+          {
+            ...ISSUES[0],
+            labels: [{ id: 'l1', name: 'bug', color: 'red' }],
+          },
+        ],
+      })),
+    );
+    await renderPage();
+
+    // jsdom has no media queries: assert the chips sit in a wrapper hidden below `md`, beside the title.
+    const chip = await screen.findByText('bug');
+    const title = screen.getByText('Wire up the claim endpoint');
+    const wrapper = chip.closest('.max-md\\:hidden');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper).not.toContainElement(title);
+  });
+
   it('hides "New issue" without issues/edit (NP-161)', async () => {
     api.request.mockImplementation(
       withMe(() => ({ data: ISSUES }), { 'nocoproject.issues/edit': 'none' }),
