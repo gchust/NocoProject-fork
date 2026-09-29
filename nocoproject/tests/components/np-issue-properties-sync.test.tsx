@@ -67,7 +67,11 @@ describe('issue properties synchronization', () => {
           };
           return Promise.resolve({ data: issue });
         }
-        if (options.path === `np/issues/${routeId}`)
+        // Opened by identifier, the page redirects to the id URL and loads it again there.
+        if (
+          options.path === `np/issues/${routeId}` ||
+          options.path === 'np/issues/101'
+        )
           return Promise.resolve({
             data: {
               issue,
