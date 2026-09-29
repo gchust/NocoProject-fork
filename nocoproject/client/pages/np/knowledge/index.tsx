@@ -38,6 +38,7 @@ import { useNpFormatters } from '../format.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
 import { useUrlSearch } from '../issues/use-url-search.js';
 import type { KnowledgeDocSummary } from '../types-iter3.js';
+import { canDecideAllKnowledge } from '../permissions.js';
 import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import {
   filterKnowledge,
@@ -95,9 +96,10 @@ export default function KnowledgePage(): ReactElement {
     queryKey: npKeys.projects,
     queryFn: () => fetchProjects(api),
   });
-  const { viewer, isAdmin } = useWorkspaceViewer();
+  const { viewer } = useWorkspaceViewer();
+  const decidesAll = canDecideAllKnowledge(viewer);
   const canCreate =
-    isAdmin || writableProjects(viewer, projects.data).length > 0;
+    decidesAll || writableProjects(viewer, projects.data).length > 0;
   const columns = useMemo<ColumnDef<KnowledgeDocSummary, unknown>[]>(() => {
     const projectName = (projectId: string | null): string =>
       projectId

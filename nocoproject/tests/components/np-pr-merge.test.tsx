@@ -3,6 +3,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { authzDouble } from './np-authz-double.js';
+
 import { DecisionActionsBar } from '../../client/pages/np/inbox/decision-actions-bar.js';
 import { readInboxActions } from '../../client/pages/np/inbox/decision-actions.js';
 import { mergeBlockerOf } from '../../client/pages/np/issues/detail/pr-model.js';
@@ -24,6 +26,10 @@ import {
 const api = vi.hoisted(() => ({ request: vi.fn() }));
 const toast = vi.hoisted(() => ({ add: vi.fn() }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@/components/ui/toast', () => ({ toast }));
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
@@ -77,6 +83,7 @@ function apiError(code: string, status: number, details?: unknown) {
 afterEach(() => {
   api.request.mockReset();
   toast.add.mockReset();
+  authzDouble.as('member');
 });
 
 describe('merge button on the PR card', () => {
@@ -233,6 +240,8 @@ describe('merge dialog', () => {
   });
 
   it('names the missing token permissions and links admins to the settings', async () => {
+    // Whoever may change the GitHub settings gets the link (np-admin / np-owner by default).
+    authzDouble.as('admin');
     const { user, dialog } = await openDialog({
       [`GET ${PATH}`]: { data: PREFLIGHT },
       [`POST ${PATH}`]: () =>

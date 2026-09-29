@@ -24,11 +24,8 @@ import { Button } from '@/components/ui/button';
 import { fetchMembers } from '../../api-collab.js';
 import { fetchAgents, fetchMe, fetchRuntimes } from '../../api.js';
 import { isRuntimeOnline, npKeys } from '../../constants.js';
-import {
-  canEditAgent,
-  isWorkspaceAdmin,
-  viewerFrom,
-} from '../../permissions.js';
+import { canAuditAgentEnv, canEditAgent } from '../../permissions.js';
+import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { AgentEnvSection } from './agent-env.js';
 import { AgentForm } from './agent-form.js';
 import { AgentDelete } from './agent-delete.js';
@@ -69,6 +66,7 @@ function AgentDetailView({
     queryFn: () => fetchMembers(api),
   });
   const me = useQuery({ queryKey: npKeys.me, queryFn: () => fetchMe(api) });
+  const { viewer } = useWorkspaceViewer();
 
   const agent = agents.data?.find((candidate) => candidate.id === agentId);
 
@@ -113,7 +111,6 @@ function AgentDetailView({
     return <NpDetailSkeleton />;
   }
 
-  const viewer = viewerFrom(me.data?.userId, members.data);
   const canEdit = agent.canEdit ?? canEditAgent(viewer, agent);
   return (
     <PageContainer>
@@ -156,7 +153,7 @@ function AgentDetailView({
       <AgentEnvSection
         agentId={agent.id}
         canEdit={canEdit}
-        isAdmin={isWorkspaceAdmin(viewer)}
+        canAudit={canAuditAgentEnv(viewer)}
       />
     </PageContainer>
   );

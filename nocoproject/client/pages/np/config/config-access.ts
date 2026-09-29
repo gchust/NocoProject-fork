@@ -17,7 +17,7 @@ export const CONFIG_SETTINGS: Readonly<Record<ConfigTab, string>> = {
 
 export function settingsCheck(
   tab: ConfigTab,
-  action: 'read' | 'update' | 'invite',
+  action: 'read' | 'update' | 'invite' | 'assign' | 'define-roles',
 ): {
   readonly resource: { readonly type: 'settings'; readonly id: string };
   readonly action: string;

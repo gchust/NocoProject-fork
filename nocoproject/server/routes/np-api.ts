@@ -69,8 +69,10 @@ import {
   npRouter,
   readJson,
   rejectRunTokens,
+  sessionActor,
 } from '../modules/shared/http.js';
-import type { MeResponse } from '../modules/shared/protocol.js';
+import { RELATED_SCOPES } from '../modules/shared/access.js';
+import type { MeAccessResponse } from '../modules/shared/protocol.roles-server.js';
 import {
   npAgentEnvServiceToken,
   npAttachmentServiceToken,
@@ -129,11 +131,14 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
     const router = new Hono();
 
     const me = npRouter<AuthEnv>();
-    me.get('/', (context) => {
+    // NP-153: the viewer's scope of every business action, so the pages hide what the services would refuse.
+    me.get('/', async (context) => {
       const { user } = context.get('auth')!;
-      const data: MeResponse = {
+      const access = sessionActor(context).access;
+      const data: MeAccessResponse = {
         userId: user.id,
         name: user.name || user.email,
+        scopes: access ? await access.scopes() : RELATED_SCOPES,
       };
       return context.json({ data });
     });

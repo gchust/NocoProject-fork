@@ -195,6 +195,24 @@ describe('NocoProject business actions on the built-in authorization (NP-153)', 
     expect(none.effect).toBe('deny');
     expect(scopeOfDecision(none)).toBe('none');
 
+    // `GET /np/me` hands the browser the same scopes, so the pages hide what the services refuse.
+    const scopesOf = async (viewer: typeof alice) =>
+      (
+        await data<{ scopes: Record<string, string> }>(
+          await viewer.get('/np/me'),
+          200,
+        )
+      ).scopes;
+    expect(await scopesOf(bob)).toMatchObject({
+      'nocoproject.issues/close': 'all',
+      'nocoproject.projects/delete': 'all',
+    });
+    expect(await scopesOf(alice)).toMatchObject({
+      'nocoproject.issues/close': 'related',
+      'nocoproject.projects/create': 'all',
+      'nocoproject.projects/delete': 'none',
+    });
+
     // What the seed stored.
     const memberSet = await data<StoredSet>(
       await root.get('/authz/permission-sets/np-member'),

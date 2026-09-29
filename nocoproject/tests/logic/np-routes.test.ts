@@ -84,7 +84,14 @@ describe('browser API /np/*', () => {
     const response = await router.request('/np/me', { headers: signedIn });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      data: { userId: 'u1', name: 'User u1' },
+      data: {
+        userId: 'u1',
+        name: 'User u1',
+        // NP-153: the viewer's business scopes, for the pages.
+        scopes: expect.objectContaining({
+          'nocoproject.issues/close': expect.any(String),
+        }),
+      },
     });
   });
 

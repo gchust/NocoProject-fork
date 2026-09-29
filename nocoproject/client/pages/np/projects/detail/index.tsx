@@ -29,17 +29,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { fetchMembers } from '../../api-collab.js';
 import { fetchProject } from '../../api-projects.js';
-import { fetchMe } from '../../api.js';
 import { catalogFromWorkflow, npKeys } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
 import { type BoardColumnMore, IssueBoard } from '../../issues/board/board.js';
 import { useBoardPages } from '../../issues/use-issue-pages.js';
-import {
-  canDeleteProject,
-  canEditProject,
-  viewerFrom,
-} from '../../permissions.js';
+import { canDeleteProject, canEditProject } from '../../permissions.js';
 import type { BoardGroup, Member, ProjectDetail } from '../../types.js';
+import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { ProjectStatusBadge } from '../project-badges.js';
 import { progressFromCounts, progressFromGroups } from '../progress.js';
 import { ProjectKnowledge } from './knowledge-tab.js';
@@ -83,7 +79,7 @@ function ProjectDetailView({
   });
   const filters = { projectId };
   const board = useBoardPages(filters, true);
-  const me = useQuery({ queryKey: npKeys.me, queryFn: () => fetchMe(api) });
+  const { viewer } = useWorkspaceViewer();
   const members = useQuery({
     queryKey: npKeys.members,
     queryFn: () => fetchMembers(api),
@@ -134,7 +130,6 @@ function ProjectDetailView({
 
   if (!project.data) return <NpDetailSkeleton />;
 
-  const viewer = viewerFrom(me.data?.userId, members.data);
   return (
     <ProjectLayout
       project={project.data}

@@ -189,6 +189,9 @@ export const npKeys = {
   members: ['np', 'members'] as const,
   /** NP-88: pending invitations; under `members`, so a members refresh refetches them. */
   invitations: ['np', 'members', 'invitations'] as const,
+  /** NP-153: business roles and who holds them; under `members`, so a members refresh refetches them. */
+  accessRoles: ['np', 'members', 'roles'] as const,
+  accessCatalog: ['np', 'access', 'catalog'] as const,
   labels: ['np', 'labels'] as const,
   workflows: ['np', 'workflows'] as const,
   inbox: ['np', 'inbox'] as const,

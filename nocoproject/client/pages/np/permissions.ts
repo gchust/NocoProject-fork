@@ -1,112 +1,153 @@
-import type { Member, MemberRole } from './types.js';
+import type { Me } from './types.js';
+import type { NpScope, NpScopes } from './types-roles.js';
 
 /**
- * The application-level rules of `docs/phase1/iteration-1-contract.md` §B, as the browser applies them: to hide or
- * disable a control the server would refuse. The server enforces every rule itself; these predicates only keep the
- * interface from offering what will fail. `members.role` is the projection of the built-in permission sets
- * `np-owner` / `np-admin` (NP-117); settings tabs use their own settings checks (`config/config-access.ts`).
+ * The business rules of `server/modules/shared/authz.ts`, as the browser applies them: to hide or disable a control
+ * the server would refuse. Since NP-153 they read the viewer's scope of each business action (`GET /np/me` `scopes`,
+ * resolved by the server from the viewer's business roles) instead of the `members.role` projection: `all` passes on
+ * every record, `related` only where NocoProject's own relation holds (owner, project lead, agent owner, creator),
+ * `none` never. The server enforces every rule itself; records that carry their own `canEdit` flag win over these.
  */
 
 export interface Viewer {
   readonly userId: string;
-  /** The viewer's `members.role`, or null while the member list is loading or the viewer has no row yet. */
-  readonly role: MemberRole | null;
+  /** Scope per `composite/action`; a key missing (an older server) reads as `related`. */
+  readonly scopes: NpScopes;
 }
 
-export function viewerFrom(
-  userId: string | undefined,
-  members: readonly Member[] | undefined,
-): Viewer | null {
-  if (!userId) return null;
-  return {
-    userId,
-    role: members?.find((member) => member.userId === userId)?.role ?? null,
-  };
+/** The business composites (`server/modules/shared/access.ts` `NP_BUSINESS`). */
+export const NP_BUSINESS = {
+  projects: 'nocoproject.projects',
+  issues: 'nocoproject.issues',
+  pullRequests: 'nocoproject.pullRequests',
+  agents: 'nocoproject.agents',
+  knowledge: 'nocoproject.knowledge',
+  skills: 'nocoproject.skills',
+  intake: 'nocoproject.intake',
+  reports: 'nocoproject.reports',
+} as const;
+
+export type NpBusinessId = (typeof NP_BUSINESS)[keyof typeof NP_BUSINESS];
+
+export function viewerFrom(me: Me | undefined): Viewer | null {
+  if (!me?.userId) return null;
+  return { userId: me.userId, scopes: me.scopes ?? {} };
 }
 
-export function isWorkspaceAdmin(viewer: Viewer | null): boolean {
-  return viewer?.role === 'owner' || viewer?.role === 'admin';
+export function scopeOf(
+  viewer: Viewer | null,
+  composite: NpBusinessId,
+  action: string,
+): NpScope {
+  if (!viewer) return 'none';
+  return viewer.scopes[`${composite}/${action}`] ?? 'related';
 }
 
-/** Change owner and write done / cancelled: the issue owner, the project lead, owner/admin. */
-export function canActAsIssueOwner(
+/** `all`, or `related` and the viewer is the person the record belongs to. */
+function allowsOwn(
+  scope: NpScope,
+  viewer: Viewer | null,
+  personId: string | null | undefined,
+): boolean {
+  return (
+    scope === 'all' ||
+    (scope === 'related' && !!personId && personId === viewer?.userId)
+  );
+}
+
+/** Issue actions whose "related" is the issue owner and the project lead (`managesIssue`). */
+function managesIssue(
+  viewer: Viewer | null,
+  scope: NpScope,
+  issue: { readonly ownerUserId: string | null },
+  projectLeadUserId?: string | null,
+): boolean {
+  return (
+    allowsOwn(scope, viewer, issue.ownerUserId) ||
+    (scope === 'related' && allowsOwn(scope, viewer, projectLeadUserId))
+  );
+}
+
+/** `issues/close`: write done / cancelled. */
+export function canCloseIssue(
   viewer: Viewer | null,
   issue: { readonly ownerUserId: string | null },
   projectLeadUserId?: string | null,
 ): boolean {
-  if (!viewer) return false;
-  return (
-    isWorkspaceAdmin(viewer) ||
-    issue.ownerUserId === viewer.userId ||
-    (!!projectLeadUserId && projectLeadUserId === viewer.userId)
+  return managesIssue(
+    viewer,
+    scopeOf(viewer, NP_BUSINESS.issues, 'close'),
+    issue,
+    projectLeadUserId,
   );
 }
 
-/** Edit the project, project members, resources: the project lead, owner/admin. */
+/** `issues/change-owner`. */
+export function canChangeIssueOwner(
+  viewer: Viewer | null,
+  issue: { readonly ownerUserId: string | null },
+  projectLeadUserId?: string | null,
+): boolean {
+  return managesIssue(
+    viewer,
+    scopeOf(viewer, NP_BUSINESS.issues, 'change-owner'),
+    issue,
+    projectLeadUserId,
+  );
+}
+
+/** `projects/manage`: edit the project, its members and resources. */
 export function canEditProject(
   viewer: Viewer | null,
   project: { readonly leadUserId?: string | null },
 ): boolean {
-  if (!viewer) return false;
-  return isWorkspaceAdmin(viewer) || project.leadUserId === viewer.userId;
+  return allowsOwn(
+    scopeOf(viewer, NP_BUSINESS.projects, 'manage'),
+    viewer,
+    project.leadUserId,
+  );
 }
 
-/** Delete project: owner/admin. */
+/** `projects/delete`: only on every project. */
 export function canDeleteProject(viewer: Viewer | null): boolean {
-  return isWorkspaceAdmin(viewer);
+  return scopeOf(viewer, NP_BUSINESS.projects, 'delete') === 'all';
 }
 
-/** Edit the agent, access scope, delegation list: the agent's owner, owner/admin. */
+/** `agents/manage`: edit the agent, its access scope and delegation list. */
 export function canEditAgent(
   viewer: Viewer | null,
   agent: { readonly ownerUserId?: string | null },
 ): boolean {
-  if (!viewer) return false;
-  return isWorkspaceAdmin(viewer) || agent.ownerUserId === viewer.userId;
-}
-
-export const MEMBER_ROLES: readonly MemberRole[] = ['owner', 'admin', 'member'];
-
-export interface RoleOption {
-  readonly value: MemberRole;
-  readonly disabled: boolean;
-}
-
-/**
- * The role choices `viewer` has for `target` (member roles, §B; NP-117): only an owner grants or revokes owner, and the
- * last owner keeps it; admin and member are ordinary role assignments, changed by whoever may assign roles in user
- * management (`assignRoles`, the `user` `assign-role` check). The target's current role is always listed and enabled
- * so the select can show it.
- */
-export function memberRoleOptions(
-  viewer: Viewer | null,
-  target: Member,
-  members: readonly Member[],
-  assignRoles: boolean,
-): RoleOption[] {
-  const viewerIsOwner = viewer?.role === 'owner';
-  const owners = members.filter((member) => member.role === 'owner').length;
-  const lastOwner = target.role === 'owner' && owners <= 1;
-
-  const allowed = (role: MemberRole): boolean => {
-    if (role === target.role) return true;
-    if (lastOwner) return false;
-    // Granting owner, or changing anything about an owner, is the owners' decision alone.
-    if (role === 'owner' || target.role === 'owner') return viewerIsOwner;
-    return assignRoles;
-  };
-
-  return MEMBER_ROLES.map((value) => ({ value, disabled: !allowed(value) }));
-}
-
-/** Whether the role select for `target` offers any change at all. */
-export function canChangeMemberRole(
-  viewer: Viewer | null,
-  target: Member,
-  members: readonly Member[],
-  assignRoles: boolean,
-): boolean {
-  return memberRoleOptions(viewer, target, members, assignRoles).some(
-    (option) => option.value !== target.role && !option.disabled,
+  return allowsOwn(
+    scopeOf(viewer, NP_BUSINESS.agents, 'manage'),
+    viewer,
+    agent.ownerUserId,
   );
+}
+
+/** `agents/env` on every agent: reveal values and read the audit. */
+export function canAuditAgentEnv(viewer: Viewer | null): boolean {
+  return scopeOf(viewer, NP_BUSINESS.agents, 'env') === 'all';
+}
+
+/** `skills/manage`: the creator's own, or every skill. */
+export function canManageSkill(
+  viewer: Viewer | null,
+  skill: { readonly createdById?: string | null },
+): boolean {
+  return allowsOwn(
+    scopeOf(viewer, NP_BUSINESS.skills, 'manage'),
+    viewer,
+    skill.createdById,
+  );
+}
+
+/** `knowledge/decide` on every document, including the workspace-wide ones. */
+export function canDecideAllKnowledge(viewer: Viewer | null): boolean {
+  return scopeOf(viewer, NP_BUSINESS.knowledge, 'decide') === 'all';
+}
+
+/** `knowledge/decide` in the projects the viewer leads. */
+export function canDecideLedKnowledge(viewer: Viewer | null): boolean {
+  return scopeOf(viewer, NP_BUSINESS.knowledge, 'decide') !== 'none';
 }

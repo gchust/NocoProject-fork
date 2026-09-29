@@ -353,6 +353,15 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
         componentLoader: () => import('./pages/np/config/members.js'),
         name: 'np-config-members',
         path: 'members',
+        children: [
+          {
+            // NP-153: one business role, as a covering page over the Roles section.
+            breadcrumb: { title: 'np.roles.breadcrumb' },
+            componentLoader: () => import('./pages/np/config/role-detail.js'),
+            name: 'np-config-member-role',
+            path: 'roles/:roleKey',
+          },
+        ],
       },
       {
         authz: settingsRead('nocoproject.workflows'),

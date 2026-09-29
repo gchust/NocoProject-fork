@@ -17,7 +17,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 
 - A top-level page is `PageContainer` + `PageHeader` (title = the menu name, one sentence of description, the one primary action rightmost). No `max-w-*` or `mx-auto` at page level.
 - Only form and dialog content are width-limited (`FieldGroup className='max-w-2xl'`, the dialog's content).
-- Page tabs are child routes (`NpRouteTabs` + default-tab redirect). Sections inside a covering detail page use `NpTabBar` with `?tab=`, because the detail's child routes are its dialogs. Both look the same.
+- Page tabs are child routes (`NpRouteTabs` + default-tab redirect). Sections inside a covering detail page use `NpTabBar` with `?tab=`, because the detail's child routes are its dialogs. Both look the same. `/config/members` also splits into Members and Roles with `NpTabBar` and `?tab=roles` (NP-153): it is already a tab of `/config`, and its child route is the covering role page `/config/members/roles/:roleKey`.
 - `/issues` and `/my-issues` fill the content area: header, toolbar, then the board or the table in a bounded area (`PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'`, `IssueBoard fill`, `DataTable fillHeight`). The page itself does not scroll.
 - Every top-level page renders `NpShortcuts` once (§8).
 - A page that is one conversation (`/pm`) fills the content area like `/issues`: header, then `SessionPanel fill` — only its message list scrolls, the composer stays under it, no properties column.
@@ -65,6 +65,14 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - Inline property edits and emoji reactions change in place and toast only on failure.
 - Destructive actions go through `AlertDialog` with a `destructive` action.
 - UI text states facts and actions and never explains the UI: no "here you can…", "below is…", "decide it right here…". An empty state's sentence is a fact, not an instruction.
+
+## 6a. Permissions
+
+- A control the viewer may not use is hidden or disabled; the server refuses the same write on its own. Never decide it from `members.role` (only a projection of the business roles, NP-153).
+- Settings items (`/config` tabs, `nocoproject.members` `assign` / `define-roles`, `nocoproject.github` `update`, ...) go through `useCan(settingsCheck(tab, action))` (`config/config-access.ts`).
+- Business actions (close an issue, change its owner, manage or delete a project, manage an agent, ...) have a scope — `all`, `related` (NocoProject's own relation: owner, project lead, agent owner, creator) or `none` — that `useCan` cannot tell apart. Read it from `useWorkspaceViewer()` (`GET /np/me` `scopes`) with the rules in `permissions.ts`; a record's own `canEdit` from the server wins over them.
+- `useWorkspaceViewer` refetches `/np/me` and the members when the authorization revision changes (`authorization:permissions-changed`), so buttons follow a role change without a reload, like the menu. Component tests mock `@nocobase/app-plugin-authorization/client` with `tests/components/np-authz-double.ts` (its `authzRevision.bump()` stands for that event).
+- Business roles are edited only in `/config/members` (Roles, `config/role-editor.tsx`): pages, settings actions, and business actions with "NocoProject rules" (the action's own record access) or "All records". Only what `GET /np/access/catalog` offers is listed, and the page states that holding "Define roles" gives access to anything in NocoProject.
 
 ## 7. Colour, motion, themes
 

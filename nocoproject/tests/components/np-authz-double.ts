@@ -6,6 +6,8 @@
  * Use with `vi.mock('@nocobase/app-plugin-authorization/client', () => import('./np-authz-double.js'))` and set the
  * viewer with `authzDouble.as(...)` before rendering.
  */
+import { useSyncExternalStore } from 'react';
+
 type Role = 'owner' | 'admin' | 'member';
 
 interface Check {
@@ -53,4 +55,25 @@ export function useCan(check: Check): {
     error: null,
     retry: async () => undefined,
   };
+}
+
+/** The authorization revision; `authzDouble.bump()` stands for an `authorization:permissions-changed` event. */
+const listeners = new Set<() => void>();
+let revision = 0;
+
+export const authzRevision = {
+  bump(): void {
+    revision += 1;
+    for (const listener of listeners) listener();
+  },
+};
+
+export function useAuthorizationRevision(): number {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => revision,
+  );
 }

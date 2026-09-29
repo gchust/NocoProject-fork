@@ -296,21 +296,12 @@ const npCollabZhCN: NpCollabResource = {
   members: {
     title: '成员',
     description:
-      '所有登录过 NocoProject 的人。所有者授予所有者身份，其他角色在用户管理中分配。',
-    manageUsers: '用户管理',
+      '所有登录过 NocoProject 的人及其岗位。只有所有者能授予或撤销所有者岗位。',
     loadFailed: '无法加载成员',
-    forbidden: '你不能修改这个角色。',
-    roleFor: '{{name}} 的角色',
-    roleChanged: '{{name}} 现在是{{role}}。',
-    role: {
-      owner: '所有者',
-      admin: '管理员',
-      member: '成员',
-    },
     columns: {
       name: '姓名',
       email: '邮箱',
-      role: '角色',
+      roles: '岗位',
     },
   },
   failure: {
