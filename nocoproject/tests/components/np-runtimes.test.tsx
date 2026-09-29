@@ -1,10 +1,10 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CLI_VERSION } from '../../client/pages/np/constants.js';
 import RuntimesPage from '../../client/pages/np/runtimes/index.js';
-import { renderNp } from './np-harness.js';
+import { answer, renderNp } from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
 
@@ -30,6 +30,7 @@ const runtime = (
 });
 
 // The page subscribes to `np:agents`; the realtime client is not part of this test.
+vi.mock('@/components/ui/toast', () => ({ toast: { add: vi.fn() } }));
 vi.mock('../../client/pages/np/use-realtime.js', () => ({
   useRealtimeTopic: () => undefined,
 }));
@@ -39,7 +40,7 @@ afterEach(() => api.request.mockReset());
 describe('runtimes page (NP-150)', () => {
   it('shows an old daemon as "upgrade required" with its command, and flags a CLI behind the served one', async () => {
     const user = userEvent.setup();
-    api.request.mockResolvedValue({
+    const runtimes = {
       data: [
         runtime('old', 'upgrade_required', {
           version: '0.3.2',
@@ -59,12 +60,51 @@ describe('runtimes page (NP-150)', () => {
           updateAvailable: false,
           latestVersion: CLI_VERSION,
         }),
+        {
+          ...runtime('legacy', 'online', {
+            version: CLI_VERSION,
+            status: 'ok',
+            updateAvailable: false,
+            latestVersion: CLI_VERSION,
+            credential: 'personalKey',
+          }),
+        },
       ],
-    });
+    };
+    api.request.mockImplementation(
+      answer({
+        'GET np/runtimes': runtimes,
+        'GET np/computers': {
+          data: [
+            {
+              id: 'c1',
+              ownerUserId: 'u1',
+              ownerName: 'Alice',
+              name: 'Studio',
+              keyStart: 'npc_ab',
+              daemonId: 'd1',
+              deviceName: 'studio.local',
+              lastUsedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              revokedAt: null,
+              canRevoke: true,
+            },
+          ],
+        },
+        'DELETE np/computers/c1': {
+          data: {
+            id: 'c1',
+            name: 'Studio',
+            revokedAt: new Date().toISOString(),
+          },
+        },
+      }),
+    );
     await renderNp(<RuntimesPage />, { url: '/runtimes' });
 
-    const table = await screen.findByRole('table');
-    const rows = within(table).getAllByRole('row');
+    await screen.findByText('old (claude)');
+    const [table] = screen.getAllByRole('table');
+    const rows = within(table!).getAllByRole('row');
     const row = (name: string) =>
       rows.find((item) => item.textContent?.includes(`${name} (claude)`));
     const [old, window, current] = [row('old'), row('window'), row('current')];
@@ -92,5 +132,24 @@ describe('runtimes page (NP-150)', () => {
         ),
       ),
     ).toBeInTheDocument();
+    expect(row('legacy')).toHaveTextContent('Personal API key');
+
+    // The computer credentials: revoking asks first, then calls the API.
+    await user.keyboard('{Escape}');
+    const computers = within(
+      screen.getByRole('region', { name: 'Computer credentials' }),
+    );
+    expect(computers.getByText('npc_ab…')).toBeInTheDocument();
+    await user.click(computers.getByRole('button', { name: 'Revoke' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Revoke',
+      }),
+    );
+    await waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'np/computers/c1', method: 'DELETE' }),
+      ),
+    );
   });
 });

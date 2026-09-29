@@ -22,8 +22,12 @@ Without a global install, run `node dist/cli.js ...`. The daemon also writes shi
 ## Log in
 
 ```bash
-nocoproject login --server http://127.0.0.1:13000/main --api-key <NocoBase API key>
+nocoproject login --server http://127.0.0.1:13000/main --computer-key <credential from "Add a computer">
+nocoproject login --server http://127.0.0.1:13000/main --api-key <NocoBase API key>   # user commands, older servers
 ```
+
+- **The daemon uses a computer credential** (NP-150): "Add a computer" in the app issues one per computer. It reaches only the daemon API (`/np/daemon/*`, header `x-np-computer-key`), is bound to this computer's daemon at its first register, and can be revoked on its own from the runtimes page. Saving one removes a personal API key from the config unless `--keep-api-key`; `--computer-key-stdin` reads it from stdin. A revoked credential pauses the daemon (it keeps running, `daemon status` and the log say how to log in again).
+- A personal API key is still what `nocoproject user …` uses, and the daemon falls back to it when there is no computer credential (older setups; the runtimes page flags such computers).
 
 - `--server` is the application URL **including its mount path** (`APP_BASE_PATH`, `/main` by default). If you give only an origin, login probes `<origin>/api/healthz` and then `<origin>/main/api/healthz`.
 - The key is verified with `GET /api/np/me`. Use `--no-verify` to save the key without contacting the server. `--api-key-stdin` keeps the key out of the shell history: on a terminal it prompts and reads one line without echoing; from a pipe it reads to EOF (`printf '%s' "$KEY" | nocoproject login --server <url> --api-key-stdin`).

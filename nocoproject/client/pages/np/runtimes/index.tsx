@@ -34,6 +34,7 @@ import { npKeys } from '../constants.js';
 import { useNpFormatters } from '../format.js';
 import type { AgentsTopicPayload, Runtime } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
+import { ComputersSection } from './computers-section.js';
 import { RuntimeCliCell, RuntimeStatusCell } from './runtime-cli.js';
 
 function deviceText(runtime: Runtime, key: string): string | null {
@@ -56,6 +57,7 @@ export default function RuntimesPage(): ReactElement {
   useRealtimeTopic<AgentsTopicPayload>('np:agents', () => {
     void queryClient.invalidateQueries({ queryKey: npKeys.runtimes });
     void queryClient.invalidateQueries({ queryKey: npKeys.agents });
+    void queryClient.invalidateQueries({ queryKey: npKeys.computers });
   });
 
   const columns = useMemo<ColumnDef<Runtime, unknown>[]>(
@@ -234,6 +236,7 @@ export default function RuntimesPage(): ReactElement {
       />
       <NpShortcuts />
       {content}
+      <ComputersSection />
       <Outlet />
     </PageContainer>
   );

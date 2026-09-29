@@ -184,6 +184,7 @@ export const npKeys = {
   issueAttachments: (id: string) => ['np', 'issue', id, 'attachments'] as const,
   agents: ['np', 'agents'] as const,
   runtimes: ['np', 'runtimes'] as const,
+  computers: ['np', 'computers'] as const,
   run: (id: string) => ['np', 'run', id] as const,
   members: ['np', 'members'] as const,
   /** NP-88: pending invitations; under `members`, so a members refresh refetches them. */

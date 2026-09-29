@@ -342,12 +342,15 @@ const npCollabZhCN: NpCollabResource = {
     title: '添加电脑',
     description: '在装有编码工具的电脑上运行以下命令。',
     install: '安装 CLI',
-    login: '登录到本应用',
+    credential: '签发这台电脑的凭证并登录',
+    computerName: '电脑名称，例如 工作室 Mac',
+    issue: '签发凭证',
+    credentialFailed: '无法签发凭证。',
+    credentialOnce:
+      '在那台电脑上运行。“{{name}}”的凭证只在这里显示一次；它只能调用守护进程接口，可在运行时页单独吊销。',
     start: '安装开机自启的守护进程',
     startHint:
       '安装运行这个 CLI 的 launchd（macOS）或 systemd 用户服务（Linux）。以后用 `nocoproject upgrade` 升级。',
-    apiKeyPlaceholder: 'API 密钥',
-    apiKeyHint: '在“设置 → API 密钥”中创建一个 API 密钥。',
     after:
       '几秒钟内这台电脑就会出现在列表中，每个检测到的编码工具对应一个运行时。',
     copy: '复制命令',

@@ -56,6 +56,25 @@ export function RuntimeCliCell({
   readonly runtime: Runtime;
 }): ReactElement {
   const { t } = useTranslation();
+  // NP-150: a daemon still signing in with its owner's personal API key is flagged next to its version.
+  if (runtime.daemon?.credential === 'personalKey')
+    return (
+      <span className='inline-flex items-center gap-1.5'>
+        <RuntimeCliVersion runtime={runtime} />
+        <NpTag tone='amber' title={t('np.runtimes.personalKeyHint')}>
+          {t('np.runtimes.personalKey')}
+        </NpTag>
+      </span>
+    );
+  return <RuntimeCliVersion runtime={runtime} />;
+}
+
+function RuntimeCliVersion({
+  runtime,
+}: {
+  readonly runtime: Runtime;
+}): ReactElement {
+  const { t } = useTranslation();
   const serverUrl = useServerUrl();
   const version = runtimeCliVersion(runtime);
   const state = runtimeCliState(runtime);

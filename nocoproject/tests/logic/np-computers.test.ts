@@ -39,7 +39,10 @@ afterAll(async () => {
 
 /** Keys by secret; disabled ones stop verifying, like the plugin's. */
 function memoryKeys(): ComputerKeys {
-  const keys = new Map<string, { keyId: string; userId: string; enabled: boolean }>();
+  const keys = new Map<
+    string,
+    { keyId: string; userId: string; enabled: boolean }
+  >();
   return {
     async create(_conn, input) {
       const secret = `npc_${randomUUID()}`;
@@ -52,7 +55,8 @@ function memoryKeys(): ComputerKeys {
       return key?.enabled ? { keyId: key.keyId, userId: key.userId } : null;
     },
     async disable(_conn, keyId) {
-      for (const key of keys.values()) if (key.keyId === keyId) key.enabled = false;
+      for (const key of keys.values())
+        if (key.keyId === keyId) key.enabled = false;
     },
   };
 }
@@ -79,9 +83,9 @@ describe.skipIf(!db)('computer credentials (PostgreSQL)', () => {
       id: computer.id,
       canRevoke: true,
     });
-    await expect(services.computers.revoke(BOB, computer.id)).rejects.toMatchObject(
-      { code: 'FORBIDDEN' },
-    );
+    await expect(
+      services.computers.revoke(BOB, computer.id),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
       services.computers.create({ ...ALICE, via: 'api_key' }, { name: 'x' }),
     ).rejects.toMatchObject({ code: 'COMPUTER_NEEDS_SIGN_IN' });
@@ -110,10 +114,19 @@ describe.skipIf(!db)('computer credentials (PostgreSQL)', () => {
       version: LATEST_CLI_VERSION,
       protocolVersion: PROTOCOL_VERSION,
       runtimes: [
-        { provider: 'echo', version: '1', capabilities: { resume: true, steering: false } },
+        {
+          provider: 'echo',
+          version: '1',
+          capabilities: { resume: true, steering: false },
+        },
       ],
     });
-    const agentId = await createAgent(services, ALICE, other.runtimes[0]!.id, 'B');
+    const agentId = await createAgent(
+      services,
+      ALICE,
+      other.runtimes[0]!.id,
+      'B',
+    );
     await services.issues.create(ALICE, {
       title: 'On b',
       executor: { type: 'agent', id: agentId },

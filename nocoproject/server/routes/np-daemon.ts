@@ -20,7 +20,7 @@ import { guarded, rejectRunTokens } from '../modules/shared/http.js';
 import {
   npClaimServiceToken,
   npComputerServiceToken,
-  npServicesToken,
+  npDaemonWakeupsToken,
   npMemberServiceToken,
   npRunEventServiceToken,
   npRunRecoveryServiceToken,
@@ -48,7 +48,7 @@ export const npDaemonRoutes: AppApiRouteContribution<Application> =
         createDaemonRoutes({
           runtimes,
           claims: container.resolve(npClaimServiceToken),
-          wakeups: container.resolve(npServicesToken).daemonWakeups,
+          wakeups: container.resolve(npDaemonWakeupsToken),
           publicBasePath: app.publicBasePath,
         }),
         createDaemonRunRoutes({

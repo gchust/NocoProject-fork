@@ -331,6 +331,8 @@ export interface Runtime {
     readonly reason: string;
     readonly updateAvailable: boolean;
     readonly latestVersion: string;
+    /** NP-150: how the daemon authenticated. */
+    readonly credential?: 'computer' | 'personalKey' | null;
   } | null;
   readonly createdAt?: string;
 }

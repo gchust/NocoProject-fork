@@ -29,9 +29,9 @@ const REVIEWED: readonly {
   readonly note: string;
 }[] = [
   {
-    fingerprint: 'ac29c8cfc1580cef',
+    fingerprint: '7189bc1741e9295d',
     protocol: 2,
-    note: 'NP-150: protocol 2 (negotiation, compatibility in responses); NP-125 configuration is protocol 1 + configurationProtocol.',
+    note: 'NP-150: protocol 2 (negotiation, compatibility in responses, the computer credential type); NP-125 configuration is protocol 1 + configurationProtocol.',
   },
 ];
 

@@ -430,10 +430,11 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
 }
 
 /** Resolves the key store at request time (the plugin is registered after this service is built). */
-function lazyComputerKeys(factory: (() => ComputerKeys) | undefined): ComputerKeys {
+function lazyComputerKeys(
+  factory: (() => ComputerKeys) | undefined,
+): ComputerKeys {
   const store = (): ComputerKeys => {
-    if (!factory)
-      throw new Error('Computer credentials are not configured.');
+    if (!factory) throw new Error('Computer credentials are not configured.');
     return factory();
   };
   return {

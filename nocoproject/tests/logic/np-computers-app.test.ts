@@ -122,14 +122,15 @@ describe('computer credentials through the application', () => {
     ).json()) as unknown;
     expect(JSON.stringify(keys)).not.toContain(data.computer.keyStart);
     expect(
-      (
-        await call('GET', '/auth/api-key/list?configId=np-computer', cookie)
-      ).status,
+      (await call('GET', '/auth/api-key/list?configId=np-computer', cookie))
+        .status,
     ).toBe(403);
 
     const computers = (await (
       await call('GET', '/np/computers', cookie)
-    ).json()) as { data: { id: string; daemonId: string; canRevoke: boolean }[] };
+    ).json()) as {
+      data: { id: string; daemonId: string; canRevoke: boolean }[];
+    };
     expect(computers.data[0]).toMatchObject({
       daemonId: 'box-1',
       canRevoke: true,
@@ -149,15 +150,20 @@ describe('computer credentials through the application', () => {
     await expect(after.json()).resolves.toMatchObject({
       code: 'COMPUTER_REVOKED',
     });
-    const offline = (await (await call('GET', '/np/runtimes', cookie)).json()) as {
+    const offline = (await (
+      await call('GET', '/np/runtimes', cookie)
+    ).json()) as {
       data: { daemonId: string; status: string }[];
     };
     expect(
       offline.data.find((runtime) => runtime.daemonId === 'box-1')?.status,
     ).toBe('offline');
     expect(
-      (await call('GET', '/np/daemon/compatibility', { [COMPUTER_KEY_HEADER]: 'npc_nope' }))
-        .status,
+      (
+        await call('GET', '/np/daemon/compatibility', {
+          [COMPUTER_KEY_HEADER]: 'npc_nope',
+        })
+      ).status,
     ).toBe(401);
   });
 
@@ -167,7 +173,9 @@ describe('computer credentials through the application', () => {
       name: 'personal',
     });
     expect(created.status).toBe(200);
-    const key = { 'x-api-key': ((await created.json()) as { key: string }).key };
+    const key = {
+      'x-api-key': ((await created.json()) as { key: string }).key,
+    };
 
     expect((await call('GET', '/np/me', key)).status).toBe(200);
     const mint = await call('POST', '/auth/api-key/create', key, {

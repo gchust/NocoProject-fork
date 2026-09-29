@@ -10,7 +10,10 @@
 import type { AuthEnv, AuthSession } from '@nocobase/app-plugin-authentication';
 import type { Context, MiddlewareHandler } from 'hono';
 
-import { COMPUTER_KEY_HEADER, type DaemonCredential } from '../shared/protocol.js';
+import {
+  COMPUTER_KEY_HEADER,
+  type DaemonCredential,
+} from '../shared/protocol.js';
 import type { ComputerCaller, ComputerService } from './computer.service.js';
 
 export const DAEMON_CALLER_VARIABLE = 'npDaemonCaller';
@@ -43,7 +46,7 @@ const RUN_PATH = /^\/np\/daemon\/runs\/([^/]+)\//u;
 export function daemonAuthentication(
   personalKey: MiddlewareHandler<AuthEnv>,
   computers: ComputerService,
-): MiddlewareHandler {
+): MiddlewareHandler<AuthEnv> {
   return async (context, next) => {
     const secret = context.req.header(COMPUTER_KEY_HEADER);
     const set = (caller: DaemonCaller) =>
@@ -53,22 +56,25 @@ export function daemonAuthentication(
       );
     if (secret === undefined) {
       set({ credential: 'personalKey', computer: null });
-      return personalKey(context as unknown as Context<AuthEnv>, next);
+      return personalKey(context, next);
     }
     const computer = await computers.authenticate(secret);
-    const path = new URL(context.req.url).pathname.replace(/^.*?(\/np\/daemon\/)/u, '$1');
+    const path = new URL(context.req.url).pathname.replace(
+      /^.*?(\/np\/daemon\/)/u,
+      '$1',
+    );
     if (context.req.method === 'POST' && BOUND_PATHS.has(path)) {
-      const body = (await context.req
-        .json()
-        .catch(() => null)) as { daemonId?: unknown } | null;
+      const body = (await context.req.json().catch(() => null)) as {
+        daemonId?: unknown;
+      } | null;
       if (typeof body?.daemonId === 'string')
         await computers.bindDaemon(computer, body.daemonId);
     }
     const run = RUN_PATH.exec(path);
     if (run && run[1] !== 'claim')
-      await computers.requireRun(computer, decodeURIComponent(run[1]!));
+      await computers.requireRun(computer, decodeURIComponent(run[1] ?? ''));
     set({ credential: 'computer', computer });
-    (context as unknown as Context<AuthEnv>).set('auth', {
+    context.set('auth', {
       user: { id: computer.ownerUserId },
     } as unknown as AuthSession);
     await next();

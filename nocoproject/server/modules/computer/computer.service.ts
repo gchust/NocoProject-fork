@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import type { Actor } from '../shared/activity.js';
 import { forbid, isAdmin, viewerOf } from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
-import { iso, isoOrNull, now, str } from '../shared/db.js';
+import { iso, isoOrNull, now, str, toDate } from '../shared/db.js';
 import { invalid, notFound, NpError } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type {
@@ -159,7 +159,7 @@ export function createComputerService(deps: ComputerDeps): ComputerService {
     const row = await findComputer(conn, id);
     if (!row) throw notFound('Computer');
     const [computer] = await viewComputers(deps, conn, [row], viewer);
-    return computer!;
+    return computer;
   };
 
   return {
@@ -243,7 +243,11 @@ export function createComputerService(deps: ComputerDeps): ComputerService {
     },
 
     async authenticate(secret) {
-      if (typeof secret !== 'string' || secret.length === 0 || secret.length > 512)
+      if (
+        typeof secret !== 'string' ||
+        secret.length === 0 ||
+        secret.length > 512
+      )
         throw unauthorized(
           'COMPUTER_KEY_INVALID',
           'The computer credential is not valid.',
@@ -280,7 +284,7 @@ export function createComputerService(deps: ComputerDeps): ComputerService {
           'COMPUTER_OWNER_DISABLED',
           "The computer owner's account is disabled.",
         );
-      const lastUsed = row.lastUsedAt ? new Date(String(row.lastUsedAt)) : null;
+      const lastUsed = toDate(row.lastUsedAt);
       if (!lastUsed || Date.now() - lastUsed.getTime() > LAST_USED_EVERY_MS)
         await conn.query
           .updateTable('npComputers')
