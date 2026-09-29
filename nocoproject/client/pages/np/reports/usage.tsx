@@ -38,7 +38,7 @@ const ROW_LINK: Partial<Record<UsageGroupBy, (key: string) => string>> = {
 };
 
 /**
- * Tab `/reports/usage` (iteration 2 §I "用量统计", moved under 报表 in iteration 3 §G): tokens and estimated cost of
+ * Tab `/reports/usage` (iteration 2 §I "Usage", moved under Reports in iteration 3 §G): tokens and estimated cost of
  * agent runs over a date range (the last 30 days by default), grouped by agent, issue, project, day or model, with a
  * totals row. A cost shows "—" when no model price matches; the totals add only priced rows. Members see the runs of
  * issues they can see; owner/admin see all. Range and grouping live in the query string.

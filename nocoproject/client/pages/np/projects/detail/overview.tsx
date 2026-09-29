@@ -21,7 +21,7 @@ import { ProjectDescription, ProjectProperties } from './side-panel.js';
 import { useProjectMutation } from './use-project-mutation.js';
 
 /**
- * The 概览 tab of a project (client/pages/np/README.md §3): key numbers, the status distribution, the description
+ * The Overview tab of a project (client/pages/np/README.md §3): key numbers, the status distribution, the description
  * (shared with agents as context) on the left; properties, repositories and members as cards on the right.
  */
 export function ProjectOverview({

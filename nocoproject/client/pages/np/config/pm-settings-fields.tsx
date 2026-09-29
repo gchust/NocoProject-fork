@@ -19,7 +19,7 @@ import { ProcessSelect } from '../issues/process-fields.js';
 import type { PmSettingsDraft } from './pm-settings-model.js';
 
 /**
- * 设置 → 通用, iteration 4 (§A, §C): the process a new issue gets when it chooses none, the project manager agent
+ * Settings → General, iteration 4 (§A, §C): the process a new issue gets when it chooses none, the project manager agent
  * (manager-kind agents only) and whether it writes a retrospective when an agent's issue is done.
  */
 export function PmSettingsFields({

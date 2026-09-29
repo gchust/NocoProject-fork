@@ -14,7 +14,7 @@ import { LABEL_COLORS, LABEL_DOT_CLASS } from '@/pages/np/constants';
 import type { Label, LabelColor } from '@/pages/np/types';
 
 /**
- * Recolor labels (iteration 1 leftover "标签选色"): each label with the seven palette colors as swatches. The color
+ * Recolor labels (iteration 1 leftover "label color picker"): each label with the seven palette colors as swatches. The color
  * name is the swatch's accessible name, so the choice does not rest on color alone.
  */
 export function NpLabelColorPicker({

@@ -1,7 +1,7 @@
 import type { ProjectResource } from '../../types.js';
 
 /**
- * Moving a repository up or down (iteration 1 leftover "仓库排序"). Positions are rewritten as the list index after
+ * Moving a repository up or down (iteration 1 leftover "repository ordering"). Positions are rewritten as the list index after
  * the move, and only the resources whose position changes are returned, each becoming one PATCH.
  */
 export function sortResources(

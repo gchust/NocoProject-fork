@@ -122,7 +122,8 @@ export interface MetricThresholds {
 }
 
 /**
- * A metric value. The contract says "每项给值与计算口径"; a bare number and `{ value, definition }` are both read, see
+ * A metric value. The contract says "each metric gives a value and its computation definition"; a bare number and
+ * `{ value, definition }` are both read, see
  * `metricValue` in `api-iter3.ts`.
  */
 export type MetricRaw =

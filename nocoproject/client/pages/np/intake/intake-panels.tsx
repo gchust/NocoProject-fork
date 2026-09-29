@@ -36,7 +36,7 @@ import {
 import { BatchEditor } from './batch-editor.js';
 
 /**
- * The two panels of batch entry (iteration 2 §E), now the AI 整理 tab of "新建任务" (iteration 4 §D): the composer that
+ * The two panels of batch entry (iteration 2 §E), now the AI draft tab of "New issue" (iteration 4 §D): the composer that
  * sends the description or pasted list to the parser, and the editor of one parsed batch. The dialog
  * (`issues/new.tsx`) switches between them by `?batch=`. NP-78: the composer takes attachments (choose, drop, or paste
  * files into the description) that travel with the batch and end up on the issues it creates; the AI parser reads

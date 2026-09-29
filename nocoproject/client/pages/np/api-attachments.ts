@@ -2,7 +2,7 @@ import type { ApiClient } from '@nocobase/app-client';
 import type { FileRecord } from '@nocobase/app-plugin-file/client';
 
 /**
- * NP-78 issue attachments (`docs/phase1/protocol-iteration-4.md` §"任务附件"). Files are uploaded through the file
+ * NP-78 issue attachments (`docs/phase1/protocol-iteration-4.md` §"issue attachments"). Files are uploaded through the file
  * plugin's repository `npFiles` (`uploadOne`, one request per file) and attached with these endpoints. Copied from
  * `server/modules/shared/protocol.phase1-iter4.ts` rather than imported (see `types.ts`).
  */

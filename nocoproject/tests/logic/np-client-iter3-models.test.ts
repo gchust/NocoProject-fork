@@ -350,7 +350,7 @@ describe('navigation helpers (§G)', () => {
   });
 
   it('sends old batch-entry links to the new issue dialog and cleans the query when it closes', () => {
-    // Iteration 4 §D replaced the drawer with the AI tab of "新建任务".
+    // Iteration 4 §D replaced the drawer with the AI tab of "New issue".
     expect(newIssueRedirectTarget('?batch=b1')).toBe(
       '/issues/new?tab=ai&batch=b1',
     );
