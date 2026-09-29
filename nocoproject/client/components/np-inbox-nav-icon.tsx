@@ -35,7 +35,7 @@ import { useRealtimeTopic } from '@/pages/np/use-realtime';
  * it owns the prefix: it adds it while the count is above zero and removes it on unmount (sign-out, Settings layout).
  *
  * For the same reason it also rings the chime (NP-108) when the count goes up after the first load, unless the viewer
- * turned it off under Settings → General → My reminders.
+ * turned it off on `/profile` (NP-153).
  */
 export function NpInboxNavIcon({
   className,

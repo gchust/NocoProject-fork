@@ -4,6 +4,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
   Field,
   FieldContent,
   FieldDescription,
@@ -13,19 +20,18 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/toast';
 
-import { updateMyPreferences } from '../api.js';
-import { npKeys } from '../constants.js';
+import { updateMyPreferences } from '../np/api.js';
+import { npKeys } from '../np/constants.js';
 import {
   playInboxChime,
   useInboxChimePreference,
-} from '../inbox/inbox-chime.js';
-import type { MemberPreferences } from '../types.js';
-import { ConfigSectionHeading } from './config-section.js';
+} from '../np/inbox/inbox-chime.js';
+import type { MemberPreferences } from '../np/types.js';
 
 /**
- * The viewer's own reminder preferences at the top of Settings → General (NP-108). Unlike the workspace settings below it,
- * every member may change these; they are kept with the account (`PATCH /np/me/preferences`) and saved as soon as the
- * switch moves. Turning the chime on plays it once.
+ * The viewer's own reminder preferences on `/profile` (NP-108, moved here from Settings → General by NP-153: a
+ * personal preference, not a workspace setting). Kept with the account (`PATCH /np/me/preferences`) and saved as soon
+ * as the switch moves. Turning the chime on plays it once.
  */
 export function ChimePreferenceSection(): ReactElement {
   const { t } = useTranslation();
@@ -64,34 +70,34 @@ export function ChimePreferenceSection(): ReactElement {
     },
   });
   return (
-    <section
-      className='space-y-4'
-      aria-labelledby='np-config-reminders-heading'
-    >
-      <ConfigSectionHeading
-        id='np-config-reminders-heading'
-        title={t('np.inbox.chime.settingsTitle')}
-        description={t('np.inbox.chime.settingsDescription')}
-      />
-      <FieldGroup className='max-w-2xl'>
-        <Field orientation='horizontal'>
-          <FieldContent>
-            <FieldLabel htmlFor='np-settings-inbox-chime'>
-              {t('np.inbox.chime.label')}
-            </FieldLabel>
-            <FieldDescription>{t('np.inbox.chime.hint')}</FieldDescription>
-          </FieldContent>
-          <Switch
-            id='np-settings-inbox-chime'
-            checked={enabled}
-            disabled={!loaded || save.isPending}
-            onCheckedChange={(value) => {
-              if (value) playInboxChime({ preview: true });
-              save.mutate(value);
-            }}
-          />
-        </Field>
-      </FieldGroup>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('profile.preferences')}</CardTitle>
+        <CardDescription>
+          {t('np.inbox.chime.settingsDescription')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup className='max-w-2xl'>
+          <Field orientation='horizontal'>
+            <FieldContent>
+              <FieldLabel htmlFor='profile-chime'>
+                {t('np.inbox.chime.label')}
+              </FieldLabel>
+              <FieldDescription>{t('np.inbox.chime.hint')}</FieldDescription>
+            </FieldContent>
+            <Switch
+              id='profile-chime'
+              checked={enabled}
+              disabled={!loaded || save.isPending}
+              onCheckedChange={(value) => {
+                if (value) playInboxChime({ preview: true });
+                save.mutate(value);
+              }}
+            />
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   );
 }

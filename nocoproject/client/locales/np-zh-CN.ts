@@ -144,7 +144,6 @@ const npCollabZhCN: NpCollabResource = {
     chime: {
       turnedOn: '已开启声音提醒。',
       turnedOff: '已关闭声音提醒。',
-      settingsTitle: '我的提醒',
       settingsDescription: '只对你自己生效，换电脑、换浏览器也一样。',
       label: '声音提醒',
       hint: '有新的待决定事项时响一声。',

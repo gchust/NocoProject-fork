@@ -8,6 +8,7 @@ import {
   AuthenticationProvider,
   authenticationClientToken,
 } from '@nocobase/app-plugin-authentication/client';
+import { API_KEYS_ROUTE_ID } from '@nocobase/app-plugin-api-keys/client/routes';
 import {
   AuthorizationClient,
   type AuthorizationCheck,
@@ -119,6 +120,56 @@ describe('application shell', () => {
       }
     },
   );
+
+  it('hides the Settings entry when the only accessible platform page is the universal API keys page (NP-153)', async () => {
+    const [packageName, id] = API_KEYS_ROUTE_ID.split(':');
+    const apiKeysRoute = {
+      ...createRoute('api-keys', '/api-keys', 'required', () => (
+        <h2>API keys</h2>
+      )),
+      packageName,
+      id,
+      navigation: { title: 'API keys' },
+      authz: {
+        resource: { type: 'page', id: 'api-keys' },
+        action: 'access',
+      } as const,
+    };
+    renderApplication('/', true, [], { settingsRouteTree: [apiKeysRoute] });
+    await screen.findByRole('heading', { name: 'App client is ready' });
+    expect(
+      screen.queryByRole('link', { name: 'Settings' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the Settings entry once another platform page is also accessible (NP-153)', async () => {
+    const [packageName, id] = API_KEYS_ROUTE_ID.split(':');
+    const apiKeysRoute = {
+      ...createRoute('api-keys', '/api-keys', 'required', () => (
+        <h2>API keys</h2>
+      )),
+      packageName,
+      id,
+      navigation: { title: 'API keys' },
+      authz: {
+        resource: { type: 'page', id: 'api-keys' },
+        action: 'access',
+      } as const,
+    };
+    const usersRoute = createRoute(
+      'users',
+      '/users',
+      'required',
+      () => <h2>Users</h2>,
+      'plugin',
+      'Users',
+      true,
+    );
+    renderApplication('/', true, [], {
+      settingsRouteTree: [apiKeysRoute, usersRoute],
+    });
+    expect(await screen.findByRole('link', { name: 'Settings' })).toBeVisible();
+  });
 
   it('renders nested pages through manual outlets and selects the nearest menu ancestor', async () => {
     const child = createRoute('detail', '/orders/42', 'required', () => (

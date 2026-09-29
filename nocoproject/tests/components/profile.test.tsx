@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import ProfilePage from '../../client/pages/profile/index.js';
-import { renderNp } from './np-harness.js';
+import { answer, renderNp } from './np-harness.js';
 
 const auth = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
   refresh: vi.fn(),
   toast: vi.fn(),
 }));
+const api = vi.hoisted(() => ({ request: vi.fn() }));
 const user = {
   id: 'member',
   name: 'Member',
@@ -24,6 +25,10 @@ vi.mock('@nocobase/app-plugin-authentication/client', () => ({
     session: { user: { id: 'member' } },
   }),
 }));
+vi.mock('@nocobase/app-client', async (original) => ({
+  ...(await original<typeof import('@nocobase/app-client')>()),
+  useApiClient: () => api,
+}));
 vi.mock('@/components/ui/toast', () => ({ toast: { add: auth.toast } }));
 beforeEach(() => {
   vi.resetAllMocks();
@@ -31,6 +36,12 @@ beforeEach(() => {
   auth.updateUser.mockResolvedValue({ data: { status: true } });
   auth.changePassword.mockResolvedValue({ data: {} });
   auth.refresh.mockResolvedValue(undefined);
+  api.request.mockImplementation(
+    answer({
+      'GET np/me/preferences': { data: { inboxChime: true } },
+      'PATCH np/me/preferences': (options) => ({ data: options.json }),
+    }),
+  );
 });
 async function open() {
   await renderNp(<ProfilePage />);
@@ -220,4 +231,23 @@ it('preserves profile and password drafts when a background reload fails', async
   );
   expect(screen.getByLabelText('Display name *')).toHaveValue('Saved Name');
   expect(screen.getByLabelText('New password *')).toHaveValue('new-password');
+});
+
+it('shows preferences, my computer and API keys sections (NP-153)', async () => {
+  await open();
+  expect(await screen.findByText('Preferences')).toBeVisible();
+  expect(screen.getByRole('switch', { name: 'Sound reminder' })).toBeVisible();
+
+  expect(screen.getByText('My computer')).toBeVisible();
+  expect(screen.getByText(/npm i -g/)).toBeVisible();
+  expect(
+    screen.getByRole('textbox', { name: 'Computer name, e.g. Studio Mac' }),
+  ).toBeVisible();
+  expect(screen.getByText('nocoproject daemon install')).toBeVisible();
+
+  expect(screen.getByText('API keys')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Open API keys' })).toHaveAttribute(
+    'href',
+    '/settings/api-keys',
+  );
 });

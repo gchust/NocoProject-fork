@@ -4,12 +4,21 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 
+import { ConnectComputerSteps } from '@/components/connect-computer-steps';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { ChimePreferenceSection } from './chime-preference.js';
 import { ProfileForm, PasswordForm } from './profile-forms.js';
 
 export default function ProfilePage(): ReactElement {
@@ -83,6 +92,35 @@ export default function ProfilePage(): ReactElement {
           )}
           <ProfileForm key={profile.data.id} user={profile.data} />
           <PasswordForm />
+          <ChimePreferenceSection />
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('profile.computer')}</CardTitle>
+              <CardDescription>
+                {t('profile.computerDescription')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConnectComputerSteps />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('profile.apiKeys')}</CardTitle>
+              <CardDescription>
+                {t('profile.apiKeysDescription')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant='outline'
+                nativeButton={false}
+                render={<Link to='/settings/api-keys' />}
+              >
+                {t('profile.apiKeysLink')}
+              </Button>
+            </CardContent>
+          </Card>
         </>
       )}
     </PageContainer>

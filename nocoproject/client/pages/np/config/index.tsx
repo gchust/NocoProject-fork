@@ -14,7 +14,7 @@ import { visibleConfigTabs } from './config-model.js';
 
 /**
  * Route `/config` (§G, "Settings"): the workspace settings in the front end instead of the system settings shell. Tabs
- * are child routes — General, Members, Workflow templates, Labels and GitHub — each shown when the viewer may read its
+ * are child routes — General, Members, Process templates, Labels and GitHub — each shown when the viewer may read its
  * settings item (NP-117, `config-access.ts`); by default every member reads all but GitHub and owner/admin change
  * them. The bare URL redirects to the first readable tab once the checks are known.
  */

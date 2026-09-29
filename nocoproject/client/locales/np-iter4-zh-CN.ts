@@ -297,7 +297,7 @@ const npIter4ZhCN: NpIter4Resource = {
     settings: {
       general: '通用设置',
       members: '成员与邀请',
-      workflows: '工作流模板',
+      workflows: '流程模板',
       labels: '标签',
       github: 'GitHub 连接',
     },

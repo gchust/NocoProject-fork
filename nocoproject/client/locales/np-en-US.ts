@@ -151,7 +151,6 @@ const npCollabEnUS = {
     chime: {
       turnedOn: 'Sound reminder turned on.',
       turnedOff: 'Sound reminder turned off.',
-      settingsTitle: 'My reminders',
       settingsDescription: 'Applies to you on every computer and browser.',
       label: 'Sound reminder',
       hint: 'Chime when a new decision needs you.',

@@ -267,7 +267,7 @@ describe('settings in the front end (§G)', () => {
       ).toEqual([
         'General',
         'Members',
-        'Workflow templates',
+        'Process templates',
         'Labels',
         'GitHub',
       ]),
@@ -288,7 +288,6 @@ describe('settings in the front end (§G)', () => {
         ...members('member'),
         'GET np/settings': { data: { canEdit: false } },
         'GET np/workflows': { data: [] },
-        'GET np/me/preferences': { data: { inboxChime: true } },
       }),
     );
     await renderNpRoutes(configRoutes(), { url: '/config/general' });
@@ -302,11 +301,9 @@ describe('settings in the front end (§G)', () => {
       expect(within(tabs).queryByRole('link', { name: 'GitHub' })).toBeNull(),
     );
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    // Workspace switches are read-only; the viewer's own sound reminder stays editable (NP-108).
-    const chime = screen.getByRole('switch', { name: 'Sound reminder' });
-    await waitFor(() => expect(chime).not.toHaveAttribute('data-disabled'));
+    // Workspace switches are all read-only for a member (NP-108's own sound reminder moved to /profile).
     for (const control of screen.getAllByRole('switch')) {
-      if (control !== chime) expect(control).toHaveAttribute('data-disabled');
+      expect(control).toHaveAttribute('data-disabled');
     }
   });
 

@@ -415,8 +415,8 @@ const npIter2ZhCN: NpIter2Resource = {
     deleteDescription:
       '项目及其成员、仓库会被删除；项目中的任务保留，不再属于任何项目。',
     deleted: '已删除项目 {{name}}',
-    workflow: '工作流',
-    workflowConflict: '有任务处于新工作流没有的状态，请先调整这些任务。',
+    workflow: '流程模板',
+    workflowConflict: '有任务处于新流程模板没有的状态，请先调整这些任务。',
   },
   resourceEdit: {
     title: '编辑仓库',

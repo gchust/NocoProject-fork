@@ -145,14 +145,14 @@ const npIter3EnUS = {
   config: {
     title: 'Settings',
     description:
-      'Workspace settings, members, workflow templates, labels and the GitHub connection.',
+      'Workspace settings, members, process templates, labels and the GitHub connection.',
     readOnlyDescription:
       'Workspace settings. Owners and admins make changes; you can read them.',
     tabsLabel: 'Settings sections',
     tabs: {
       general: 'General',
       members: 'Members',
-      workflows: 'Workflow templates',
+      workflows: 'Process templates',
       labels: 'Labels',
       github: 'GitHub',
     },
@@ -203,14 +203,14 @@ const npIter3EnUS = {
     },
   },
   workflows: {
-    title: 'Workflow templates',
+    title: 'Process templates',
     description:
       'The statuses an issue moves through and who may move it. Read-only in this version.',
-    breadcrumb: 'Workflow template',
-    loadFailed: 'Unable to load workflow templates',
-    detailLoadFailed: 'Unable to load this workflow template',
+    breadcrumb: 'Process template',
+    loadFailed: 'Unable to load process templates',
+    detailLoadFailed: 'Unable to load this process template',
     backToList: 'Back to templates',
-    empty: 'No workflow templates',
+    empty: 'No process templates',
     default: 'Default',
     usedBy: 'Projects using it: {{count}}',
     statusCount: 'Statuses: {{count}}',

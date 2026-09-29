@@ -24,6 +24,7 @@ import { LayoutSidebar } from './components/layout-sidebar.js';
 import { SurfaceEmpty, type SurfaceCopy } from './components/surface-empty.js';
 import { AppBrand } from './components/app-brand.js';
 import { HeaderActions } from './components/header-actions.js';
+import { hasVisiblePlatformSettings } from './components/settings-gate.js';
 
 import { useClientApplication } from '@nocobase/app-client';
 export interface DevLayoutProps {
@@ -184,7 +185,9 @@ export function DevLayout({
             </Link>
           </div>
           <HeaderActions
-            showSettings={navigationPages(settingsNavigation.items).length > 0}
+            showSettings={hasVisiblePlatformSettings(
+              navigationPages(settingsNavigation.items),
+            )}
             showDev={import.meta.env.DEV}
           />
         </LayoutHeader>

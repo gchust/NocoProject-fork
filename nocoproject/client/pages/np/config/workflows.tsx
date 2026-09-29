@@ -23,7 +23,7 @@ import { ConfigSectionHeading } from './config-section.js';
 import { WorkflowFlow } from './workflow-views.js';
 
 /**
- * Tab `/config/workflows` (§F): the workflow templates, read-only — each with its status line, whether it is the
+ * Tab `/config/workflows` (§F): the process templates, read-only — each with its status line, whether it is the
  * default, and how many projects use it. A card opens `:workflowId`, a covering page with the transition matrix and
  * the rules. Editing templates is not part of this iteration.
  */
