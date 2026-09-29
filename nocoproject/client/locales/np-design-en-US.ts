@@ -109,6 +109,7 @@ const npDesignEnUS = {
     note: 'Note',
     notePlaceholder: 'Write a note…',
     quickSend: 'to send',
+    newLine: 'for a new line',
     sendNote: 'Add note',
   },
   projectPage: {

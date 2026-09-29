@@ -103,7 +103,8 @@ const npDesignZhCN: NpDesignResource = {
     comment: '评论',
     note: '备注',
     notePlaceholder: '写备注…',
-    quickSend: '快速发送',
+    quickSend: '发送',
+    newLine: '换行',
     sendNote: '添加备注',
   },
   projectPage: {

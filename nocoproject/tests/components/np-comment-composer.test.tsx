@@ -3,7 +3,13 @@ import './np-editor-dom.js';
 import { I18nRuntime } from '@nocobase/i18n';
 import { I18nProvider } from '@nocobase/i18n/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -289,6 +295,43 @@ describe('comment composer (rich text)', () => {
     expect(sentWithCache).toEqual([['c1', 'c9']]);
     expect(queryClient.getQueryState(npKeys.issue('101'))?.isInvalidated).toBe(
       true,
+    );
+  });
+
+  it('sends with Enter and starts a new paragraph or list item with Shift + Enter', async () => {
+    const posted: unknown[] = [];
+    routeRequests((json) => {
+      posted.push(json);
+      return { data: { comment: { id: 'c9' }, triggered: [] } };
+    });
+    const user = userEvent.setup();
+    const { textbox, editorRef } = await renderComposer();
+
+    await user.click(textbox);
+    await user.keyboard('First{Shift>}{Enter}{/Shift}- one');
+    await user.keyboard('{Shift>}{Enter}{/Shift}two');
+    expect(editorRef.current?.getMarkdown()).toBe('First\n\n- one\n- two');
+    expect(posted).toEqual([]);
+
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(posted).toEqual([{ content: 'First\n\n- one\n- two' }]),
+    );
+    await waitFor(() => expect(editorRef.current?.getMarkdown()).toBe(''));
+  });
+
+  it('does not send on the Enter that confirms an input method candidate', async () => {
+    routeRequests();
+    const user = userEvent.setup();
+    const { textbox } = await renderComposer();
+
+    await user.click(textbox);
+    await user.keyboard('ni');
+    fireEvent.keyDown(textbox, { key: 'Enter', keyCode: 229 });
+    fireEvent.keyDown(textbox, { key: 'Enter', isComposing: true });
+
+    expect(api.request).not.toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 

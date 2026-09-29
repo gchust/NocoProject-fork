@@ -2,9 +2,9 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { ExternalLinkIcon, SendIcon } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 
-import { modifierKeyLabel } from '@/components/np-shortcut-keys';
+import { isSubmitEnter } from '@/components/np-shortcut-keys';
+import { NpSubmitHint } from '@/components/np-submit-hint';
 import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -83,7 +83,7 @@ export function DecisionActionsBar({
           })}
           onChange={(event) => setComment(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            if (isSubmitEnter(event.nativeEvent)) {
               event.preventDefault();
               send();
             }
@@ -95,9 +95,7 @@ export function DecisionActionsBar({
           }}
         />
         <div className='flex flex-wrap items-center justify-end gap-2'>
-          <span className='mr-auto text-xs text-muted-foreground'>
-            <Kbd>{modifierKeyLabel()}</Kbd> <Kbd>Enter</Kbd>
-          </span>
+          <NpSubmitHint className='mr-auto inline-flex' />
           <Button
             variant='ghost'
             size='sm'

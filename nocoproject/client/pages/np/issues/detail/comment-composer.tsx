@@ -4,13 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BotIcon, SendIcon, XIcon, ZapIcon } from 'lucide-react';
 import { type ReactElement, type RefObject, useState } from 'react';
 
-import { modifierKeyLabel } from '@/components/np-shortcut-keys';
 import {
   NpRichTextEditor,
   type NpRichTextHandle,
 } from '@/components/np-rich-text-editor';
+import { NpSubmitHint } from '@/components/np-submit-hint';
 import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
@@ -164,6 +163,7 @@ export function CommentComposer({
         onChange={setContent}
         mentionCandidates={candidates}
         onSubmit={() => void submit()}
+        submitOnEnter
         disabled={pending}
         toolbar={false}
         placeholder={
@@ -195,11 +195,7 @@ export function CommentComposer({
         </span>
       </p>
       <div className='flex items-center gap-2'>
-        <span className='mr-auto hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex'>
-          <Kbd>{modifierKeyLabel()}</Kbd>
-          <Kbd>Enter</Kbd>
-          {t('np.composer.quickSend')}
-        </span>
+        <NpSubmitHint className='mr-auto hidden sm:inline-flex' />
         <Button
           size='sm'
           className='ml-auto'

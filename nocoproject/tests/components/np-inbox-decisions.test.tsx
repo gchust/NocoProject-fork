@@ -132,14 +132,16 @@ describe('inbox decisions', () => {
       name: 'Request changes',
     });
     expect(send).toBeDisabled();
-    await user.type(box, 'Please add tests');
-    await user.click(send);
+    // Shift + Enter starts a new line; Enter sends.
+    await user.type(box, 'Please add tests{Shift>}{Enter}{/Shift}and docs');
+    expect(box).toHaveValue('Please add tests\nand docs');
+    await user.keyboard('{Enter}');
     await waitFor(() =>
       expect(api.request).toHaveBeenCalledWith(
         expect.objectContaining({
           path: 'np/issues/101/deliveries/request-changes',
           method: 'POST',
-          json: { comment: 'Please add tests' },
+          json: { comment: 'Please add tests\nand docs' },
         }),
       ),
     );

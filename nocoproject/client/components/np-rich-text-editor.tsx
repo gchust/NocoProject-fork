@@ -1,4 +1,13 @@
 import { useTranslation } from '@nocobase/i18n/client';
+import {
+  chainCommands,
+  createParagraphNear,
+  liftEmptyBlock,
+  newlineInCode,
+  splitBlock,
+} from '@tiptap/pm/commands';
+import { splitListItem } from '@tiptap/pm/schema-list';
+import type { EditorView } from '@tiptap/pm/view';
 import { type Editor, EditorContent, useEditor } from '@tiptap/react';
 import {
   BoldIcon,
@@ -21,6 +30,11 @@ import {
   useState,
 } from 'react';
 
+import {
+  isModifierEnter,
+  isNewLineEnter,
+  isSubmitEnter,
+} from '@/components/np-shortcut-keys';
 import { cn } from '@/lib/utils';
 import { findMentionQuery } from '@/pages/np/issues/mentions';
 
@@ -55,8 +69,10 @@ export interface NpRichTextEditorProps {
   readonly 'aria-label'?: string;
   readonly disabled?: boolean;
   readonly autoFocus?: boolean;
-  /** ⌘/Ctrl + Enter while the mention list is closed. */
+  /** ⌘/Ctrl + Enter while the mention list is closed; also plain Enter with `submitOnEnter`. */
   readonly onSubmit?: () => void;
+  /** Message boxes: Enter submits and Shift + Enter starts a new paragraph or list item. */
+  readonly submitOnEnter?: boolean;
   /** Escape while the mention list is closed. */
   readonly onEscape?: () => void;
   /** Where the mention list opens: above suits a composer pinned to the bottom, below suits a description. */
@@ -68,6 +84,21 @@ export interface NpRichTextEditorProps {
 }
 
 const MAX_SUGGESTIONS = 8;
+
+/** What plain Enter does in TipTap (list item, code block, then paragraph), for Shift + Enter when Enter submits. */
+function splitAtCaret(view: EditorView): boolean {
+  const { listItem, taskItem } = view.state.schema.nodes;
+  const items = [listItem, taskItem]
+    .filter((type) => type !== undefined)
+    .map((type) => splitListItem(type));
+  return chainCommands(
+    ...items,
+    newlineInCode,
+    createParagraphNear,
+    liftEmptyBlock,
+    splitBlock,
+  )(view.state, view.dispatch, view);
+}
 
 interface MentionState {
   /** Document position of the `@`. */
@@ -130,6 +161,7 @@ export function NpRichTextEditor({
   disabled = false,
   autoFocus = false,
   onSubmit,
+  submitOnEnter = false,
   onEscape,
   mentionPlacement = 'above',
   toolbar = true,
@@ -143,9 +175,9 @@ export function NpRichTextEditor({
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const [active, setActive] = useState({ key: '', index: 0 });
   const lastEmittedRef = useRef(value);
-  const callbacksRef = useRef({ onChange, onSubmit, onEscape });
+  const callbacksRef = useRef({ onChange, onSubmit, submitOnEnter, onEscape });
   useEffect(() => {
-    callbacksRef.current = { onChange, onSubmit, onEscape };
+    callbacksRef.current = { onChange, onSubmit, submitOnEnter, onEscape };
   });
 
   const open = mention !== null && mention.from !== dismissedAt && !disabled;
@@ -184,7 +216,7 @@ export function NpRichTextEditor({
     shouldRerenderOnTransaction: true,
     editorProps: {
       attributes: { class: cn(CONTENT_CLASS, contentClassName) },
-      handleKeyDown: (_view, event) => {
+      handleKeyDown: (view, event) => {
         const state = listStateRef.current;
         if (state.open && !event.isComposing) {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -209,13 +241,17 @@ export function NpRichTextEditor({
             return true;
           }
         }
+        const callbacks = callbacksRef.current;
         if (
-          event.key === 'Enter' &&
-          (event.metaKey || event.ctrlKey) &&
-          !event.isComposing
+          callbacks.submitOnEnter
+            ? isSubmitEnter(event)
+            : isModifierEnter(event)
         ) {
-          callbacksRef.current.onSubmit?.();
+          callbacks.onSubmit?.();
           return true;
+        }
+        if (callbacks.submitOnEnter && isNewLineEnter(event)) {
+          return splitAtCaret(view);
         }
         if (event.key === 'Escape' && callbacksRef.current.onEscape) {
           callbacksRef.current.onEscape();
