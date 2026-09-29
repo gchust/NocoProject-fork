@@ -36,6 +36,7 @@ const npCollabEnUS = {
     },
   },
   filters: {
+    toggle: 'Filters',
     project: 'Filter by project',
     allProjects: 'All projects',
     label: 'Filter by label',

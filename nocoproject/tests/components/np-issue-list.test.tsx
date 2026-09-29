@@ -149,6 +149,34 @@ describe('issue list', () => {
     expect(wrapper).not.toContainElement(title);
   });
 
+  it('folds the search and filters behind "Filters" on a phone (NP-164)', async () => {
+    api.request.mockImplementation(
+      withMe((options) => ({
+        data: options.path === 'np/issues' ? ISSUES : [],
+      })),
+    );
+    await renderPage('/issues?view=list&q=claim&status=in_progress');
+    await screen.findByText('Wire up the claim endpoint');
+
+    // jsdom has no media queries: the toggle is `md:hidden`, the fields block is `hidden` until expanded and
+    // becomes part of the row from `md` up (`md:contents`).
+    const toggle = screen.getByRole('button', { name: /Filters/ });
+    expect(toggle).toHaveClass('md:hidden');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveTextContent('2');
+    const fields = document.getElementById(
+      toggle.getAttribute('aria-controls') ?? '',
+    ) as HTMLElement;
+    expect(fields).toContainElement(screen.getByLabelText('Search issues'));
+    expect(fields).toHaveClass('hidden', 'md:contents');
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeVisible();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(fields).not.toHaveClass('hidden');
+    expect(fields).toHaveClass('grid');
+  });
+
   it('hides "New issue" without issues/edit (NP-161)', async () => {
     api.request.mockImplementation(
       withMe(() => ({ data: ISSUES }), { 'nocoproject.issues/edit': 'none' }),
