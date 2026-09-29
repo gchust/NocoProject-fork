@@ -1,5 +1,6 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { useAuthentication } from '@nocobase/app-plugin-authentication/client';
+import { Link } from 'react-router';
 import { LogOut, UserRound } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 
@@ -70,6 +71,11 @@ export function UserMenu(): ReactElement {
           ) : null}
         </div>
         <DropdownMenuSeparator />
+        {/* Account self-service is available in every shell, outside administrative settings. */}
+        <DropdownMenuItem render={<Link to='/profile' />} className='gap-2'>
+          <UserRound className='size-4' />
+          {t('account.profile', { defaultValue: 'Profile' })}
+        </DropdownMenuItem>
         <LanguageSwitcher />
         <DropdownMenuSeparator />
         <DropdownMenuItem

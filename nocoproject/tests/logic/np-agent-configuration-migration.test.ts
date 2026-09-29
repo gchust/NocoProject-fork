@@ -17,7 +17,7 @@ it.skipIf(skipped)(
       directory: MIGRATIONS_DIR,
       packageName: 'nocoproject',
     });
-    await migrator.upTo('2026100600001_np_member_preferences');
+    await migrator.upTo('2026100700001_np_agent_deletion');
     await db.knex
       .withSchema(db.schema)
       .table('agents')

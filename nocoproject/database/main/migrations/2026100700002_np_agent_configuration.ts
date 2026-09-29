@@ -20,7 +20,7 @@ const coding = [
   'pullRequest.link',
 ];
 export default defineMigration({
-  name: '2026100700001_np_agent_configuration',
+  name: '2026100700002_np_agent_configuration',
   irreversible: true,
   async up({ builder, query }) {
     await builder.alterCollection('agents', (t) => {

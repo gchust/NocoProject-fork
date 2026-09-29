@@ -9,7 +9,6 @@ import {
   XIcon,
 } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
-import { Link } from 'react-router';
 
 import { NpExecutorSelect } from '@/components/np-executor-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
+import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { fetchLabels, fetchMembers } from '../api-collab.js';
 import {
@@ -37,7 +37,7 @@ import { readDefaultProcess } from '../api-iter4.js';
 import { fetchAgents, fetchMe, fetchProjects } from '../api.js';
 import { npKeys } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
-import type { ExecutorRef, IntakeBatchDetail, IssueRef } from '../types.js';
+import type { ExecutorRef, IntakeBatchDetail } from '../types.js';
 import { IntakeAttachments } from './intake-attachments.js';
 import {
   type DraftRow,
@@ -72,9 +72,9 @@ const COLUMNS = [
 /**
  * The drafts of one batch as an editable table (iteration 2 §E). Edits stay local until "Save" or "Create issues";
  * both replace the drafts on the server, which validates them again. Creating runs only when neither the browser
- * nor the server reports a problem, then lists the new issues. NP-78: the batch's files are listed above the table
- * with the draft each one goes to (`fields.attachmentIds`). NP-120: when AI is available, the drafts can be revised
- * by an instruction below the table (`intake-refine.tsx`).
+ * nor the server reports a problem, then closes the new-issue dialog like the manual tab does (NP-124). NP-78: the
+ * batch's files are listed above the table with the draft each one goes to (`fields.attachmentIds`). NP-120: when AI
+ * is available, the drafts can be revised by an instruction below the table (`intake-refine.tsx`).
  */
 export function BatchEditor({
   detail,
@@ -86,12 +86,12 @@ export function BatchEditor({
   const { t } = useTranslation();
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const { close } = useRouteOverlay();
   const { batch } = detail;
   const readOnly = batch.status !== 'draft';
   const [rows, setRows] = useState<DraftRow[]>(() =>
     rowsFromDrafts(detail.drafts),
   );
-  const [created, setCreated] = useState<readonly IssueRef[] | null>(null);
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   const [defaultExecutor, setDefaultExecutor] = useState<ExecutorRef>({
     type: 'none',
@@ -165,7 +165,6 @@ export function BatchEditor({
         });
         return;
       }
-      setCreated(issues);
       toast.add({
         type: 'success',
         title: t('np.intake.created', { count: issues.length }),
@@ -178,6 +177,7 @@ export function BatchEditor({
           queryKey: npKeys.issue(sourceIssueId),
         });
       }
+      void close();
     },
     onError: (error) =>
       toast.add({ type: 'error', priority: 'high', title: errorTitle(error) }),
@@ -195,35 +195,6 @@ export function BatchEditor({
   const refine = useIntakeRefine(batch.id, rows, setRows);
   const busy =
     save.isPending || confirm.isPending || cancel.isPending || refine.pending;
-
-  if (created) {
-    return (
-      <section className='space-y-3 rounded-lg border bg-card p-4 text-card-foreground'>
-        <h2 className='flex items-center gap-2 font-heading text-sm font-semibold'>
-          <CheckIcon className='size-4' aria-hidden='true' />
-          {t('np.intake.created', { count: created.length })}
-        </h2>
-        <ul className='space-y-1 text-sm'>
-          {created.map((issue) => (
-            <li key={issue.id}>
-              <Link
-                to={`/issues/${encodeURIComponent(issue.id)}`}
-                className='inline-flex gap-2 hover:underline'
-              >
-                <span className='font-mono text-muted-foreground'>
-                  {issue.identifier}
-                </span>
-                <span>{issue.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <Button variant='outline' size='sm' onClick={onClose}>
-          {t('np.intake.newBatch')}
-        </Button>
-      </section>
-    );
-  }
 
   return (
     <section className='space-y-4' aria-labelledby='np-intake-batch-heading'>

@@ -27,6 +27,7 @@ import {
 import { npKeys, statusLabelKey } from '../../constants.js';
 import type { MergeBlocker, MergePreflight } from '../../types-iter4.js';
 import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
+import { githubErrorText } from './pr-model.js';
 
 export interface MergeTarget {
   readonly issueId: string;
@@ -230,14 +231,14 @@ function MergeFacts({
   );
 }
 
-/** A merge failure in words; GitHub's own text never reaches the client. */
+/** A merge check or merge failure in words; GitHub's own text never reaches the client. */
 function mergeErrorText(t: (key: string) => string, error: unknown): string {
   if (!(error instanceof ApiClientError)) return t('np.common.requestFailed');
+  const github = githubErrorText(t, error);
+  if (github) return github;
   switch (error.code) {
     case 'GITHUB_MERGE_FORBIDDEN':
       return t('np.prMerge.forbiddenToken');
-    case 'GITHUB_AUTH_FAILED':
-      return t('np.prMerge.authFailed');
     case 'PR_CHANGED':
       return t('np.prMerge.changed');
     case 'PR_NOT_MERGEABLE': {

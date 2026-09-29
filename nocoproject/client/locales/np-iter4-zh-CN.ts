@@ -145,7 +145,6 @@ const npIter4ZhCN: NpIter4Resource = {
     changed: 'PR 有新提交，请重新确认后再合并。',
     forbiddenToken:
       'GitHub 令牌无法合并：需要 Contents 与 Pull requests 的写权限。',
-    authFailed: 'GitHub 拒绝了已配置的令牌。',
     openSettings: '打开 GitHub 设置',
     blocker: {
       closed: '已关闭',

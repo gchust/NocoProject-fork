@@ -33,6 +33,21 @@ describe('iteration 2 browser routes', () => {
     expect((await router.request(path)).status).toBe(401);
   });
 
+  it('protects agent deletion from anonymous requests and run tokens', async () => {
+    const { router } = await build(npApiRoutes);
+    expect(
+      (await router.request('/np/agents/a1', { method: 'DELETE' })).status,
+    ).toBe(401);
+    expect(
+      (
+        await router.request('/np/agents/a1', {
+          method: 'DELETE',
+          headers: { ...signedIn, ...withRunToken },
+        })
+      ).status,
+    ).toBe(403);
+  });
+
   it('answers 202 with the pending approval when a status change is gated', async () => {
     const { router } = await build(npApiRoutes);
     const response = await router.request('/np/issues/i1', {

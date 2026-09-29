@@ -41,6 +41,14 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     path: '/',
   },
   {
+    // Self-service account settings; authentication owns all writes, with no administrative page grant.
+    auth: 'required',
+    authz: 'skip',
+    name: 'profile',
+    path: '/profile',
+    componentLoader: () => import('./pages/profile/index.js'),
+  },
+  {
     // Decisions and notifications (iteration 1 §J 3). The icon carries the unread decision count. `approvals` is a
     // redirect into the decisions list since iteration 3 §G.
     auth: 'required',

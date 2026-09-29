@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserMenu } from '../../client/layouts/components/user-menu.tsx';
@@ -34,7 +35,11 @@ describe('account menu sign out', () => {
     refresh.mockResolvedValue(undefined);
   });
   async function signOutFromMenu() {
-    render(<UserMenu />);
+    render(
+      <MemoryRouter>
+        <UserMenu />
+      </MemoryRouter>,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
   }

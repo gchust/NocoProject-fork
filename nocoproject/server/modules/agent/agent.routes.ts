@@ -34,5 +34,9 @@ export function createAgentRoutes(agents: AgentService): Hono<AuthEnv> {
     );
     return context.json({ data: agent });
   });
+  routes.delete('/:id', async (context) => {
+    await agents.remove(sessionActor(context), context.req.param('id'));
+    return context.json({ ok: true });
+  });
   return routes;
 }

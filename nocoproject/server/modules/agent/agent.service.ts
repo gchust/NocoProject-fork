@@ -14,7 +14,7 @@ import { conflict } from '../shared/errors.js';
  * skills (`agentSkills`, whole-set replace); rows carry `skillIds` and `skills`. Iteration 4: `kind` (coder | manager)
  * and `reasoningEffort` (`agent.fields.ts`).
  */
-import type { Actor } from '../shared/activity.js';
+import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   canEditAgent,
   forbid,
@@ -38,6 +38,7 @@ import type {
 } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import { optionalText, requiredName, stringList } from '../shared/validate.js';
+import { removeAgent } from './agent.remove.js';
 import { activeRunCounts } from '../run/run.queries.js';
 import {
   agentKindOf,
@@ -57,6 +58,7 @@ import {
 export const DEFAULT_MAX_CONCURRENT_RUNS = 6;
 
 export interface AgentService {
+  remove(actor: Actor, id: string): Promise<void>;
   list(actor: Actor): Promise<AgentListItemV4[]>;
   get(actor: Actor, id: string): Promise<AgentListItemV4>;
   create(actor: Actor, input: CreateAgentRequestV4): Promise<AgentListItemV4>;
@@ -71,6 +73,7 @@ export interface AgentDeps {
   readonly tx: TxRunner;
   readonly ids: IdSource;
   readonly users: UserDirectory;
+  readonly activity: ActivityRecorder;
 }
 
 export function mapAgent(
@@ -281,6 +284,7 @@ async function findAgent(
     .selectFrom('agents')
     .selectAll()
     .where('id', '=', id)
+    .where('deletedAt', 'is', null)
     .executeTakeFirst();
   if (!row) throw notFound('Agent');
   return mapAgent(row);
@@ -496,10 +500,13 @@ async function updateAgent(
       .updateTable('agents')
       .set({ ...values, updatedAt: now() })
       .where('id', '=', id)
+      .where('deletedAt', 'is', null)
       .where('configurationRevision', '=', current.configurationRevision ?? 1)
       .execute();
-    if (Number(updated.updatedCount) === 0)
+    if (Number(updated.updatedCount) === 0) {
+      await findAgent(tx.conn, id);
       throw conflict('CONFIGURATION_CONFLICT', 'Agent configuration changed.');
+    }
     if (patch.accessUserIds !== undefined)
       await replaceAccessList(
         tx,
@@ -548,11 +555,13 @@ export function createAgentService(deps: AgentDeps): AgentService {
       const rows = await conn.query
         .selectFrom('agents')
         .selectAll()
+        .where('deletedAt', 'is', null)
         .orderBy('name', 'asc')
         .execute();
       return decorate(deps, conn, viewer, rows.map(mapAgent));
     },
     get: (actor, id) => getAgent(deps, actor, id),
+    remove: (actor, id) => removeAgent(deps, actor, id),
     create: (actor, input) => createAgent(deps, actor, input),
     update: (actor, id, patch) => updateAgent(deps, actor, id, patch),
   };

@@ -33,7 +33,15 @@ const npIter2ZhCN: NpIter2Resource = {
     unlinked: '已解除关联。',
     refresh: '刷新',
     invalidUrl: '请输入 PR 地址，例如 https://github.com/owner/repo/pull/123。',
-    notConfigured: '尚未连接 GitHub，请管理员在“设置 → GitHub”中添加令牌。',
+    githubError: {
+      notConfigured: '尚未连接 GitHub，请管理员在“设置 → GitHub”中添加令牌。',
+      authFailed:
+        'GitHub 拒绝了令牌：令牌可能已过期或被撤销，或缺少 Pull requests、Checks、Commit statuses 的读权限。请管理员在“设置 → GitHub”中检查令牌。',
+      notFound:
+        'GitHub 找不到这个 PR，或令牌没有该仓库的访问权限。请管理员在“设置 → GitHub”中检查令牌可访问的仓库。',
+      requestFailed:
+        '连接 GitHub 失败，请稍后重试；一直失败请管理员在“设置 → GitHub”中检查连接。',
+    },
     lines: '改动行数',
     files: '文件',
     ci: 'CI',
@@ -141,14 +149,13 @@ const npIter2ZhCN: NpIter2Resource = {
     rowProblems: '第 {{position}} 行的问题',
     addRow: '添加一行',
     batchOwner: '新任务的负责人',
-    defaultExecutor: '未指定执行者的行使用',
+    defaultExecutor: '未指定执行者的任务使用',
     discard: '放弃本批',
     save: '保存草稿',
     confirm: '创建 {{count}} 个任务',
     created: '已创建 {{count}} 个任务',
     fixProblems: '请先处理表格中标出的问题。',
     stateChanged: '这一批已确认或已取消。',
-    newBatch: '再录入一批',
     notFound: '这一批不存在。',
     recentTitle: '我最近的批次',
     recentEmpty: '还没有批次。',

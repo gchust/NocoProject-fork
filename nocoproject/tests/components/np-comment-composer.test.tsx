@@ -70,10 +70,12 @@ async function renderComposer({
   executor = { type: 'none', id: null },
   replyTo = null,
   queryClient = new QueryClient(),
+  onSent,
 }: {
   readonly executor?: ExecutorRef;
   readonly replyTo?: IssueComment | null;
   readonly queryClient?: QueryClient;
+  readonly onSent?: (comment: IssueComment) => void;
 } = {}) {
   const runtime = new I18nRuntime({
     defaultLocale: 'en-US',
@@ -95,6 +97,7 @@ async function renderComposer({
           replyToName={replyTo ? 'Claude Coder' : null}
           onCancelReply={() => {}}
           editorRef={editorRef}
+          onSent={onSent}
         />
       </QueryClientProvider>
     </I18nProvider>,
@@ -232,7 +235,7 @@ describe('comment composer (rich text)', () => {
     await waitFor(() => expect(editorRef.current?.getMarkdown()).toBe(''));
   });
 
-  it('shows the posted comment in the cached detail before the refetch returns', async () => {
+  it('shows the posted comment in the cached detail before the refetch returns, then reports it sent', async () => {
     const posted = {
       id: 'c9',
       authorType: 'user' as const,
@@ -259,8 +262,17 @@ describe('comment composer (rich text)', () => {
         ],
       }),
     );
+    // NP-132: by the time the page is told, the comment is in the cache it renders from.
+    const sentWithCache: string[][] = [];
+    const onSent = vi.fn(() => {
+      sentWithCache.push(
+        queryClient
+          .getQueryData<IssueDetail>(npKeys.issue('101'))
+          ?.threads.map((thread) => thread.root.id) ?? [],
+      );
+    });
     const user = userEvent.setup();
-    const { textbox } = await renderComposer({ queryClient });
+    const { textbox } = await renderComposer({ queryClient, onSent });
 
     await user.click(textbox);
     await user.keyboard('Hello');
@@ -273,6 +285,8 @@ describe('comment composer (rich text)', () => {
           ?.threads.map((thread) => thread.root.id),
       ).toEqual(['c1', 'c9']),
     );
+    expect(onSent).toHaveBeenCalledExactlyOnceWith(posted);
+    expect(sentWithCache).toEqual([['c1', 'c9']]);
     expect(queryClient.getQueryState(npKeys.issue('101'))?.isInvalidated).toBe(
       true,
     );

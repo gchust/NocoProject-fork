@@ -94,3 +94,28 @@ export function answer(
     );
   };
 }
+
+/** NP-133: each GitHub error code and the sentence the PR card, the link dialog and the merge dialog show for it; the last row is any other error. */
+export const GITHUB_ERRORS: readonly (readonly [string, number, string])[] = [
+  [
+    'GITHUB_NOT_CONFIGURED',
+    409,
+    'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
+  ],
+  [
+    'GITHUB_AUTH_FAILED',
+    409,
+    'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to Pull requests, Checks or Commit statuses. Ask an admin to check it in Settings → GitHub.',
+  ],
+  [
+    'GITHUB_NOT_FOUND',
+    404,
+    'GitHub cannot find this pull request, or the token has no access to its repository. Ask an admin to check which repositories the token can access in Settings → GitHub.',
+  ],
+  [
+    'GITHUB_REQUEST_FAILED',
+    502,
+    'Could not reach GitHub. Try again later; if it keeps failing, ask an admin to check the connection in Settings → GitHub.',
+  ],
+  ['SOMETHING_ELSE', 500, 'The request failed. Please try again.'],
+];

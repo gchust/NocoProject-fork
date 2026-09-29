@@ -1,3 +1,5 @@
+import { ApiClientError } from '@nocobase/app-client';
+
 import type { NpTone } from '@/components/np-tones';
 import type {
   CiState,
@@ -100,4 +102,27 @@ export function mergeBlockerOf(
   if (pr.ciState === 'failure') return 'ciFailed';
   if (pr.ciState !== 'success') return 'ciMissing';
   return null;
+}
+
+/** NP-133: the server's GitHub error codes (`githubError`, `fetchSnapshot`) and the sentence each one reads as. */
+const GITHUB_FAILURE = {
+  GITHUB_NOT_CONFIGURED: 'notConfigured',
+  GITHUB_AUTH_FAILED: 'authFailed',
+  GITHUB_NOT_FOUND: 'notFound',
+  GITHUB_REQUEST_FAILED: 'requestFailed',
+} as const;
+
+/**
+ * Why a GitHub call behind a PR refresh, link, merge check or merge failed, with the next step; null for anything
+ * that is not a GitHub error, so the caller keeps its own wording or the generic "request failed".
+ */
+export function githubErrorText(
+  t: (key: string) => string,
+  error: unknown,
+): string | null {
+  if (!(error instanceof ApiClientError)) return null;
+  const code = error.code;
+  if (!code || !Object.hasOwn(GITHUB_FAILURE, code)) return null;
+  const failure = GITHUB_FAILURE[code as keyof typeof GITHUB_FAILURE];
+  return t(`np.pullRequests.githubError.${failure}`);
 }
