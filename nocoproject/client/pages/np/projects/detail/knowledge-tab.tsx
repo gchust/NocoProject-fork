@@ -7,7 +7,6 @@ import { Link } from 'react-router';
 
 import { NpSectionHeading } from '@/components/np-section';
 import { NpEmpty, NpListSkeleton, NpLoadError } from '@/components/np-states';
-import { NpTag } from '@/components/np-tag';
 import { Button } from '@/components/ui/button';
 
 import {
@@ -15,7 +14,7 @@ import {
   fetchKnowledgeProposals,
 } from '../../api-knowledge.js';
 import { npKeys } from '../../constants.js';
-import { useNpFormatters } from '../../format.js';
+import { KnowledgeTree } from '../../knowledge/knowledge-tree.js';
 import { KnowledgePendingProposals } from '../../knowledge/pending-proposals.js';
 
 /**
@@ -29,7 +28,6 @@ export function ProjectKnowledge({
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const format = useNpFormatters();
   const docs = useQuery({
     queryKey: npKeys.knowledgeList({ projectId }),
     queryFn: ({ signal }) => fetchKnowledgeList(api, { projectId }, signal),
@@ -84,40 +82,9 @@ export function ProjectKnowledge({
             description={t('np.projectPage.noDocuments')}
           />
         ) : (
-          <ul className='divide-y overflow-hidden rounded-lg border bg-card'>
-            {docs.data.map((doc) => (
-              <li key={doc.id}>
-                <Link
-                  to={`/knowledge/${encodeURIComponent(doc.id)}`}
-                  className='flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40'
-                >
-                  <BookOpenTextIcon
-                    className='size-4 shrink-0 text-muted-foreground'
-                    aria-hidden='true'
-                  />
-                  <span className='min-w-0 flex-1'>
-                    <span className='block truncate text-sm font-medium'>
-                      {doc.title}
-                    </span>
-                    {doc.summary ? (
-                      <span className='block truncate text-xs text-muted-foreground'>
-                        {doc.summary}
-                      </span>
-                    ) : null}
-                  </span>
-                  {doc.archivedAt ? (
-                    <NpTag tone='slate'>{t('np.projectPage.archived')}</NpTag>
-                  ) : null}
-                  <span className='font-mono text-xs text-muted-foreground'>
-                    v{doc.version}
-                  </span>
-                  <span className='w-24 shrink-0 text-right text-xs text-muted-foreground'>
-                    {format.relative(doc.updatedAt)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className='rounded-lg border bg-card p-2'>
+            <KnowledgeTree docs={docs.data} />
+          </div>
         )}
       </section>
     </div>

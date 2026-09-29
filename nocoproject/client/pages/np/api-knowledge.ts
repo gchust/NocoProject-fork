@@ -9,6 +9,7 @@ import type {
   KnowledgeDocVersion,
   KnowledgeProposal,
   KnowledgeProposalStatus,
+  MoveKnowledgeInput,
   UpdateKnowledgeInput,
 } from './types-iter3.js';
 
@@ -68,7 +69,7 @@ export async function createKnowledgeDoc(
   return (body.doc ?? body) as KnowledgeDoc;
 }
 
-/** `{ doc, versions, proposals }`; a bare document (older shape) gets empty history. Versions are newest first. */
+/** `{ doc, versions, proposals, breadcrumbs }`; a bare document (older shape) gets empty history. Versions are newest first. */
 export function normalizeKnowledgeDetail(body: unknown): KnowledgeDetail {
   const raw = unwrap<Partial<KnowledgeDetail> & Partial<KnowledgeDoc>>(body);
   const doc = (raw.doc ?? raw) as KnowledgeDoc;
@@ -78,6 +79,7 @@ export function normalizeKnowledgeDetail(body: unknown): KnowledgeDetail {
     proposals: (raw.proposals ?? []).filter(
       (proposal) => proposal.status === 'pending',
     ),
+    breadcrumbs: raw.breadcrumbs ?? [],
   };
 }
 
@@ -98,6 +100,25 @@ export async function updateKnowledgeDoc(
 ): Promise<KnowledgeDoc> {
   const body = unwrap<{ doc?: KnowledgeDoc } & Partial<KnowledgeDoc>>(
     await api.request<unknown, UpdateKnowledgeInput>({
+      path: `np/knowledge/${id(docId)}`,
+      method: 'PATCH',
+      json: input,
+    }),
+  );
+  return (body.doc ?? body) as KnowledgeDoc;
+}
+
+/**
+ * Moves a document to a new parent/position (NP-147): a `PATCH /np/knowledge/:id` carrying `parentId` and
+ * `sortOrder`, distinguished server-side from a content edit. Does not create a new content version.
+ */
+export async function moveKnowledgeDoc(
+  api: ApiClient,
+  docId: string,
+  input: MoveKnowledgeInput,
+): Promise<KnowledgeDoc> {
+  const body = unwrap<{ doc?: KnowledgeDoc } & Partial<KnowledgeDoc>>(
+    await api.request<unknown, MoveKnowledgeInput>({
       path: `np/knowledge/${id(docId)}`,
       method: 'PATCH',
       json: input,

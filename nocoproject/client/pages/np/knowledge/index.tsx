@@ -2,7 +2,13 @@ import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BookOpenTextIcon, PlusIcon, SearchIcon } from 'lucide-react';
+import {
+  BookOpenTextIcon,
+  FolderTreeIcon,
+  ListIcon,
+  PlusIcon,
+  SearchIcon,
+} from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 
@@ -20,6 +26,7 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group';
 import { Spinner } from '@/components/ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import {
   fetchKnowledgeList,
@@ -35,8 +42,11 @@ import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import {
   filterKnowledge,
   readKnowledgeScope,
+  resolveKnowledgeView,
+  storeKnowledgeView,
   writableProjects,
 } from './knowledge-model.js';
+import { KnowledgeTree } from './knowledge-tree.js';
 import { KnowledgePendingProposals } from './pending-proposals.js';
 
 /**
@@ -55,6 +65,14 @@ export default function KnowledgePage(): ReactElement {
     useUrlSearch();
   const scope = readKnowledgeScope(params.get('project'));
   const q = params.get('q')?.trim() || undefined;
+  // A search always shows the list (the plan's §B); otherwise the person's chosen or remembered view.
+  const view = q ? 'list' : resolveKnowledgeView(params);
+  const segments = location.pathname.split('/').filter(Boolean);
+  const afterKnowledge = segments[segments.indexOf('knowledge') + 1];
+  const openDocId =
+    afterKnowledge && afterKnowledge !== 'new'
+      ? decodeURIComponent(afterKnowledge)
+      : undefined;
   const filters = {
     projectId:
       scope.kind === 'project'
@@ -200,6 +218,14 @@ export default function KnowledgePage(): ReactElement {
         }
       />
     );
+  } else if (view === 'tree') {
+    content = (
+      <KnowledgeTree
+        docs={rows}
+        currentDocId={openDocId}
+        linkSearch={location.search}
+      />
+    );
   } else {
     content = (
       <DataTable
@@ -292,6 +318,39 @@ export default function KnowledgePage(): ReactElement {
               aria-label={t('status.loading')}
             />
           ) : null}
+          {q ? null : (
+            <ToggleGroup
+              variant='outline'
+              size='sm'
+              spacing={0}
+              className='ml-auto'
+              value={[view]}
+              onValueChange={(values: string[]) => {
+                const [next] = values;
+                if (next !== 'tree' && next !== 'list') return;
+                storeKnowledgeView(next);
+                updateParams((current) => {
+                  const nextParams = new URLSearchParams(current);
+                  nextParams.set('view', next);
+                  return nextParams;
+                });
+              }}
+              aria-label={t('np.knowledge.viewLabel')}
+            >
+              <ToggleGroupItem
+                value='tree'
+                aria-label={t('np.knowledge.treeView')}
+              >
+                <FolderTreeIcon />
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value='list'
+                aria-label={t('np.knowledge.listView')}
+              >
+                <ListIcon />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
         </div>
         {content}
       </div>
