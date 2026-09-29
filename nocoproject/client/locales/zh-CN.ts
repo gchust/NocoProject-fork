@@ -104,7 +104,7 @@ const zhCN: AppResource = {
     themes: { default: '宽松', compact: '紧凑' },
   },
   app: {
-    title: 'NocoBase',
+    title: 'NocoProject',
   },
   actions: {
     close: '关闭',
