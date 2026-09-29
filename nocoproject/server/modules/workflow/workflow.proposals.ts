@@ -22,7 +22,8 @@ import { requireCapability } from '../agent/capabilities.js';
 import { NP_SETTINGS } from '../shared/access.js';
 import type { Actor } from '../shared/activity.js';
 import {
-  adminUserIds,
+  deciderUserIds,
+  type AccessHolders,
   canSeeIssue,
   canUseSetting,
   viewerOf,
@@ -76,6 +77,8 @@ export interface WorkflowProposalDeps {
   readonly users: UserDirectory;
   readonly activity: ActivityRecorder;
   readonly workflows: WorkflowService;
+  /** Who holds `update` on `nocoproject.workflows` (the deciders of a proposal). */
+  readonly roles: () => AccessHolders;
 }
 
 export interface WorkflowProposalService {
@@ -283,7 +286,10 @@ export function createWorkflowProposalService(
           reason,
           changes: diffCounts(diff),
           issueId: issue?.id ?? null,
-          deciderUserIds: await adminUserIds(tx.conn),
+          deciderUserIds: await deciderUserIds(tx.conn, deps.roles(), {
+            resource: { type: 'settings', id: NP_SETTINGS.workflows },
+            action: 'update',
+          }),
           actor,
         });
         return proposalId;

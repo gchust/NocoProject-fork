@@ -9,7 +9,14 @@
  * from every agent.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, viewerOf, type Viewer } from '../shared/authz.js';
+import { NP_BUSINESS } from '../shared/access.js';
+import {
+  allowsOwn,
+  forbid,
+  scopeIn,
+  viewerOf,
+  type Viewer,
+} from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import {
   iso,
@@ -169,7 +176,11 @@ async function decorate(
       createdByName: names.get(createdById) ?? null,
       fileCount: files.get(id) ?? 0,
       agentCount: agents.get(id) ?? 0,
-      canEdit: isAdmin(viewer) || createdById === viewer.userId,
+      canEdit: allowsOwn(
+        scopeIn(viewer, NP_BUSINESS.skills, 'manage'),
+        createdById,
+        viewer.userId,
+      ),
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),
     };
@@ -247,7 +258,13 @@ async function detail(
 async function editable(tx: Tx, actor: Actor, id: string): Promise<Viewer> {
   const viewer = await viewerOf(tx.conn, actor);
   const row = await requireRow(tx.conn, id);
-  if (!isAdmin(viewer) && str(row.createdById) !== viewer.userId)
+  if (
+    !allowsOwn(
+      scopeIn(viewer, NP_BUSINESS.skills, 'manage'),
+      str(row.createdById),
+      viewer.userId,
+    )
+  )
     forbid('Only the skill creator or an owner/admin may change this skill.');
   return viewer;
 }

@@ -259,7 +259,11 @@ export async function agentPropose(
       summary,
       isNew,
       issueId: issue?.id ?? null,
-      deciderUserIds: await knowledgeDeciders(tx.conn, target.projectId),
+      deciderUserIds: await knowledgeDeciders(
+        tx.conn,
+        deps.roles(),
+        target.projectId,
+      ),
       actor,
     });
     return proposalId;

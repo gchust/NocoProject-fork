@@ -2,15 +2,16 @@
  * Agent environment variables and their audit trail (docs/phase1/iteration-2-contract.md §G).
  *
  * Values are stored encrypted (`shared/crypto.ts`) and only ever leave the server decrypted in two places: `reveal`
- * (owner/admin, audited) and the daemon's claim payload (`claimEnv`). Listing shows names only. The agent owner and
- * owner/admin may list, set and delete; reveal and the audit list are owner/admin only. Set and delete record an
- * audit row with the names touched.
+ * (`agents/env` at all, audited) and the daemon's claim payload (`claimEnv`). Listing shows names only. `agents/env`
+ * lets its holder list, set and delete the variables of their own agents ("related") or of every agent ("all");
+ * reveal and the audit list need "all". Set and delete record an audit row with the names touched.
  */
 import type { Actor } from '../shared/activity.js';
+import { NP_BUSINESS } from '../shared/access.js';
 import {
-  canEditAgent,
+  allowsOwn,
   forbid,
-  isAdmin,
+  scopeIn,
   viewerOf,
   type Viewer,
 } from '../shared/authz.js';
@@ -141,7 +142,12 @@ async function authorize(
 ): Promise<Viewer> {
   const viewer = await viewerOf(conn, actor);
   const agent = await requireAgent(conn, agentId);
-  if (level === 'admin' ? !isAdmin(viewer) : !canEditAgent(viewer, agent))
+  const scope = scopeIn(viewer, NP_BUSINESS.agents, 'env');
+  if (
+    level === 'admin'
+      ? scope !== 'all'
+      : !allowsOwn(scope, agent.ownerUserId, viewer.userId)
+  )
     forbid(
       level === 'admin'
         ? 'Only an owner or admin may reveal environment variables or read their audit.'

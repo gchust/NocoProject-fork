@@ -12,7 +12,11 @@ import type {
   ApprovalApplyResult,
   ApprovalGateway,
 } from '../shared/approval.js';
-import { requireVisibleIssue, viewerOf } from '../shared/authz.js';
+import {
+  requireEditIssues,
+  requireVisibleIssue,
+  viewerOf,
+} from '../shared/authz.js';
 import type { Tx, TxRunner } from '../shared/db.js';
 import { now } from '../shared/db.js';
 import { conflict, invalid } from '../shared/errors.js';
@@ -260,6 +264,7 @@ async function create(
   );
   return deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
+    requireEditIssues(viewer);
     const values = await resolveNewIssue(deps, tx, viewer, input);
     const issue = await insertIssue(deps, tx, actor, {
       ...values,
@@ -318,6 +323,7 @@ async function update(
   return deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
     const before = await requireVisibleIssue(tx.conn, viewer, idOrKey);
+    requireEditIssues(viewer);
     if (before.revision !== patch.revision) {
       throw conflict(
         'REVISION_CONFLICT',

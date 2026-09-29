@@ -162,15 +162,17 @@ const RANK: Readonly<Record<MemberRole, number>> = {
   owner: 2,
 };
 
-/** Whether `actor` may change ordinary role assignments: the Users page's `user` `assign-role`. */
+/**
+ * Whether `actor` may change ordinary role assignments: the Users page's `user` `assign-role`. A caller without the
+ * built-in authorization (an internal actor) may not.
+ */
 async function canAssignRoles(conn: Conn, actor: Actor): Promise<boolean> {
-  if (actor.access)
-    return actor.access.can({
-      resource: { type: 'user', id: '*' },
-      action: 'assign-role',
-    });
-  const viewer = await viewerOf(conn, actor);
-  return viewer.role === 'owner' || viewer.role === 'admin';
+  await viewerOf(conn, actor);
+  if (!actor.access) return false;
+  return actor.access.can({
+    resource: { type: 'user', id: '*' },
+    action: 'assign-role',
+  });
 }
 
 /** Applies `from → to` through the role store; the caller has checked who may. */

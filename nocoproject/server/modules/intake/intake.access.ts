@@ -3,7 +3,8 @@
  * (moved out of `intake.service.ts`).
  */
 import type { Actor } from '../shared/activity.js';
-import { isAdmin, viewerOf, type Viewer } from '../shared/authz.js';
+import { NP_BUSINESS } from '../shared/access.js';
+import { allowsOwn, scopeIn, viewerOf, type Viewer } from '../shared/authz.js';
 import type { Conn, Tx } from '../shared/db.js';
 import { now } from '../shared/db.js';
 import { conflict, notFound } from '../shared/errors.js';
@@ -12,7 +13,10 @@ import type { IntakeDeps } from './intake.service.js';
 import { draftsOf, findBatch, replaceDrafts } from './intake.records.js';
 import { validateDrafts } from './intake.validation.js';
 
-/** The batch, if the caller entered it or is an owner/admin (404 otherwise, so other members' batches do not leak). */
+/**
+ * The batch, if `intake/manage` reaches it: every batch, or those the caller entered (404 otherwise, so other members'
+ * batches do not leak).
+ */
 export async function ownBatch(
   conn: Conn,
   actor: Actor,
@@ -20,7 +24,13 @@ export async function ownBatch(
 ): Promise<{ batch: IntakeBatch; viewer: Viewer }> {
   const viewer = await viewerOf(conn, actor);
   const batch = await findBatch(conn, id);
-  if (batch.createdById !== viewer.userId && !isAdmin(viewer))
+  if (
+    !allowsOwn(
+      scopeIn(viewer, NP_BUSINESS.intake, 'manage'),
+      batch.createdById,
+      viewer.userId,
+    )
+  )
     throw notFound('Intake batch');
   return { batch, viewer };
 }

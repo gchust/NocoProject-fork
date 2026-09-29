@@ -4,7 +4,11 @@
  * rejected. Removing the last blocker starts the issue through the trigger module.
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
-import { requireVisibleIssue, viewerOf } from '../shared/authz.js';
+import {
+  requireEditIssues,
+  requireVisibleIssue,
+  viewerOf,
+} from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { isUniqueViolation, now, str } from '../shared/db.js';
 import { conflict, invalid, notFound } from '../shared/errors.js';
@@ -255,6 +259,7 @@ export function createDependencyService(
       return deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
+        requireEditIssues(viewer);
         let dependsOn: IssueV1;
         try {
           dependsOn = await requireVisibleIssue(
@@ -285,6 +290,7 @@ export function createDependencyService(
       await deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
+        requireEditIssues(viewer);
         const removed = await deleteDependency(tx, deps, issue, target, actor);
         if (!removed) throw notFound('Dependency');
         if (removed.type === 'blockedBy') {

@@ -8,6 +8,7 @@ import { requireCapability } from '../agent/capabilities.js';
  * (`expectedVersion`) and a stale one is 409 `KNOWLEDGE_VERSION_CONFLICT`. Archived documents are read-only and hidden
  * from agents. Permissions: `knowledge.access.ts`.
  */
+import type { AccessHolders } from '../shared/authz.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import type { Conn, TxRunner } from '../shared/db.js';
 import { now, str } from '../shared/db.js';
@@ -118,6 +119,8 @@ export interface KnowledgeDeps {
   readonly ids: IdSource;
   readonly users: UserDirectory;
   readonly activity: ActivityRecorder;
+  /** Who holds `knowledge/decide` at all (the deciders of a proposal without a project lead). */
+  readonly roles: () => AccessHolders;
 }
 
 function decoration(deps: KnowledgeDeps, scope: KnowledgeScope | null) {

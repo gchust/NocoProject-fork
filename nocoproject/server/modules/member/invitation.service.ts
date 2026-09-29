@@ -15,6 +15,7 @@
 import type { Actor } from '../shared/activity.js';
 import { NP_SETTINGS } from '../shared/access.js';
 import {
+  canManageProject,
   canUseSetting,
   forbid,
   projectAccess,
@@ -135,7 +136,7 @@ async function checkInviter(
     const access = await projectAccess(conn, viewer, projectId);
     if (!access.exists || (!admin && !access.visible))
       throw invalid('INVALID_PROJECT', `Project ${projectId} does not exist.`);
-    if (!admin && !access.lead)
+    if (!admin && !canManageProject(viewer, access))
       forbid(
         'Only the project lead or an owner/admin may invite into this project.',
       );

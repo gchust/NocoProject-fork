@@ -17,6 +17,7 @@ import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   canChangeOwner,
   canSeeIssue,
+  requireEditIssues,
   requireVisibleIssue,
   viewerOf,
   type Viewer,
@@ -219,6 +220,7 @@ export function createAttachmentService(
       return deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
+        requireEditIssues(viewer);
         await attachFiles(tx, deps.activity, actor, issue.id, ids);
         return views(
           tx.conn,
@@ -233,6 +235,7 @@ export function createAttachmentService(
       const removed = await deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
+        requireEditIssues(viewer);
         const file = isFileId(fileId) ? await findFile(tx.conn, fileId) : null;
         if (!file || file.issueId !== issue.id) throw notFound('Attachment');
         if (!(await canRemove(tx.conn, viewer, issue, file)))

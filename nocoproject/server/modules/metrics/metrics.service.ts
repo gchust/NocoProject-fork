@@ -5,7 +5,7 @@
  * so its visibility and pricing rules apply unchanged. The figures and their definitions: `metrics.collect.ts`.
  */
 import type { Actor } from '../shared/activity.js';
-import { hiddenProjectIds, viewerOf } from '../shared/authz.js';
+import { reportHiddenProjectIds, viewerOf } from '../shared/authz.js';
 import type { TxRunner } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
 import type {
@@ -146,7 +146,7 @@ async function report(
     to: range.end,
     now: new Date(),
     projectId,
-    hidden: await hiddenProjectIds(conn, viewer),
+    hidden: await reportHiddenProjectIds(conn, viewer),
     doneKeys: await doneKeys(deps),
   };
   const moves = await statusMoves(scope);

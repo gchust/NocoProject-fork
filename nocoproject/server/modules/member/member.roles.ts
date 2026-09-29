@@ -6,10 +6,11 @@
  * Every method takes the caller's transaction connection, so a role change commits or rolls back with the members row
  * that projects it; `changed` announces it after commit.
  */
+import type { AccessHolders } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
 import type { MemberRole } from '../shared/protocol.js';
 
-export interface RoleAssignments {
+export interface RoleAssignments extends AccessHolders {
   /** The user's role, projected from what they hold (`projectRole`). */
   roleOf(conn: Conn, userId: string): Promise<MemberRole>;
   /** Gives a user who just became a member the `np-member` set, once. */

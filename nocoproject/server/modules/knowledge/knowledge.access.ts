@@ -5,17 +5,19 @@
  * | ---------------------------------------- | ---------------------------------------------------------- |
  * | Read a project document                  | members who can see the project                            |
  * | Read a system-level document             | every member                                               |
- * | Create / edit / archive a project doc    | the project lead (leadUserId or a lead membership), owner/admin |
- * | Create / edit / archive a system doc     | owner/admin                                                |
+ * | Create / edit / archive a project doc    | `knowledge/decide`: all, or the project lead (leadUserId or a lead membership) |
+ * | Create / edit / archive a system doc     | `knowledge/decide` at all                                  |
  * | Decide a proposal                        | same as editing the document's scope                       |
- * | Proposal cards go to                     | the project lead(s); owner/admin when there is none or the doc is system-level |
+ * | Proposal cards go to                     | the project lead(s); whoever holds `knowledge/decide` at all when there is none or the doc is system-level |
  */
 import type { Actor } from '../shared/activity.js';
+import { NP_BUSINESS } from '../shared/access.js';
 import {
-  adminUserIds,
+  deciderUserIds,
   hiddenProjectIds,
-  isAdmin,
+  scopeIn,
   viewerOf,
+  type AccessHolders,
   type Viewer,
 } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
@@ -30,7 +32,10 @@ import {
 
 export interface KnowledgeScope {
   readonly viewer: Viewer;
-  readonly admin: boolean;
+  /** `knowledge/decide` at all: every document, system-level ones included. */
+  readonly decideAll: boolean;
+  /** `knowledge/decide` at related (or all): the documents of the projects in `leadOf`. */
+  readonly decideLed: boolean;
   /** Projects the viewer leads. */
   readonly leadOf: ReadonlySet<string>;
   /** Private projects the viewer may not see. */
@@ -53,9 +58,11 @@ export async function scopeOf(
     .where('userId', '=', viewer.userId)
     .where('role', '=', 'lead')
     .execute();
+  const decide = scopeIn(viewer, NP_BUSINESS.knowledge, 'decide');
   return {
     viewer,
-    admin: isAdmin(viewer),
+    decideAll: decide === 'all',
+    decideLed: decide !== 'none',
     leadOf: new Set(
       unique([
         ...led.map((row) => str(row.id)),
@@ -77,12 +84,16 @@ export function canEdit(
   scope: KnowledgeScope,
   projectId: string | null,
 ): boolean {
-  return scope.admin || (projectId !== null && scope.leadOf.has(projectId));
+  return (
+    scope.decideAll ||
+    (scope.decideLed && projectId !== null && scope.leadOf.has(projectId))
+  );
 }
 
-/** The users a proposal card goes to: the project's leads, else every owner/admin. */
+/** The users a proposal card goes to: the project's leads, else every member holding `knowledge/decide` at all. */
 export async function knowledgeDeciders(
   conn: Conn,
+  directory: AccessHolders,
   projectId: string | null,
 ): Promise<string[]> {
   if (projectId) {
@@ -103,7 +114,10 @@ export async function knowledgeDeciders(
     ]);
     if (ids.length > 0) return ids;
   }
-  return adminUserIds(conn);
+  return deciderUserIds(conn, directory, {
+    resource: { type: 'composite', id: NP_BUSINESS.knowledge },
+    action: 'decide',
+  });
 }
 
 /** The run's project (the project of its issue), or null. Agents reach that project's and system-level documents. */

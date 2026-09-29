@@ -269,12 +269,15 @@ async function cancelStaleApprovals(
 }
 
 /** What the approval gateway calls back into (applying an approved transition, resolving approvers). */
-function approvalHooksOf(services: NpServices): ApprovalHooks {
+function approvalHooksOf(
+  services: NpServices,
+  roles: NpServiceDeps['roles'],
+): ApprovalHooks {
   return {
     applyTransition: (unit, request, approver) =>
       services.issues.applyApprovedTransition(unit, request, approver),
-    resolveApprovers: (unit, issue, roles) =>
-      resolveApproverIds(unit.conn, issue, roles),
+    resolveApprovers: (unit, issue, approverRoles) =>
+      resolveApproverIds(unit.conn, roles(), issue, approverRoles),
   };
 }
 
@@ -289,7 +292,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
   });
   const secrets = deps.secrets ?? createSecretBox(resolveSecretKey({}));
   const github = deps.github ?? createFetchGitHubClient();
-  const approvalHooks = () => approvalHooksOf(services);
+  const approvalHooks = () => approvalHooksOf(services, deps.roles);
   const ids = createIdSource(deps.idGenerator);
   const users = createUserDirectory();
   const activity = createActivityRecorder(ids);
@@ -373,7 +376,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       approvalHooks,
     ),
     ...createIteration3Services(
-      { tx, ids, users, activity, settings, workflows },
+      { tx, ids, users, activity, settings, workflows, roles: deps.roles },
       services,
     ),
     ...createIteration4Services(
@@ -387,6 +390,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       users,
       activity,
       workflows,
+      roles: deps.roles,
     }),
     attachments: createAttachmentService({
       tx,
