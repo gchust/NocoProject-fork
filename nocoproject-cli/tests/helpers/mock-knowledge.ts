@@ -25,14 +25,21 @@ export class MockKnowledge {
   readonly proposals: KnowledgeProposal[] = [];
   private seq = 0;
 
+  /** `parentId`/`projectId` scope a document; `sortOrder` defaults to its position among its (scope, parent) siblings when omitted. */
   add(partial: Partial<KnowledgeDoc> & { slug: string; title: string }): KnowledgeDoc {
     const now = new Date().toISOString();
+    const projectId = partial.projectId ?? null;
+    const parentId = partial.parentId ?? null;
+    const siblingCount = this.docs.filter((d) => d.projectId === projectId && d.parentId === parentId).length;
     const doc: KnowledgeDoc = {
       id: `kd${++this.seq}`,
-      projectId: null,
+      projectId,
       projectName: null,
       summary: '',
       content: `# ${partial.title}\n`,
+      parentId,
+      sortOrder: siblingCount,
+      childCount: 0,
       version: 1,
       updatedByType: 'user',
       updatedById: '1',
@@ -48,9 +55,13 @@ export class MockKnowledge {
     return doc;
   }
 
+  /** Non-archived documents visible to the run's scope, with `childCount` computed from live children (like the server: NP-147). */
   private visible(claimed: ClaimedRun): KnowledgeDoc[] {
     const projectId = claimed.project?.id ?? claimed.issue.projectId ?? null;
-    return this.docs.filter((d) => !d.archivedAt && (d.projectId === null || d.projectId === projectId));
+    const docs = this.docs.filter((d) => !d.archivedAt && (d.projectId === null || d.projectId === projectId));
+    const childCounts = new Map<string, number>();
+    for (const d of docs) if (d.parentId) childCounts.set(d.parentId, (childCounts.get(d.parentId) ?? 0) + 1);
+    return docs.map((d) => ({ ...d, childCount: childCounts.get(d.id) ?? 0 }));
   }
 
   /** Project documents win over system-level ones with the same slug. */

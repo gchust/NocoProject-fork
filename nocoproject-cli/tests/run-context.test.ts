@@ -23,12 +23,18 @@ describe('run context', () => {
 
   it('writes the iteration-3 knowledge index field by field, skipping malformed entries', () => {
     const run = iter3Run();
-    const bad = [...(run.knowledge ?? []), { id: 'x', slug: '', title: 'No slug', summary: '', projectId: null }, { id: 'kd3', slug: 'extra', title: 'Extra', content: 'SECRET BODY', projectId: undefined } as any];
+    const bad = [
+      ...(run.knowledge ?? []),
+      { id: 'x', slug: '', title: 'No slug', summary: '', projectId: null },
+      { id: 'kd3', slug: 'extra', title: 'Extra', content: 'SECRET BODY', projectId: undefined } as any,
+      { id: 'kd4', slug: 'product-manual', title: 'Product manual', summary: '', projectId: 'p1', childCount: 3 },
+    ];
     const ctx = buildRunContext({ ...run, knowledge: bad });
     expect(ctx.knowledge).toEqual([
-      { id: 'kd1', slug: 'api-conventions', title: 'API conventions', summary: 'Error envelope,\npagination and naming rules.', projectId: 'p1' },
-      { id: 'kd2', slug: 'release-process', title: 'Release process', summary: '', projectId: null },
-      { id: 'kd3', slug: 'extra', title: 'Extra', summary: '', projectId: null },
+      { id: 'kd1', slug: 'api-conventions', title: 'API conventions', summary: 'Error envelope,\npagination and naming rules.', projectId: 'p1', childCount: 0 },
+      { id: 'kd2', slug: 'release-process', title: 'Release process', summary: '', projectId: null, childCount: 0 },
+      { id: 'kd3', slug: 'extra', title: 'Extra', summary: '', projectId: null, childCount: 0 },
+      { id: 'kd4', slug: 'product-manual', title: 'Product manual', summary: '', projectId: 'p1', childCount: 3 },
     ]);
     expect(JSON.stringify(ctx)).not.toContain('SECRET BODY');
     expect(buildRunContext({ ...run, knowledge: null }).knowledge).toEqual([]);

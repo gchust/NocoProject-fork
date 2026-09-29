@@ -132,6 +132,21 @@ describe('iteration 3 brief', () => {
     expect(brief).toContain('## Capture learnings');
     expect(buildBrief(iter3Run({ knowledge: [] }))).toContain('No knowledge documents are available to this run yet.');
   });
+
+  it('adds a child-count hint with the exact kb list --parent command when a root document has children (NP-147)', () => {
+    const brief = buildBrief(
+      iter3Run({
+        knowledge: [
+          { id: 'kd1', slug: 'product-manual', title: 'Product manual', summary: 'Full user guide.', projectId: 'p1', childCount: 3 },
+          { id: 'kd2', slug: 'release-process', title: 'Release process', summary: '', projectId: null, childCount: 0 },
+          { id: 'kd3', slug: 'faq', title: 'FAQ', summary: 'Answers.', projectId: 'p1', childCount: 1 },
+        ],
+      }),
+    );
+    expect(brief).toContain('- **Product manual** (`product-manual`) — Full user guide. (3 sub-documents: `nocoproject kb list --parent product-manual`)');
+    expect(brief).toContain('- **Release process** (`release-process`, system-wide) — (no summary)\n');
+    expect(brief).toContain('- **FAQ** (`faq`) — Answers. (1 sub-document: `nocoproject kb list --parent faq`)');
+  });
 });
 
 describe('turn prompt', () => {
