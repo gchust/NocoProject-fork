@@ -177,6 +177,7 @@ const npCollabZhCN: NpCollabResource = {
       knowledge_proposal: '知识库建议',
       knowledge_decided: '知识库建议已处理',
       design_review: '方案待审',
+      runtime_upgrade_required: '需要升级 CLI',
     },
   },
   projects: {
@@ -342,7 +343,9 @@ const npCollabZhCN: NpCollabResource = {
     description: '在装有编码工具的电脑上运行以下命令。',
     install: '安装 CLI',
     login: '登录到本应用',
-    start: '启动守护进程',
+    start: '安装开机自启的守护进程',
+    startHint:
+      '安装运行这个 CLI 的 launchd（macOS）或 systemd 用户服务（Linux）。以后用 `nocoproject upgrade` 升级。',
     apiKeyPlaceholder: 'API 密钥',
     apiKeyHint: '在“设置 → API 密钥”中创建一个 API 密钥。',
     after:

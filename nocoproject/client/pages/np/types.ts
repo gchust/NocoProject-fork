@@ -279,7 +279,7 @@ export interface AgentListItem extends AgentConfiguration {
   readonly runtimeId: string | null;
   readonly runtimeName?: string | null;
   /** Either field may carry the runtime's state; `isRuntimeOnline` reads both. */
-  readonly runtimeStatus?: 'online' | 'offline' | null;
+  readonly runtimeStatus?: 'online' | 'offline' | 'upgrade_required' | null;
   readonly runtimeOnline?: boolean | null;
   /** One of `AgentProvider`; typed as a string so a newer daemon's provider still renders. */
   readonly provider: string;
@@ -317,11 +317,21 @@ export interface Runtime {
   readonly ownerUserId?: string | null;
   readonly ownerName?: string | null;
   readonly visibility?: 'private' | 'public';
-  readonly status: 'online' | 'offline';
+  /** `upgrade_required` (NP-150): the daemon is alive but must be upgraded before it runs agents. */
+  readonly status: 'online' | 'offline' | 'upgrade_required';
   readonly lastSeenAt: string | null;
   readonly capabilities?: Record<string, unknown> | null;
   readonly deviceInfo?: Record<string, unknown> | null;
   readonly version?: string | null;
+  /** NP-150: the daemon's CLI version and compatibility (copied from `RuntimeDaemonInfo`). */
+  readonly daemon?: {
+    readonly version: string | null;
+    readonly protocolVersion: number | null;
+    readonly status: 'ok' | 'deprecated' | 'unsupported';
+    readonly reason: string;
+    readonly updateAvailable: boolean;
+    readonly latestVersion: string;
+  } | null;
   readonly createdAt?: string;
 }
 

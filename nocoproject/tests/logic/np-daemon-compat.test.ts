@@ -80,13 +80,33 @@ async function upgradeCards() {
 describe('evaluateDaemon', () => {
   it.each([
     // CLI 0.3.x: protocol 1 without NP-125's configuration.
-    [{ protocolVersion: 1, version: '0.3.2' }, 'unsupported', 'daemonTooOld', 1],
+    [
+      { protocolVersion: 1, version: '0.3.2' },
+      'unsupported',
+      'daemonTooOld',
+      1,
+    ],
     // CLI 0.4.0: protocol 1 with configuration, inside the compatibility window.
-    [{ protocolVersion: 1, version: '0.4.0' }, 'deprecated', 'protocolDeprecated', 1],
+    [
+      { protocolVersion: 1, version: '0.4.0' },
+      'deprecated',
+      'protocolDeprecated',
+      1,
+    ],
     [{ protocolVersion: 2, version: '0.5.0' }, 'ok', 'current', 2],
     // A newer daemon that can still speak this server's protocol.
-    [{ protocolVersion: 3, minProtocolVersion: 2, version: '0.9.0' }, 'ok', 'current', 2],
-    [{ protocolVersion: 3, minProtocolVersion: 3, version: '0.9.0' }, 'unsupported', 'daemonTooNew', null],
+    [
+      { protocolVersion: 3, minProtocolVersion: 2, version: '0.9.0' },
+      'ok',
+      'current',
+      2,
+    ],
+    [
+      { protocolVersion: 3, minProtocolVersion: 3, version: '0.9.0' },
+      'unsupported',
+      'daemonTooNew',
+      null,
+    ],
     // No protocol at all: a protocol 1 daemon.
     [{ version: '0.4.1' }, 'deprecated', 'protocolDeprecated', 1],
   ] as const)('%o → %s (%s)', (identity, status, reason, negotiated) => {
@@ -140,7 +160,11 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
     expect(runtime).toMatchObject({
       status: 'upgrade_required',
       online: false,
-      daemon: { version: '0.3.2', status: 'unsupported', updateAvailable: true },
+      daemon: {
+        version: '0.3.2',
+        status: 'unsupported',
+        updateAvailable: true,
+      },
     });
     const [card] = await upgradeCards();
     expect(card).toMatchObject({
@@ -172,7 +196,9 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
 
     // Silence does not turn it into "offline": it still needs an upgrade.
     expect((await services.sweeper.sweep(later(600))).runtimesOffline).toBe(0);
-    expect((await services.runtimes.list())[0]!.status).toBe('upgrade_required');
+    expect((await services.runtimes.list())[0]!.status).toBe(
+      'upgrade_required',
+    );
     expect(await upgradeCards()).toHaveLength(1);
 
     // The upgraded daemon registers again: online, the card resolved, the run claimed.
@@ -255,7 +281,9 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
       runs: [],
       compatibility: { status: 'unsupported' },
     });
-    expect((await services.runtimes.list())[0]!.status).toBe('upgrade_required');
+    expect((await services.runtimes.list())[0]!.status).toBe(
+      'upgrade_required',
+    );
     expect(await upgradeCards()).toHaveLength(1);
   });
 

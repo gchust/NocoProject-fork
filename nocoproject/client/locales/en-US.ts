@@ -502,6 +502,7 @@ const enUS = {
         name: 'Name',
         provider: 'Provider',
         version: 'Version',
+        cli: 'CLI',
         kind: 'Kind',
         status: 'Status',
         lastSeen: 'Last seen',
@@ -510,6 +511,15 @@ const enUS = {
       kind: {
         personal: 'Personal',
         server: 'Server',
+      },
+      upgrade: {
+        required: 'Upgrade required',
+        lastSeen: 'Last heartbeat {{time}}',
+        show: 'Show the upgrade command',
+        requiredTitle: 'Upgrade the CLI on {{device}}',
+        availableTitle: 'A newer CLI for {{device}}',
+        versions: 'Installed {{current}}, this application serves {{latest}}.',
+        hint: 'Run it on that computer. It installs the new CLI and restarts the daemon once no agent is running.',
       },
     },
   },

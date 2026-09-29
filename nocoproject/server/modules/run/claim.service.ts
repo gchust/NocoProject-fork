@@ -477,8 +477,7 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
       for (const { runId, token } of claimed) {
         const payload = await buildClaimedRun(deps, runId, token, {
           url: serverUrl,
-          protocolVersion:
-            compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
+          protocolVersion: compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
         });
         if (payload) runs.push(payload);
       }

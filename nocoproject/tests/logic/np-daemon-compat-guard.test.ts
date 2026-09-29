@@ -29,7 +29,7 @@ const REVIEWED: readonly {
   readonly note: string;
 }[] = [
   {
-    fingerprint: '92d94af4828a4eba',
+    fingerprint: 'ac29c8cfc1580cef',
     protocol: 2,
     note: 'NP-150: protocol 2 (negotiation, compatibility in responses); NP-125 configuration is protocol 1 + configurationProtocol.',
   },
@@ -71,7 +71,10 @@ function daemonFacingTypes(): string {
         block.push(line);
         depth += (line.match(/\{/gu) ?? []).length;
         depth -= (line.match(/\}/gu) ?? []).length;
-        if (depth === 0 && (line.startsWith('}') || line.trimEnd().endsWith(';')))
+        if (
+          depth === 0 &&
+          (line.startsWith('}') || line.trimEnd().endsWith(';'))
+        )
           break;
       }
       blocks.push(

@@ -37,10 +37,7 @@ export type DaemonCompatibilityStatus = 'ok' | 'deprecated' | 'unsupported';
  * server (upgrade the server, or install the CLI the server ships).
  */
 export type DaemonCompatibilityReason =
-  | 'current'
-  | 'protocolDeprecated'
-  | 'daemonTooOld'
-  | 'daemonTooNew';
+  'current' | 'protocolDeprecated' | 'daemonTooOld' | 'daemonTooNew';
 
 export interface DaemonCompatibility {
   readonly status: DaemonCompatibilityStatus;
@@ -108,7 +105,7 @@ export function cliDownloadPath(version: string): string {
 export function compareVersions(a: string, b: string): number {
   const parts = (value: string) =>
     value
-      .split(/[-+]/u)[0]!
+      .replace(/[-+].*$/u, '')
       .split('.')
       .map((part) => Number.parseInt(part, 10) || 0);
   const left = parts(a);
@@ -130,7 +127,10 @@ export function upgradeCommand(
   daemonVersion: string | null,
   latestVersion: string = LATEST_CLI_VERSION,
 ): string {
-  if (daemonVersion && compareVersions(daemonVersion, UPGRADE_COMMAND_SINCE) >= 0)
+  if (
+    daemonVersion &&
+    compareVersions(daemonVersion, UPGRADE_COMMAND_SINCE) >= 0
+  )
     return 'nocoproject upgrade';
   const base = serverUrl.replace(/\/+$/u, '');
   return `npm i -g ${base}${cliDownloadPath(latestVersion)} && nocoproject daemon install`;

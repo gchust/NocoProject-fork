@@ -1,5 +1,5 @@
 /**
- * `nocoproject daemon start|stop|status|logs`.
+ * `nocoproject daemon start|stop|status|logs|install|uninstall` (install / uninstall in `service.ts`).
  */
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, watchFile, writeFileSync, createReadStream } from 'node:fs';
@@ -11,8 +11,13 @@ import { Daemon } from '../daemon/lifecycle.js';
 import { sleep } from '../util/backoff.js';
 import { createLogger } from '../util/log.js';
 import { CliError, EXIT, failAndExit, printJson, printLine } from './output.js';
+import type { UpgradeRequired } from '../daemon/lifecycle.js';
+import { readInstalledService, realEntry, serviceWarnings } from '../daemon/service.js';
+import { PROTOCOL_VERSION, upgradeCommand, type DaemonCompatibility } from '../protocol.js';
+import { CLI_VERSION } from '../version.js';
+import { registerServiceCommands } from './service.js';
 
-const paths = (home: string) => ({
+export const paths = (home: string) => ({
   pid: join(home, 'daemon.pid'),
   state: join(home, 'daemon.state.json'),
   logDir: join(home, 'logs'),
@@ -28,7 +33,7 @@ function readPid(home: string): number | null {
   }
 }
 
-function alive(pid: number): boolean {
+export function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -37,9 +42,24 @@ function alive(pid: number): boolean {
   }
 }
 
-function runningPid(home: string): number | null {
+export function runningPid(home: string): number | null {
   const pid = readPid(home);
   return pid && alive(pid) ? pid : null;
+}
+
+/** The running daemon's `daemon.state.json`, or null. */
+export function readState(home: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(paths(home).state, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** Warnings when the boot service or the running daemon is not this CLI (printed to stderr by start and status). */
+export function currentWarnings(home: string): string[] {
+  const running = runningPid(home) ? readState(home) : null;
+  return serviceWarnings({ execPath: process.execPath, entry: process.argv[1] ? realEntry(process.argv[1]) : null, version: CLI_VERSION }, readInstalledService(home), running);
 }
 
 interface StartOpts {
@@ -101,6 +121,10 @@ async function startForeground(opts: StartOpts): Promise<void> {
 
 async function startBackground(opts: StartOpts): Promise<void> {
   const cfg = loadConfig();
+  const service = readInstalledService(cfg.home);
+  if (service)
+    process.stderr.write(`warning: the boot service ${service.label} is installed; it starts the daemon itself (use \`nocoproject daemon install\` to restart it)\n`);
+  for (const warning of currentWarnings(cfg.home)) process.stderr.write(`warning: ${warning}\n`);
   if (!cfg.serverUrl || !cfg.apiKey) throw new CliError('not logged in: run `nocoproject login --server <url> --api-key <key>`', EXIT.auth, 'NOT_LOGGED_IN');
   const p = paths(cfg.home);
   const existing = runningPid(cfg.home);
@@ -120,42 +144,61 @@ async function startBackground(opts: StartOpts): Promise<void> {
   else printLine(`daemon started (pid ${child.pid}); logs: ${p.log}`);
 }
 
-async function stopDaemon(json: boolean): Promise<void> {
-  const home = loadConfig().home;
+/** Stops the daemon of `home` (SIGTERM, SIGKILL after 30 seconds); null when none runs. */
+export async function stopRunning(home: string): Promise<{ pid: number; forced: boolean } | null> {
   const pid = runningPid(home);
-  if (!pid) {
-    if (json) printJson({ stopped: false, reason: 'not running' });
-    else printLine('daemon is not running');
-    return;
-  }
+  if (!pid) return null;
   process.kill(pid, 'SIGTERM');
   const deadline = Date.now() + 30_000;
   while (alive(pid) && Date.now() < deadline) await sleep(200);
   const forced = alive(pid);
   if (forced) process.kill(pid, 'SIGKILL');
-  if (json) printJson({ stopped: true, pid, forced });
-  else printLine(`daemon stopped (pid ${pid}${forced ? ', forced' : ''})`);
+  return { pid, forced };
+}
+
+async function stopDaemon(json: boolean): Promise<void> {
+  const home = loadConfig().home;
+  const service = readInstalledService(home);
+  if (service && runningPid(home))
+    process.stderr.write(`warning: the boot service ${service.label} will start the daemon again; \`nocoproject daemon uninstall\` stops it for good\n`);
+  const stopped = await stopRunning(home);
+  if (!stopped) {
+    if (json) printJson({ stopped: false, reason: 'not running' });
+    else printLine('daemon is not running');
+    return;
+  }
+  if (json) printJson({ stopped: true, pid: stopped.pid, forced: stopped.forced });
+  else printLine(`daemon stopped (pid ${stopped.pid}${stopped.forced ? ', forced' : ''})`);
 }
 
 function statusDaemon(json: boolean): void {
   const home = loadConfig().home;
   const pid = runningPid(home);
   const p = paths(home);
-  let state: Record<string, unknown> | null = null;
-  try {
-    state = JSON.parse(readFileSync(p.state, 'utf8')) as Record<string, unknown>;
-  } catch {
-    state = null;
-  }
-  const result = { running: pid !== null, pid, log: p.log, ...(pid && state ? { state } : {}) };
+  const state = readState(home);
+  const service = readInstalledService(home);
+  const warnings = currentWarnings(home);
+  const cli = { version: CLI_VERSION, protocolVersion: PROTOCOL_VERSION };
+  const result = { running: pid !== null, pid, log: p.log, cli, service, warnings, ...(pid && state ? { state } : {}) };
   if (json) return printJson(result);
+  printLine(`nocoproject-cli ${CLI_VERSION} (protocol ${PROTOCOL_VERSION})`);
+  if (service) printLine(`boot service: ${service.label} (${service.kind}) → ${service.entry}`);
+  else printLine('boot service: not installed (`nocoproject daemon install`)');
+  for (const warning of warnings) printLine(`  !! ${warning}`);
   if (!pid) return printLine('daemon is not running');
-  printLine(`daemon running (pid ${pid})`);
+  printLine(`daemon running (pid ${pid}${typeof state?.version === 'string' ? `, nocoproject-cli ${state.version}` : ''})`);
   if (state) {
     const runtimes = (state.runtimes as { provider: string; id: string; version: string }[] | undefined) ?? [];
     printLine(`server: ${String(state.serverUrl)}   socket: ${String(state.socket)}   active runs: ${String(state.activeRuns)}/${String(state.maxConcurrent)}`);
+    if (typeof state.entry === 'string') printLine(`running: ${String(state.execPath)} ${state.entry}`);
     for (const r of runtimes) printLine(`  runtime ${r.provider} ${r.version} (${r.id})`);
-    if (state.protocolMismatch) printLine('  !! protocol mismatch: upgrade nocoproject-cli');
+    const compatibility = state.compatibility as DaemonCompatibility | null | undefined;
+    if (compatibility)
+      printLine(`server: accepts protocols ${compatibility.protocols.min}-${compatibility.protocols.current}, CLI ${compatibility.minVersion} or later, latest ${compatibility.latestVersion} (this daemon: ${compatibility.status})`);
+    const upgrade = state.upgradeRequired as UpgradeRequired | null | undefined;
+    if (upgrade) printLine(`  !! upgrade required (${upgrade.reason}); claiming is paused. Run: ${upgrade.command}`);
+    else if (state.protocolMismatch) printLine('  !! protocol mismatch: upgrade nocoproject-cli');
+    else if (compatibility?.updateAvailable) printLine(`  a newer CLI is available (${compatibility.latestVersion}): ${upgradeCommand(String(state.serverUrl), CLI_VERSION, compatibility.latestVersion)}`);
   }
   printLine(`logs: ${p.log}`);
 }
@@ -221,4 +264,5 @@ export function registerDaemonCommands(program: Command): void {
     .action(async (opts: { lines: string; follow?: boolean; json?: boolean }) =>
       logsDaemon(Math.max(1, Number(opts.lines) || 50), Boolean(opts.follow)).catch((e: unknown) => failAndExit(e, Boolean(opts.json))),
     );
+  registerServiceCommands(daemon);
 }

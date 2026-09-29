@@ -415,6 +415,8 @@ const npIter2ZhCN: NpIter2Resource = {
     knowledge_accepted: '你对「{{doc}}」的知识库建议已被接受。',
     knowledge_rejected: '你对「{{doc}}」的知识库建议被驳回。',
     design_review: '{{actor}} 提交了设计方案，等你审核。',
+    runtime_upgrade_required:
+      '这台电脑上的守护进程运行的是 CLI {{version}}，需要升级到 {{latest}} 才能运行 Agent。',
   },
   projectMore: {
     label: '更多项目操作',

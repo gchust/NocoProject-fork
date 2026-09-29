@@ -176,8 +176,7 @@ async function failOrphanedRunning(
     const gone =
       !runtime ||
       // `upgrade_required` counts too: such a daemon may still finish a run, but not once it has gone silent.
-      (str(runtime.status) !== 'online' &&
-        (!lastSeen || lastSeen < threshold));
+      (str(runtime.status) !== 'online' && (!lastSeen || lastSeen < threshold));
     if (gone && (await failRun(deps, run, 'runtimeOffline', ['running'])))
       count += 1;
   }

@@ -247,7 +247,6 @@ async function heartbeat(
   });
 }
 
-
 async function deregister(
   deps: RuntimeDeps,
   ownerUserId: string,

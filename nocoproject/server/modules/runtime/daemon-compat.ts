@@ -118,7 +118,9 @@ export function storedIdentity(deviceInfo: unknown): DaemonIdentity {
 }
 
 /** The daemon fields of a runtime row, evaluated against this server's rules. */
-export function runtimeDaemonInfo(deviceInfo: unknown): RuntimeDaemonInfo | null {
+export function runtimeDaemonInfo(
+  deviceInfo: unknown,
+): RuntimeDaemonInfo | null {
   const info = fromJson<Record<string, unknown>>(deviceInfo);
   if (!info || (info.daemonVersion == null && info.protocolVersion == null))
     return null;

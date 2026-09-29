@@ -483,6 +483,7 @@ const zhCN: AppResource = {
         name: '名称',
         provider: '工具',
         version: '版本',
+        cli: 'CLI',
         kind: '类型',
         status: '状态',
         lastSeen: '最近在线',
@@ -491,6 +492,15 @@ const zhCN: AppResource = {
       kind: {
         personal: '个人',
         server: '服务器',
+      },
+      upgrade: {
+        required: '需要升级',
+        lastSeen: '最后心跳 {{time}}',
+        show: '查看升级命令',
+        requiredTitle: '升级 {{device}} 上的 CLI',
+        availableTitle: '{{device}} 有新版 CLI',
+        versions: '已安装 {{current}}，本应用提供 {{latest}}。',
+        hint: '在那台电脑上运行。它会安装新版 CLI，并在没有 Agent 运行时重启守护进程。',
       },
     },
   },

@@ -184,6 +184,7 @@ const npCollabEnUS = {
       knowledge_proposal: 'Knowledge proposal',
       knowledge_decided: 'Knowledge decided',
       design_review: 'Proposal to review',
+      runtime_upgrade_required: 'CLI upgrade required',
     },
   },
   projects: {
@@ -357,7 +358,9 @@ const npCollabEnUS = {
       'Run these commands on the computer where your coding tools are installed.',
     install: 'Install the CLI',
     login: 'Sign in to this application',
-    start: 'Start the daemon',
+    start: 'Start the daemon at login',
+    startHint:
+      'Installs a launchd (macOS) or systemd user (Linux) service that runs this CLI. Upgrade later with `nocoproject upgrade`.',
     apiKeyPlaceholder: 'API key',
     apiKeyHint: 'Create an API key in Settings → API Keys.',
     after:

@@ -103,6 +103,15 @@ export function inboxBodyText(
     // Iteration 4 §B: the executor submitted a design proposal and the owner reviews it.
     case 'design_review':
       return key('design_review');
+    case 'runtime_upgrade_required': {
+      const latest = text(payload.latestVersion);
+      return latest
+        ? key('runtime_upgrade_required', {
+            version: text(payload.daemonVersion) ?? '—',
+            latest,
+          })
+        : null;
+    }
     case 'knowledge_decided': {
       const doc = text(payload.docTitle) ?? text(payload.title);
       const decision = text(payload.decision) ?? text(payload.status);
