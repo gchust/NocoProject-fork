@@ -59,7 +59,7 @@ const NS = 'nocoproject';
 const PROTECTION_OWNER = 'nocoproject';
 const SECTION = 'nocoproject';
 
-const SETTINGS_TITLES: Readonly<Record<string, string>> = {
+export const SETTINGS_TITLES: Readonly<Record<string, string>> = {
   [NP_SETTINGS.general]: 'general',
   [NP_SETTINGS.members]: 'members',
   [NP_SETTINGS.workflows]: 'workflows',
@@ -67,7 +67,7 @@ const SETTINGS_TITLES: Readonly<Record<string, string>> = {
   [NP_SETTINGS.github]: 'github',
 };
 
-function title(key: string): { key: string; ns: string } {
+export function title(key: string): { key: string; ns: string } {
   return { key: `np.access.${key}`, ns: NS };
 }
 
@@ -159,17 +159,21 @@ export function npAccess(
   };
 }
 
-async function replaceOne(
+/**
+ * Makes the user's direct assignments among `managed` exactly `keys`; every other assignment stays. Removing the last
+ * active owner is 409 `LAST_OWNER`.
+ */
+export async function replaceAssignments(
   sets: PermissionSetsApi<DatabaseConnection>,
   userId: string,
-  key: string,
-  held: boolean,
+  managed: readonly string[],
+  keys: readonly string[],
 ): Promise<void> {
   try {
     await sets.replaceSubjectAssignments({
       subject: { type: 'user', id: userId },
-      managedPermissionSets: [key],
-      permissionSets: held ? [key] : [],
+      managedPermissionSets: managed,
+      permissionSets: keys,
     });
   } catch (error) {
     if (error instanceof PermissionSetLastAssignmentError)
@@ -177,7 +181,7 @@ async function replaceOne(
     if (error instanceof PermissionSetNotFoundError)
       throw conflict(
         'ROLE_SET_MISSING',
-        `The permission set ${key} does not exist; restore it in the permission settings.`,
+        `A permission set among ${keys.join(', ')} does not exist; restore it in the permission settings.`,
       );
     throw error;
   }
@@ -204,9 +208,19 @@ export function createBuiltinRoles(authz: AppAuthorization): RoleAssignments {
       });
     },
     setOwner: (conn, userId, owner) =>
-      replaceOne(bound(conn), userId, NP_OWNER_SET, owner),
+      replaceAssignments(
+        bound(conn),
+        userId,
+        [NP_OWNER_SET],
+        owner ? [NP_OWNER_SET] : [],
+      ),
     setAdmin: (conn, userId, admin) =>
-      replaceOne(bound(conn), userId, NP_ADMIN_SET, admin),
+      replaceAssignments(
+        bound(conn),
+        userId,
+        [NP_ADMIN_SET],
+        admin ? [NP_ADMIN_SET] : [],
+      ),
     changed: (userId) =>
       authz.permissionSets.notifyAssignmentsChanged({
         type: 'user',

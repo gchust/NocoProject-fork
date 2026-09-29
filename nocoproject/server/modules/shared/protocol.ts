@@ -1189,3 +1189,8 @@ export * from './protocol.capabilities.js';
 export * from './protocol.daemon-compat.js';
 // Server- and browser-only (the CLI's sync-protocol drops this line)
 export * from './protocol.computers-server.js';
+
+// ---------- Business roles in /config/members (NP-153) ----------
+
+// Server- and browser-only (the CLI's sync-protocol drops this line)
+export * from './protocol.roles-server.js';

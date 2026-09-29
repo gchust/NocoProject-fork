@@ -14,9 +14,11 @@
  * a settings item `nocoproject.*` checked by its API (`np-authorization.ts`, `shared/access.ts`). The provider registers
  * them in `boot`, and keeps the `members.role` projection in step at start and whenever assignments change.
  *
- * Page grants for the NocoProject pages are given to the default `member` permission set once, by the seeds
+ * Page grants for the NocoProject pages were given to the default `member` permission set by the seeds
  * `2026092800003_np_member_page_grants`, `2026092900003_np_iter2_page_grants`, `2026092900004_np_github_settings_grant`
- * and `2026093000002_np_iter3_page_grants`, so administrators can still edit them.
+ * and `2026093000002_np_iter3_page_grants`; since NP-153 the seed `2026101100001_np_page_grants_to_roles` moves them
+ * to the business roles `np-member` / `np-admin` / `np-owner`, so a page ticked in a role takes effect. Business roles
+ * are managed in `/config/members` (`modules/member/roles.service.ts` on `np-authorization.roles.ts`).
  */
 import { Readable } from 'node:stream';
 
@@ -101,6 +103,7 @@ import type { RunTokenService } from '../modules/run/token.js';
 import type { RuntimeService } from '../modules/runtime/runtime.service.js';
 import { createNpServices, type NpServices } from '../modules/services.js';
 import type { InvitationService } from '../modules/member/invitation.service.js';
+import type { RoleService } from '../modules/member/roles.service.js';
 import { createPluginComputerKeys } from './np-computer-keys.js';
 import type { ComputerService } from '../modules/computer/computer.service.js';
 import type { DaemonWakeups } from '../modules/runtime/daemon-wakeups.js';
@@ -119,6 +122,7 @@ import {
   reconcileRoleProjection,
   registerNpAuthorization,
 } from './np-authorization.js';
+import { createPermissionSetRoles } from './np-authorization.roles.js';
 
 export const npServicesToken: ServiceToken<NpServices> =
   createServiceToken<NpServices>('nocoproject/services');
@@ -217,6 +221,8 @@ export const npAttachmentServiceToken: ServiceToken<AttachmentService> =
   createServiceToken<AttachmentService>('nocoproject/attachment-service');
 export const npInvitationServiceToken: ServiceToken<InvitationService> =
   createServiceToken<InvitationService>('nocoproject/invitation-service');
+export const npRoleServiceToken: ServiceToken<RoleService> =
+  createServiceToken<RoleService>('nocoproject/role-service');
 
 /** Binds a module token to the member of `NpServices` it exposes. */
 function bindModule<K extends keyof NpServices>(
@@ -260,6 +266,8 @@ export default class NpProvider extends ServiceProvider<Application> {
         accounts: () => createPluginAccounts(this.app),
         computerKeys: () => createPluginComputerKeys(this.app),
         roles: () => createBuiltinRoles(resolver.resolve(authorizationToken)),
+        roleStore: () =>
+          createPermissionSetRoles(resolver.resolve(authorizationToken)),
         aiConfigured: () =>
           (this.app.config.get<AIApplicationConfig>('ai')?.llmServices
             ?.length ?? 0) > 0,
@@ -308,6 +316,7 @@ export default class NpProvider extends ServiceProvider<Application> {
     bindModule(container, npWorkflowProposalServiceToken, 'workflowProposals');
     bindModule(container, npAttachmentServiceToken, 'attachments');
     bindModule(container, npInvitationServiceToken, 'invitations');
+    bindModule(container, npRoleServiceToken, 'businessRoles');
   }
 
   /** NP-78: the AI draft tab's (np.newIssue.tabs.ai) files are read through the Drive manager, on the row's own disk, for the AI parser. */

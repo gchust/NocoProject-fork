@@ -1,8 +1,8 @@
 // @vitest-environment node
 /**
  * The whole application (isolated SQLite, real authentication and authorization plugins): a freshly registered normal
- * user holds the NocoProject page grants through the default `member` permission set (seed
- * 2026092800003_np_member_page_grants), can call `/np/issues`, is bootstrapped as a plain member (the first user is
+ * user holds the NocoProject page grants through `np-member`, given on first contact (the seeds that gave them to the
+ * default `member` set, moved to the business roles by 2026101100001_np_page_grants_to_roles), can call `/np/issues`, is bootstrapped as a plain member (the first user is
  * the owner), cannot change roles, cannot see a private project it is not a member of, and keeps its own inbox chime
  * preference (NP-108).
  */
@@ -100,6 +100,18 @@ describe('NocoProject members through the application', () => {
     });
     expect(memberSignIn.status).toBe(200);
     const member = await client(app, memberSignIn);
+
+    // NP-153: the page grants are in np-member, given on the first NocoProject request (the landing page makes it).
+    const before = (await (await member.get('/authz/permissions')).json()) as {
+      data: { permissions: { resource: { type: string; id: string } }[] };
+    };
+    expect(
+      before.data.permissions.some(
+        (entry) =>
+          entry.resource.type === 'page' && entry.resource.id === 'np-inbox',
+      ),
+    ).toBe(false);
+    expect((await member.get('/np/me')).status).toBe(200);
 
     const permissions = await member.get('/authz/permissions');
     expect(permissions.status).toBe(200);

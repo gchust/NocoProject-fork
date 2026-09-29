@@ -18,6 +18,7 @@ import {
   npAgentServiceToken,
   npAttachmentServiceToken,
   npInvitationServiceToken,
+  npRoleServiceToken,
   npApprovalGatewayToken,
   npGitConnectionServiceToken,
   npIntakeServiceToken,
@@ -169,7 +170,6 @@ export function createDoubles() {
   const members = {
     ensure: vi.fn(async () => 'member'),
     list: vi.fn(async () => []),
-    updateRole: vi.fn(),
     preferences: vi.fn(async () => ({ inboxChime: true })),
     updatePreferences: vi.fn(async (_userId: string, input: unknown) => ({
       inboxChime: true,
@@ -293,6 +293,7 @@ export async function build(
   container.instance(npWorkflowProposalServiceToken, {} as never);
   container.instance(npAttachmentServiceToken, {} as never);
   container.instance(npInvitationServiceToken, {} as never);
+  container.instance(npRoleServiceToken, {} as never);
   const router = await contribution.createRouter({
     container,
     publicBasePath: '/main',

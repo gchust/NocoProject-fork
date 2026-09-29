@@ -5,7 +5,7 @@
  * `/api/np/{knowledge,metrics}` (plus the delivery, activity and comment pages under `/api/np/issues/:id`) and, from
  * iteration 4, `/api/np/pm` (plus the design decisions under `/api/np/issues/:id/design`); Phase 2 the checklists
  * under `/api/np/issues/:id/checklists` and the workflow template proposals, revisions and admin write under
- * `/api/np/workflows`.
+ * `/api/np/workflows`; NP-153 the business roles under `/api/np/access` and `/api/np/members/:userId/roles`.
  *
  * Every prefix is mounted behind its own guard: a run token is refused with 403 before the session lookup,
  * `auth.required()` answers 401 for anonymous callers, the built-in authorization context and the caller's
@@ -53,6 +53,7 @@ import {
   ensureMember,
 } from '../modules/member/member.routes.js';
 import { createInvitationRoutes } from '../modules/member/invitation.routes.js';
+import { createAccessRoutes } from '../modules/member/roles.routes.js';
 import {
   createInboxRoutes,
   createSubscriptionRoutes,
@@ -96,6 +97,7 @@ import {
   npInboxServiceToken,
   npLabelServiceToken,
   npMemberServiceToken,
+  npRoleServiceToken,
   npProposalServiceToken,
   npWorkflowServiceToken,
   npIssueQueriesToken,
@@ -151,7 +153,12 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
     );
 
     router.route('/np/me', guarded(guard, me));
-    router.route('/np/members', guarded(guard, createMemberRoutes(members)));
+    const roles = container.resolve(npRoleServiceToken);
+    router.route(
+      '/np/members',
+      guarded(guard, createMemberRoutes(members, roles)),
+    );
+    router.route('/np/access', guarded(guard, createAccessRoutes(roles)));
     router.route(
       '/np/invitations',
       guarded(
