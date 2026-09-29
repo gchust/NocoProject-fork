@@ -47,11 +47,12 @@ import {
   findDocRow,
   findDocRowBySlug,
   mapVersions,
+  matchesNeedle,
   projectIdOf,
   projectKey,
   slugify,
   SYSTEM_PROJECT_KEY,
-  toSummary,
+  toSearchSummary,
   uniqueSlug,
   validateContent,
   validateSlug,
@@ -98,7 +99,8 @@ export interface KnowledgeService {
     decision: 'accept' | 'reject',
     input: DecideKnowledgeProposalRequest,
   ): Promise<KnowledgeProposal>;
-  agentList(auth: RunAuth): Promise<KnowledgeDocSummary[]>;
+  /** `q` matches the same fields as the browser list (title, slug, summary, content). */
+  agentList(auth: RunAuth, q?: string | null): Promise<KnowledgeDocSummary[]>;
   agentGet(auth: RunAuth, idOrSlug: string): Promise<KnowledgeDoc>;
   agentPropose(
     auth: RunAuth,
@@ -193,14 +195,10 @@ async function list(
   );
   const needle = query.q?.trim().toLowerCase();
   const matched = needle
-    ? rows.filter((row) =>
-        [row.title, row.slug, row.summary].some((value) =>
-          (str(value) ?? '').toLowerCase().includes(needle),
-        ),
-      )
+    ? rows.filter((row) => matchesNeedle(row, needle))
     : rows;
   const docs = await decorateDocs(conn, decoration(deps, scope), matched);
-  return docs.map(toSummary);
+  return docs.map((doc) => toSearchSummary(doc, needle));
 }
 
 async function create(
@@ -395,13 +393,16 @@ export function createKnowledgeService(deps: KnowledgeDeps): KnowledgeService {
     proposals: (actor, status) => listPendingProposals(deps, actor, status),
     decide: (actor, proposalId, decision, input) =>
       decideProposal(deps, actor, proposalId, decision, input),
-    async agentList(auth) {
-      await requireCapability(deps.tx.read(), auth, 'context.read');
+    async agentList(auth, q) {
       const conn = deps.tx.read();
+      await requireCapability(conn, auth, 'context.read');
       const rows = await agentRows(conn, await runProject(conn, auth));
-      return (await decorateDocs(conn, decoration(deps, null), rows)).map(
-        toSummary,
-      );
+      const needle = q?.trim().toLowerCase();
+      const matched = needle
+        ? rows.filter((row) => matchesNeedle(row, needle))
+        : rows;
+      const docs = await decorateDocs(conn, decoration(deps, null), matched);
+      return docs.map((doc) => toSearchSummary(doc, needle));
     },
     agentGet: (auth, idOrSlug) => agentGet(deps, auth, idOrSlug),
     agentPropose: (auth, input) => agentPropose(deps, auth, input),

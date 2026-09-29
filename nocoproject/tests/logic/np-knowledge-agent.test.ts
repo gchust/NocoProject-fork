@@ -166,6 +166,28 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
     expect((await anonymous('GET', '/knowledge')).status).toBe(401);
   });
 
+  it('searches with the same q as the browser list (NP-142)', async () => {
+    const { agent } = await setup();
+    // "steps" only appears in the document's content ('v1 steps'), not its title, slug or summary.
+    const byContent = await agent<Data<KnowledgeDocSummary[]>>(
+      'GET',
+      '/knowledge?q=steps',
+    );
+    expect(byContent.body.data.map((item) => item.slug)).toEqual(['deploy']);
+    expect(byContent.body.data[0]?.matchExcerpt).toContain('steps');
+    // "glossary" is the title of the other document: no excerpt needed.
+    const byTitle = await agent<Data<KnowledgeDocSummary[]>>(
+      'GET',
+      '/knowledge?q=glossary',
+    );
+    expect(byTitle.body.data.map((item) => item.slug)).toEqual(['glossary']);
+    expect(byTitle.body.data[0]).not.toHaveProperty('matchExcerpt');
+    expect(
+      (await agent<Data<KnowledgeDocSummary[]>>('GET', '/knowledge?q=nope'))
+        .body.data,
+    ).toEqual([]);
+  });
+
   it('turns proposals into decider cards and new versions', async () => {
     const { doc, issue, run, agent } = await setup();
     const proposed = await agent<Data<KnowledgeProposal>>(

@@ -35,7 +35,12 @@ function describeDoc(doc: KnowledgeDocSummary): string[] {
   const lines = [`${doc.slug}  ${doc.title}  (${scopeOf(doc)}${version})`];
   const summary = doc.summary?.replace(/\s+/g, ' ').trim();
   if (summary) lines.push(`  ${summary}`);
+  if (doc.matchExcerpt) lines.push(`  … ${doc.matchExcerpt.replace(/\s+/g, ' ').trim()}`);
   return lines;
+}
+
+export interface KbListOpts extends JsonOpt {
+  q?: string;
 }
 
 function readProposalContent(file: string | undefined): string {
@@ -82,10 +87,11 @@ export function registerKbCommands(program: Command): void {
 
   kb.command('list')
     .description('List the knowledge documents (project and system level; no content)')
+    .option('--q <text>', 'search the title, slug, summary and content (case-insensitive)')
     .option('--json', 'JSON output')
     .action(
-      action(async (opts: JsonOpt) => {
-        const data = (await runTokenContext().api.knowledgeList()) ?? [];
+      action(async (opts: KbListOpts) => {
+        const data = (await runTokenContext().api.knowledgeList(opts.q?.trim() || undefined)) ?? [];
         if (opts.json) return printJson(data);
         if (data.length === 0) return printLine('(no knowledge documents)');
         for (const doc of data) for (const line of describeDoc(doc)) printLine(line);

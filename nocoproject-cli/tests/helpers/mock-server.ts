@@ -339,7 +339,7 @@ export class MockServer {
       const project = run.claimed.project ?? null;
       return send(200, { data: { run: { id: runId }, agent: { capabilities: AGENT_CAPABILITIES, configurationRevision: 1, id: 'agent-1', name: 'Echo Bot' }, issue, statusCatalog: [], agentTransitions: TRANSITIONS, project } });
     }
-    if (path.startsWith('/np/agent/knowledge')) return this.knowledge.route(method, path, body, run.claimed, send);
+    if (path.startsWith('/np/agent/knowledge')) return this.knowledge.route(method, path, url, body, run.claimed, send);
     if (path.startsWith('/np/agent/pm/')) return this.pm.route(method, path, url, run.claimed, send);
     if (path.startsWith('/np/agent/workflows')) return this.workflow.route(method, path, body, run.claimed, send);
     const cl = path.match(/^\/np\/agent\/issues\/([^/]+)\/checklists(?:\/([^/]+)\/items\/([^/]+))?$/);
