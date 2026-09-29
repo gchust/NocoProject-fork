@@ -16,7 +16,7 @@ import {
 } from '../../api-knowledge.js';
 import { npKeys } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
-import { KnowledgeProposalCard } from '../../knowledge/proposal-card.js';
+import { KnowledgePendingProposals } from '../../knowledge/pending-proposals.js';
 
 /**
  * The Knowledge tab of a project (client/pages/np/README.md §3): the project's documents with "new document", and the
@@ -61,22 +61,7 @@ export function ProjectKnowledge({
 
   return (
     <div className='space-y-6'>
-      {pending.length > 0 ? (
-        <section className='space-y-3' aria-labelledby='np-project-proposals'>
-          <NpSectionHeading
-            id='np-project-proposals'
-            title={t('np.projectPage.proposals')}
-            count={pending.length}
-          />
-          <ul className='grid gap-3 lg:grid-cols-2'>
-            {pending.map((proposal) => (
-              <li key={proposal.id}>
-                <KnowledgeProposalCard proposal={proposal} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <KnowledgePendingProposals proposals={pending} />
       <section className='space-y-3' aria-labelledby='np-project-docs'>
         <NpSectionHeading
           id='np-project-docs'

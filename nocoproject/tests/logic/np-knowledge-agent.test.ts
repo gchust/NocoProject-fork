@@ -428,4 +428,69 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
       proposed.body.data.id,
     );
   });
+
+  it('guards accepting a proposal whose document moved on meanwhile (NP-139)', async () => {
+    const { doc, agent } = await setup();
+    const proposed = await agent<Data<KnowledgeProposal>>(
+      'POST',
+      '/knowledge/proposals',
+      {
+        docId: 'deploy',
+        content: 'v2 steps',
+        reason: 'The old script is gone.',
+      },
+    );
+    expect(proposed.body.data).toMatchObject({
+      baseVersion: 1,
+      currentVersion: 1,
+    });
+
+    // Someone edits the document directly while the proposal is pending.
+    await bob('PATCH', `/np/knowledge/${doc.doc.id}`, {
+      content: 'v1.5 steps, edited by hand',
+      expectedVersion: 1,
+    });
+    const stillPending = await bob<Data<KnowledgeProposal[]>>(
+      'GET',
+      '/np/knowledge/proposals?status=pending',
+    );
+    expect(stillPending.body.data[0]).toMatchObject({
+      baseVersion: 1,
+      currentVersion: 2,
+    });
+
+    const path = `/np/knowledge/proposals/${proposed.body.data.id}`;
+    const stale = await bob('POST', `${path}/accept`);
+    expect(stale).toMatchObject({
+      status: 409,
+      body: {
+        code: 'KNOWLEDGE_PROPOSAL_STALE',
+        details: { currentVersion: 2 },
+      },
+    });
+    // Still pending: the guarded attempt did not apply.
+    expect(
+      (
+        await bob<Data<KnowledgeDocDetail>>(
+          'GET',
+          `/np/knowledge/${doc.doc.id}`,
+        )
+      ).body.data.doc.version,
+    ).toBe(2);
+
+    const confirmed = await bob<Data<KnowledgeProposal>>(
+      'POST',
+      `${path}/accept`,
+      { confirmStale: true },
+    );
+    expect(confirmed.body.data.status).toBe('accepted');
+    const after = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${doc.doc.id}`,
+    );
+    expect(after.body.data.doc).toMatchObject({
+      version: 3,
+      content: 'v2 steps',
+    });
+  });
 });

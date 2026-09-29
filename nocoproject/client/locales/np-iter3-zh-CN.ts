@@ -323,10 +323,17 @@ const npIter3ZhCN: NpIter3Resource = {
     },
     proposals: {
       title: '等你决定的建议（{{count}}）',
+      folded: '{{count}} 条提议待决定',
       cardLabel: '建议：{{title}}',
       proposesChange: '建议修改',
       proposesNew: '建议新建文档',
       new: '新文档',
+      versionRange: '基于 v{{base}}，当前 v{{current}}',
+      stale: '已过期',
+      staleTitle: '这条建议基于旧版本',
+      staleDescription:
+        '文档现在是第 {{current}} 版，这条建议基于第 {{base}} 版。接受后会用建议的正文整体替换当前内容。',
+      acceptAnyway: '仍然接受',
       showContent: '查看建议的正文',
       accept: '接受',
       reject: '驳回',

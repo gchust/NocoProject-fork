@@ -37,7 +37,7 @@ import {
   readKnowledgeScope,
   writableProjects,
 } from './knowledge-model.js';
-import { KnowledgeProposalCard } from './proposal-card.js';
+import { KnowledgePendingProposals } from './pending-proposals.js';
 
 /**
  * Route `/knowledge` (§B, "Knowledge"): the Markdown documents agents read before they work — per project, or for the
@@ -235,23 +235,7 @@ export default function KnowledgePage(): ReactElement {
         }
       />
       <NpShortcuts />
-      {pending.length > 0 ? (
-        <section className='space-y-3' aria-labelledby='np-knowledge-pending'>
-          <h2
-            id='np-knowledge-pending'
-            className='font-heading text-sm font-semibold'
-          >
-            {t('np.knowledge.proposals.title', { count: pending.length })}
-          </h2>
-          <ul className='grid gap-3 lg:grid-cols-2'>
-            {pending.map((proposal) => (
-              <li key={proposal.id}>
-                <KnowledgeProposalCard proposal={proposal} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <KnowledgePendingProposals proposals={pending} />
       <div className='space-y-4'>
         <div className='flex flex-wrap items-center gap-2'>
           <InputGroup className='w-full sm:w-64'>

@@ -106,6 +106,8 @@ export interface KnowledgeProposal {
   readonly isNew: boolean;
   /** The document's version when the proposal was made (null when creating a new one) */
   readonly baseVersion: number | null;
+  /** 文档现在的版本（新建为 null）；大于 `baseVersion` 说明接受前有人先改了文档 */
+  readonly currentVersion: number | null;
   readonly proposedByAgentId: string;
   readonly proposedByAgentName: string | null;
   readonly sourceRunId: string | null;
@@ -149,6 +151,8 @@ export interface UpdateKnowledgeDocRequest {
 
 export interface DecideKnowledgeProposalRequest {
   readonly comment?: string;
+  /** 接受一条已过期的建议（`baseVersion < currentVersion`）时带上，绕过 409 `KNOWLEDGE_PROPOSAL_STALE` */
+  readonly confirmStale?: boolean;
 }
 
 /** `POST /np/agent/knowledge/proposals`: exactly one of `docId` (id or slug) or `title` (+ optional `slug`) */
