@@ -1,3 +1,4 @@
+import { AGENT_CAPABILITIES } from '../../server/modules/shared/protocol.capabilities.js';
 /**
  * Helpers shared by the iteration 4 integration tests (`np-process`, `np-pm`): the real browser route factories
  * (issues with the design decisions, project manager conversation, settings, agents, intake, inbox) behind a
@@ -114,6 +115,15 @@ export async function createKindAgent(
 ): Promise<string> {
   const agent = await services.agents.create(owner, {
     name,
+    capabilities:
+      kind === 'manager'
+        ? [
+            'context.read',
+            'workspace.read',
+            'comment.create',
+            'knowledge.propose',
+          ]
+        : AGENT_CAPABILITIES.filter((c) => c !== 'workspace.read'),
     instructions: `You are ${name}.`,
     runtimeId,
     provider: 'echo',

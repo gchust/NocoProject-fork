@@ -69,7 +69,7 @@ describe.skipIf(!db)(
         revision: session.revision,
       });
       await services.pullRequests.agentLink(
-        { type: 'agent', id: agentId },
+        ALICE,
         session,
         'https://github.com/a/b/pull/3',
       );

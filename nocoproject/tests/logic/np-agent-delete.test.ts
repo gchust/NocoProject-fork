@@ -123,12 +123,16 @@ describe.skipIf(!db)('agent deletion (PostgreSQL)', () => {
       content: '# Rules',
     });
     await services.agents.update(BOB, agentId, {
+      configurationRevision: (await services.agents.get(BOB, agentId))
+        .configurationRevision,
       access: 'specificUsers',
       accessUserIds: [CAROL.id!],
       skillIds: [skill.id],
       delegationTargetIds: [other],
     });
     await services.agents.update(BOB, other, {
+      configurationRevision: (await services.agents.get(BOB, other))
+        .configurationRevision,
       delegationTargetIds: [agentId],
     });
     await services.agentEnv.put(BOB, agentId, [
@@ -213,7 +217,11 @@ describe.skipIf(!db)('agent deletion (PostgreSQL)', () => {
   });
 
   it('also allows the owner to delete an already archived agent', async () => {
-    await services.agents.update(BOB, agentId, { archived: true });
+    await services.agents.update(BOB, agentId, {
+      configurationRevision: (await services.agents.get(BOB, agentId))
+        .configurationRevision,
+      archived: true,
+    });
     await services.agents.remove(BOB, agentId);
     expect(await services.agents.list(BOB)).toEqual([]);
   });

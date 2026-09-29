@@ -153,6 +153,7 @@ export interface DaemonHeartbeatRequest {
 }
 
 export interface DaemonClaimRequest {
+  readonly configurationProtocol?: number;
   readonly daemonId: string;
   readonly slots: readonly {
     readonly runtimeId: string;
@@ -181,6 +182,8 @@ export interface ClaimedRun {
   readonly agent: {
     readonly id: string;
     readonly name: string;
+    readonly capabilities?: readonly import('./protocol.capabilities.js').AgentCapability[];
+    readonly configurationRevision?: number;
     readonly instructions: string;
     readonly provider: AgentProvider;
     readonly model: string | null;
@@ -582,6 +585,8 @@ export interface RunTriggerItem {
 }
 
 export interface RunDetail extends Run {
+  readonly configurationSnapshot?:
+    import('./protocol.capabilities.js').ConfigurationSnapshot | null;
   readonly agentName: string;
   readonly triggers: readonly RunTriggerItem[];
   readonly usage: readonly RunUsageInput[];
@@ -1161,3 +1166,5 @@ export * from './protocol.phase2-workflow-proposals.js';
 // ---------- Email invitations (NP-88) ----------
 
 // Server- and browser-only (the CLI's sync-protocol drops this line)
+
+export * from './protocol.capabilities.js';

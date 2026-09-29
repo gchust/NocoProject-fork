@@ -2,6 +2,33 @@ import type { NpIter4Resource } from './np-iter4-en-US.js';
 
 /** Chinese wording for the iteration 4 groups (`docs/phase1/iteration-4-contract.md`); merged into `np` by `zh-CN.ts`. */
 const npIter4ZhCN: NpIter4Resource = {
+  capabilities: {
+    title: '能力授权',
+    hint: '提示词描述工作要求，只有勾选的能力才允许执行相应操作。',
+    preview: '有效指令预览',
+    previewHint:
+      '以下显示 Agent 指令和已授权命令；运行开始时另加入身份、任务上下文和系统规则。',
+    context_read: '读取运行上下文',
+    workspace_read: '查询可见项目',
+    comment_create: '回复与追加备注',
+    knowledge_propose: '提出知识建议',
+    issue_execute: '执行普通任务',
+    subtask_create: '创建子任务',
+    dependency_write: '修改依赖',
+    issue_status_write: '修改任务状态',
+    design_propose: '提交设计方案',
+    checklist_write: '更新检查清单',
+    workflow_propose: '提出流程建议',
+    pullRequest_link: '关联 PR',
+  },
+  entries: {
+    conversation: '对话入口',
+    completion: '任务完成触发',
+    enabled: '启用',
+    name: '显示名称',
+    agent: 'Agent',
+    instructions: '任务要求',
+  },
   agentForm: {
     title: '新建 Agent',
     description: '一个 Agent 在你的某个运行时上使用一种编码工具。',
@@ -88,14 +115,13 @@ const npIter4ZhCN: NpIter4Resource = {
     tag: '总结',
   },
   pm: {
-    title: '项目经理',
-    description: '跨项目回答进展、任务和度量问题，任务完成后写总结。',
-    emptyTitle: '还没有项目经理',
-    emptyDescription:
-      '项目经理是一个类型为「项目经理」的 Agent，在工作区设置里指定。',
+    title: '对话',
+    description: '与此入口配置的 Agent 对话。',
+    emptyTitle: '尚未配置对话 Agent',
+    emptyDescription: '在工作区设置中启用对话入口，并选择有回复能力的 Agent。',
     openSettings: '前往设置',
-    loadFailed: '无法打开与项目经理的对话',
-    placeholder: '问问项目经理…',
+    loadFailed: '无法打开对话',
+    placeholder: '输入消息…',
   },
   prMerge: {
     merge: '合并',

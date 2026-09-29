@@ -30,6 +30,7 @@ const AGENTS = [
     runtimeId: 'r1',
     runtimeOnline: true,
     kind: 'coder',
+    capabilities: ['issue.execute'],
   },
   {
     id: 'pm1',

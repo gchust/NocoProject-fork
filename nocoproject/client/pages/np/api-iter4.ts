@@ -109,7 +109,9 @@ export function executorCandidates(
   selectedAgentId?: string | null,
 ): AgentListItem[] {
   return agents.filter(
-    (agent) => !isManagerAgent(agent) || agent.id === selectedAgentId,
+    (agent) =>
+      agent.capabilities?.includes('issue.execute') ||
+      agent.id === selectedAgentId,
   );
 }
 

@@ -1,3 +1,4 @@
+import { hasCapability } from '../agent/capabilities.js';
 /**
  * Draft validation for intake batches (docs/phase1/iteration-2-contract.md §E).
  *
@@ -153,8 +154,8 @@ async function referenceErrors(
       errors.push('the executor agent does not exist');
     else if (!(await canInvokeAgent(ctx.conn, ctx.creatorId, agent)))
       errors.push('you do not have access to the executor agent');
-    else if (await isManagerAgent(ctx.conn, agent.id))
-      errors.push('a project manager agent cannot execute issues');
+    else if (!(await hasCapability(ctx.conn, agent.id, 'issue.execute')))
+      errors.push('the agent needs issue.execute');
   } else if (executor && executor.type === 'user') {
     if (
       typeof executor.id !== 'string' ||
@@ -172,15 +173,6 @@ async function referenceErrors(
       errors.push('the owner does not exist');
   }
   return errors;
-}
-
-async function isManagerAgent(conn: Conn, agentId: string): Promise<boolean> {
-  const row = await conn.query
-    .selectFrom('agents')
-    .select('kind')
-    .where('id', '=', agentId)
-    .executeTakeFirst();
-  return row?.kind === 'manager';
 }
 
 /** Validates a whole draft list; see the file comment for what is structural and what is per draft. */

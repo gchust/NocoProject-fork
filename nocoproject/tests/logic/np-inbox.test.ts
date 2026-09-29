@@ -55,7 +55,7 @@ async function inboxOf(actor: Actor, kind?: 'decision' | 'info') {
 async function runAs(): Promise<Actor> {
   const claim = await services.claims.claim(
     ALICE.id!,
-    { daemonId, slots: [{ runtimeId, free: 1 }] },
+    { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
     'http://test',
   );
   const runId = claim.runs[0]!.run.id;

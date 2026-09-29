@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * Knowledge proposals (docs/phase1/iteration-3-contract.md §B): an agent suggests a change to a document (or a new
  * one) from its run; the decider accepts it into a new version or rejects it.
@@ -195,6 +196,7 @@ export async function agentPropose(
   const reason = validateReason(input.reason);
   const summary = validateSummary(input.summary);
   const id = await deps.tx.run(async (tx) => {
+    await requireCapability(tx.conn, auth, 'knowledge.propose');
     const issue = await findIssue(tx.conn, auth.issueId);
     const target = await proposalTarget(
       tx.conn,

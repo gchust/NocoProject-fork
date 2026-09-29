@@ -1,7 +1,7 @@
 /**
  * `nocoproject pm projects | issues | issue | inbox | metrics | knowledge` (iteration 4 §C): the
  * project-manager agent's read-only view across projects, via `GET /np/agent/pm/*`. Run-token mode;
- * the server only answers runs of agents with `kind = 'manager'` (otherwise 403 `MANAGER_ONLY`, exit 3)
+ * the server requires explicit `workspace.read` (otherwise 403 `CAPABILITY_DENIED`, exit 3)
  * and filters everything by what the run's asker (`actorUserId`) can see.
  */
 import type { Command } from 'commander';
@@ -32,8 +32,8 @@ function pmAction<A extends unknown[]>(fn: (...args: A) => Promise<void>): (...a
     try {
       await fn(...args);
     } catch (error) {
-      if (error instanceof HttpError && error.code === ERROR_MANAGER_ONLY) {
-        throw new CliError('pm commands are only available to project-manager agents (agent kind "manager"); this run’s agent is not one', EXIT.auth, ERROR_MANAGER_ONLY);
+      if (error instanceof HttpError && (error.code === ERROR_MANAGER_ONLY || error.code === 'CAPABILITY_DENIED')) {
+        throw new CliError('This run requires workspace.read.', EXIT.auth, error.code);
       }
       throw error;
     }

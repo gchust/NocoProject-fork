@@ -117,7 +117,7 @@ describe.skipIf(!db)('NocoProject Phase 2 migrations (PostgreSQL)', () => {
       ),
     ).rejects.toThrow(/null value/u);
     await db!.knex.raw(`DELETE FROM "${db!.schema}".executor_proposals`);
-    await migrator().latest();
+    await migrator().upTo('2026100700001_np_agent_deletion');
   });
 
   it('creates the invitations table and rolls it back alone', async () => {
@@ -150,7 +150,7 @@ describe.skipIf(!db)('NocoProject Phase 2 migrations (PostgreSQL)', () => {
     const rolledBack = await migrator().rollback();
     expect(rolledBack.rolledBack).toEqual(['2026100500001_np_invitations']);
     expect(await tables()).not.toContain('np_invitations');
-    await migrator().latest();
+    await migrator().upTo('2026100700001_np_agent_deletion');
   });
 
   it('adds the inbox chime preference to members and rolls it back alone', async () => {
@@ -174,7 +174,7 @@ describe.skipIf(!db)('NocoProject Phase 2 migrations (PostgreSQL)', () => {
     ]);
     expect(await columns(db!, 'members')).not.toContain('inbox_chime');
     await db!.knex.raw(`DELETE FROM "${db!.schema}".members`);
-    await migrator().latest();
+    await migrator().upTo('2026100700001_np_agent_deletion');
   });
 
   it('rolls back the Phase 2 workflow proposals batch alone', async () => {
@@ -227,18 +227,18 @@ describe.skipIf(!db)('NocoProject Phase 2 migrations (PostgreSQL)', () => {
     await db!.knex.raw(
       `DELETE FROM "${db!.schema}".workflow_templates WHERE id = 't1'`,
     );
-    await migrator().latest();
+    await migrator().upTo('2026100700001_np_agent_deletion');
   });
   it('adds and rolls back the agent deletion tombstone independently', async () => {
     while ((await migrator().rollback()).rolledBack.length > 0);
     await migrator().upTo('2026100600001_np_member_preferences');
     expect(await columns(db!, 'agents')).not.toContain('deleted_at');
-    const applied = await migrator().latest();
+    const applied = await migrator().upTo('2026100700001_np_agent_deletion');
     expect(applied.executed).toEqual(['2026100700001_np_agent_deletion']);
     expect(await columns(db!, 'agents')).toContain('deleted_at');
     const rolledBack = await migrator().rollback();
     expect(rolledBack.rolledBack).toEqual(['2026100700001_np_agent_deletion']);
     expect(await columns(db!, 'agents')).not.toContain('deleted_at');
-    await migrator().latest();
+    await migrator().upTo('2026100700001_np_agent_deletion');
   });
 });

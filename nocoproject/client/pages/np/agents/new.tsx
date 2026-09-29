@@ -1,3 +1,5 @@
+import { CapabilityFields } from './capability-fields.js';
+import type { AgentCapability } from '../agent-capabilities.js';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -79,6 +81,10 @@ function NewAgentBody({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [capabilities, setCapabilities] = useState<AgentCapability[]>([
+    'context.read',
+    'comment.create',
+  ]);
   const [runtimeId, setRuntimeId] = useState<string | null>(null);
   const [model, setModel] = useState('');
   const [maxConcurrentRuns, setMaxConcurrentRuns] = useState(
@@ -122,6 +128,7 @@ function NewAgentBody({
         name: name.trim(),
         description: description.trim() || undefined,
         instructions: instructions.trim(),
+        capabilities,
         runtimeId: runtime.id,
         provider: runtime.provider,
         model: model.trim() || undefined,
@@ -180,6 +187,12 @@ function NewAgentBody({
             onChange={(event) => setDescription(event.target.value)}
           />
         </Field>
+        <CapabilityFields
+          value={capabilities}
+          instructions={instructions}
+          disabled={false}
+          onChange={setCapabilities}
+        />
         <Field data-invalid={errors.instructions ? true : undefined}>
           <FieldLabel htmlFor='np-agent-instructions'>
             {t('np.agentForm.instructions')}

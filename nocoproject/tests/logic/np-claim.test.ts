@@ -94,7 +94,11 @@ describe.skipIf(!db)('claim concurrency (PostgreSQL)', () => {
       Array.from({ length: 10 }, () =>
         services.claims.claim(
           ALICE.id!,
-          { daemonId, slots: [{ runtimeId, free: 1 }] },
+          {
+            daemonId,
+            configurationProtocol: 1,
+            slots: [{ runtimeId, free: 1 }],
+          },
           'http://test/main',
         ),
       ),
@@ -219,7 +223,7 @@ describe.skipIf(!db)('claim per-agent limits (PostgreSQL)', () => {
     await queueIssues(agentId, 4);
     const first = await services.claims.claim(
       ALICE.id!,
-      { daemonId, slots: [{ runtimeId, free: 10 }] },
+      { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 10 }] },
       'u',
     );
     expect(first.runs).toHaveLength(2);
@@ -227,7 +231,11 @@ describe.skipIf(!db)('claim per-agent limits (PostgreSQL)', () => {
       (
         await services.claims.claim(
           ALICE.id!,
-          { daemonId, slots: [{ runtimeId, free: 10 }] },
+          {
+            daemonId,
+            configurationProtocol: 1,
+            slots: [{ runtimeId, free: 10 }],
+          },
           'u',
         )
       ).runs,
@@ -240,7 +248,7 @@ describe.skipIf(!db)('claim per-agent limits (PostgreSQL)', () => {
     });
     const next = await services.claims.claim(
       ALICE.id!,
-      { daemonId, slots: [{ runtimeId, free: 10 }] },
+      { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 10 }] },
       'u',
     );
     expect(next.runs).toHaveLength(1);
@@ -255,7 +263,7 @@ describe.skipIf(!db)('claim ordering and sessions (PostgreSQL)', () => {
     const claim = () =>
       services.claims.claim(
         ALICE.id!,
-        { daemonId, slots: [{ runtimeId, free: 5 }] },
+        { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 5 }] },
         'u',
       );
 
@@ -310,7 +318,7 @@ describe.skipIf(!db)('claim authorization (PostgreSQL)', () => {
     await expect(
       services.claims.claim(
         BOB.id!,
-        { daemonId, slots: [{ runtimeId, free: 1 }] },
+        { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
         'u',
       ),
     ).rejects.toMatchObject({ kind: 'forbidden', code: 'RUNTIME_NOT_OWNED' });
@@ -321,14 +329,22 @@ describe.skipIf(!db)('claim authorization (PostgreSQL)', () => {
     await expect(
       services.claims.claim(
         ALICE.id!,
-        { daemonId, slots: [{ runtimeId: 'missing', free: 1 }] },
+        {
+          daemonId,
+          configurationProtocol: 1,
+          slots: [{ runtimeId: 'missing', free: 1 }],
+        },
         'u',
       ),
     ).rejects.toMatchObject({ kind: 'notFound', code: 'RUNTIME_NOT_FOUND' });
     await expect(
       services.claims.claim(
         ALICE.id!,
-        { daemonId: 'other-daemon', slots: [{ runtimeId, free: 1 }] },
+        {
+          daemonId: 'other-daemon',
+          configurationProtocol: 1,
+          slots: [{ runtimeId, free: 1 }],
+        },
         'u',
       ),
     ).rejects.toMatchObject({ kind: 'notFound', code: 'RUNTIME_NOT_FOUND' });
@@ -362,12 +378,20 @@ describe.skipIf(!db)('claim authorization (PostgreSQL)', () => {
       6,
     );
     await queueIssues(agentId, 1);
-    await services.agents.update(ALICE, agentId, { archived: true });
+    await services.agents.update(ALICE, agentId, {
+      configurationRevision: (await services.agents.get(ALICE, agentId))
+        .configurationRevision,
+      archived: true,
+    });
     expect(
       (
         await services.claims.claim(
           ALICE.id!,
-          { daemonId, slots: [{ runtimeId, free: 5 }] },
+          {
+            daemonId,
+            configurationProtocol: 1,
+            slots: [{ runtimeId, free: 5 }],
+          },
           'u',
         )
       ).runs,

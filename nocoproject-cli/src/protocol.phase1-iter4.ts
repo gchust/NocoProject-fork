@@ -1,3 +1,7 @@
+import type {
+  AgentConfiguration,
+  AgentEntryBindings,
+} from './protocol.capabilities.js';
 /**
  * NocoProject protocol types: Phase 1 iteration 4 additions (docs/phase1/iteration-4-contract.md;
  * implementation in docs/phase1/protocol-iteration-4.md).
@@ -133,13 +137,13 @@ export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
 ];
 
 /** Columns added to agents in iteration 4 (the row of `GET /np/agents`) */
-export interface AgentPhase4Fields {
+export interface AgentPhase4Fields extends AgentConfiguration {
   readonly kind: AgentKind;
   readonly reasoningEffort: ReasoningEffort | null;
 }
 
 /** Addition to `POST /np/agents`, `PATCH /np/agents/:id` */
-export interface AgentPhase4Input {
+export interface AgentPhase4Input extends AgentConfiguration {
   readonly kind?: AgentKind;
   readonly reasoningEffort?: ReasoningEffort | null;
 }
@@ -154,7 +158,9 @@ export const RETROSPECTIVE_THREAD_SCOPE = 'retro';
 
 /** Fields added to ClaimedRun in iteration 4 (the daemon reads them as optional) */
 export interface ClaimedRunPhase4Extras {
-  readonly agent: {
+  readonly agent: AgentConfiguration & {
+    readonly taskInstructions?: string;
+    readonly commandDescriptions?: readonly string[];
     readonly kind: AgentKind;
     readonly reasoningEffort: ReasoningEffort | null;
   };
@@ -230,6 +236,7 @@ export const PM_DETAIL_TAIL = 50;
 
 export interface WorkspaceSettingsPhase4Fields {
   readonly defaultProcess: DefaultProcess;
+  readonly agentEntries?: AgentEntryBindings;
   readonly pmAgentId: string | null;
   readonly retrospectiveOnDone: boolean;
 }

@@ -59,7 +59,7 @@ async function claimParent(autoExecuteSubtasks: boolean) {
   });
   const claim = await services.claims.claim(
     ALICE.id!,
-    { daemonId, slots: [{ runtimeId, free: 1 }] },
+    { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
     'http://test',
   );
   const claimed = claim.runs[0]!;
@@ -227,6 +227,8 @@ describe.skipIf(!db)('agent sub-issues and proposals (PostgreSQL)', () => {
     ]);
 
     await services.agents.update(ALICE, lead, {
+      configurationRevision: (await services.agents.get(ALICE, lead))
+        .configurationRevision,
       delegationTargetIds: [helper],
     });
     const delegated = (

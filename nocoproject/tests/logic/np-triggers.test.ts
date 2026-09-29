@@ -53,7 +53,7 @@ const agentActor = (agentId: string, runId: string): Actor => ({
 async function claimAndStart(): Promise<string> {
   const response = await services.claims.claim(
     ALICE.id!,
-    { daemonId, slots: [{ runtimeId, free: 1 }] },
+    { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
     'u',
   );
   const runId = response.runs[0]!.run.id;
@@ -182,6 +182,12 @@ describe.skipIf(!db)('comment trigger rules (PostgreSQL)', () => {
       (await triggerRows(db!, assignRunId)).map((row) => row.type),
     ).toEqual(['assign', 'comment']);
 
+    await claimAndStart();
+    const current = await services.issueQueries.detail(ALICE, issue.id);
+    await services.issues.update(ALICE, issue.id, {
+      executor: { type: 'agent', id: beta },
+      revision: current.issue.revision,
+    });
     const runId = await claimAndStart();
     const agentComment = await services.comments.create(
       agentActor(beta, runId),
@@ -390,7 +396,7 @@ describe.skipIf(!db)('failures and retries (PostgreSQL)', () => {
     await services.runRecovery.retry(ALICE, second);
     const claimed = await services.claims.claim(
       ALICE.id!,
-      { daemonId, slots: [{ runtimeId, free: 1 }] },
+      { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
       'u',
     );
     expect(claimed.runs[0]!.session.fresh).toBe(true);

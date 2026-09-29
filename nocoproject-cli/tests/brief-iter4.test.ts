@@ -15,9 +15,9 @@ describe('iteration 4 brief: design first', () => {
     expect(brief).toContain('do not change any code and do not open a pull request');
     expect(brief).toContain('revise the whole proposal according to the comments');
     expect(brief).toContain('需求理解');
-    expect(brief).toContain('- `nocoproject issue design-proposal NP-12 --content-file ./proposal.md --json`');
+    expect(brief).toContain('nocoproject issue design-proposal NP-12 --content-file ./proposal.md');
     expect(brief).not.toContain('5. After delivering, set the status to `in_review`.');
-    expect(brief.indexOf('## Design first')).toBeLessThan(brief.indexOf('## Background Task Safety'));
+    expect(brief).toContain('## Runtime rules');
   });
 
   it('only reminds the agent of the approved design once approved', () => {
@@ -30,7 +30,7 @@ describe('iteration 4 brief: design first', () => {
   it('leaves direct issues and older servers unchanged', () => {
     expect(buildBrief(iter4Run({ process: 'direct' }))).toBe(buildBrief(iter3Run()));
     expect(buildBrief(iter3Run())).not.toContain('## Design first');
-    expect(buildBrief(iter3Run())).not.toContain('design-proposal');
+    expect(buildBrief(iter3Run())).not.toContain('## Design first');
   });
 
   it('opens a designApproved turn with the approval line and the proposal', () => {
@@ -52,46 +52,26 @@ describe('iteration 4 brief: design first', () => {
   });
 });
 
-describe('iteration 4 brief: project manager', () => {
-  const manager = (issue = {}, overrides = {}) => iter4Run({ process: 'direct', executionMode: 'session', ...issue }, { kind: 'manager', reasoningEffort: 'high' }, overrides);
-
-  it('renders the Project manager section and the pm commands, without coding rules', () => {
-    const brief = buildBrief(manager());
-    expect(brief).toMatchSnapshot();
-    expect(brief.indexOf('## Project manager')).toBeLessThan(brief.indexOf('## Conversation Mode'));
-    for (const text of [
-      'Lead with the conclusion',
-      'Answer in the language the person asked in.',
-      'Cite issue identifiers',
-      'Never change the status of any issue, and never @-mention any agent',
-      '`nocoproject kb propose`',
-      '- `nocoproject pm projects --json`',
-      '- `nocoproject pm issues [--project <id>] [--status <key>] [--owner me|<userId>]',
-      '- `nocoproject pm issue <issue> --json`',
-      '- `nocoproject pm inbox --json`',
-      '- `nocoproject pm metrics [--from YYYY-MM-DD] [--to YYYY-MM-DD]',
-      '- `nocoproject pm knowledge [--project <id>]',
-      'You never change the status of any issue, including this one; people do.',
-    ])
-      expect(brief).toContain(text);
-    for (const text of ['## Repositories', '## Sub-issues', '## Parent coordination', 'issue status NP-12', 'set it to `in_progress`', '`todo` → `in_progress`'])
-      expect(brief).not.toContain(text);
-    expect(buildBrief(iter3Run())).not.toContain('nocoproject pm ');
-  });
-
-  it('does not require in_review in a manager turn', () => {
-    const prompt = buildTurnPrompt(manager(), { resumed: true });
-    expect(prompt).toContain('you do not need to set `in_review` and never change the status');
-  });
-
-  it('opens a retrospective run with the summary request', () => {
-    const prompt = buildTurnPrompt(manager({ executionMode: 'task' }, { triggers: [{ type: 'retrospective' }] }), { resumed: false });
-    expect(prompt).toMatchSnapshot();
-    expect(prompt.split('\n')[0]).toBe('任务 NP-12 已完成，请做总结');
-    expect(prompt).toContain('`nocoproject pm issue NP-12 --json`');
-    expect(prompt).toContain('a comment whose first line is `/note`');
-    expect(prompt).toContain('`nocoproject kb propose ... --json`');
-    expect(prompt).toContain('Do not change the status');
-    expect(prompt).not.toContain('When done, deliver via');
-  });
+describe('configured conversation and completion briefs', () => {
+ const configured = (kind: 'manager'|'coder' = 'manager') => iter4Run({ process: 'direct', executionMode: 'session' }, { kind, capabilities: ['context.read','workspace.read','comment.create','knowledge.propose'], configurationRevision: 8, instructions: 'Answer in Chinese. Do not split tasks.', taskInstructions: 'Summarize the completed work.' });
+ it('uses configuration as the only role definition', () => {
+  const brief = buildBrief(configured());
+  expect(brief).toContain('Answer in Chinese. Do not split tasks.');
+  expect(brief).toContain('Summarize the completed work.');
+  expect(brief).toContain('nocoproject pm projects');
+  expect(brief).not.toContain('## Project manager');
+  expect(brief).not.toContain('nocoproject issue create');
+  expect(brief).not.toContain('Lead with the conclusion');
+  expect(buildBrief(configured('coder'))).toBe(brief);
+ });
+ it.each([false,true])('does not add a profession on resumed=%s', resumed => {
+  const input = configured();
+  const prompt = buildTurnPrompt({...input,triggers:[{type:'retrospective'}]}, {resumed});
+  expect(prompt).not.toContain('as the project manager');
+  expect(prompt).toContain('comment add');
+ });
+ it('does not infer powers from a missing configuration', () => {
+  const input = configured();
+  expect(buildBrief({...input,agent:{...input.agent,capabilities:[]}})).not.toContain('nocoproject pm projects');
+ });
 });

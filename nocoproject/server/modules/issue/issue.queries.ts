@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * Read models over issues: browser list, board and detail (filtered by what the caller may see), and the views an
  * agent sees through its run token. Iteration 3: the list and board page by cursor (`issue.list.ts`); the detail
@@ -294,6 +295,7 @@ async function issueQueryAgentContext(
   ...[auth]: Parameters<IssueQueries['agentContext']>
 ) {
   const conn = deps.tx.read();
+  await requireCapability(conn, auth, 'context.read');
   const names = await agentNames(conn, [auth.agentId]);
   const issue = await forAgent(deps, auth.issueId);
   const view = await deps.workflows.forProject(conn, issue.projectId);

@@ -4,20 +4,12 @@
  * (agents of kind `manager`) with the `pm` commands, and the `designApproved` / `retrospective`
  * turn openings. Pure string builders.
  */
-import { agentKindOf, type ClaimedRunV1, designPendingOf, issueProcessOf } from '../run-context.js';
-import { KB_PROPOSALS_PER_RUN } from './brief-knowledge.js';
+import { type ClaimedRunV1, designPendingOf, issueProcessOf } from '../run-context.js';
 
 export type Iter4BriefInput = Pick<ClaimedRunV1, 'agent' | 'issue'>;
 
 /** Opening line of a run triggered by the design approval (§B). */
 export const DESIGN_APPROVED_OPENING = '方案已批准，按方案实现';
-
-/** Opening line of a retrospective run (§C). */
-export function retrospectiveOpening(key: string): string {
-  return `任务 ${key} 已完成，请做总结`;
-}
-
-export const isManager = (input: Pick<ClaimedRunV1, 'agent'>): boolean => agentKindOf(input) === 'manager';
 
 /** `issue design-proposal` in `## Available Commands` (design-first issues only). */
 export function designCommands(input: Iter4BriefInput): string[] {
@@ -69,70 +61,9 @@ export function designWorkflowSection(input: Iter4BriefInput): string[] {
   ];
 }
 
-/** The `pm` commands (manager agents only). */
-export function pmCommands(): string[] {
-  return [
-    '- `nocoproject pm projects --json` — every project you can see (lead, members, issue counts)',
-    '- `nocoproject pm issues [--project <id>] [--status <key>] [--owner me|<userId>] [--executor <agentId>] [--q <text>] [--since 7d] [--limit n] [--cursor c] --json` — search issues across projects (`{ data, nextCursor }`)',
-    '- `nocoproject pm issue <issue> --json` — one issue in full: comments and activities (latest 50), runs, pull requests, sub-issues',
-    '- `nocoproject pm inbox --json` — the decisions waiting for the person who asked you',
-    '- `nocoproject pm metrics [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--project <id>] --json` — the metrics report',
-    '- `nocoproject pm knowledge [--project <id>] [--q <text>] --json` — knowledge documents of every visible project and system-wide',
-  ];
-}
-
-/** `## Project manager` (§C): the manager agent's role and rules. */
-export function managerSection(input: Iter4BriefInput): string[] {
-  if (!isManager(input)) return [];
-  return [
-    '## Project manager',
-    '',
-    'You are the project manager of this NocoProject workspace. You do not write code: you read across all projects, answer questions, write retrospectives and suggest knowledge. You see exactly what the person who asked you can see.',
-    '',
-    '- Lead with the conclusion, then the supporting facts. Keep it short.',
-    '- Answer in the language the person asked in.',
-    '- Cite issue identifiers (for example `NP-12`) and project names for every fact, so people can check them.',
-    '- Get facts with the `pm` commands (see Available Commands); never guess numbers or statuses.',
-    '- Never change the status of any issue, and never @-mention any agent (mentions would start agents working). Point people to the issue instead.',
-    '- Get facts only through the `nocoproject` commands. Never read configuration files, never look for API keys or tokens, never call the server API directly with curl or code, and never read the CLI source.',
-    `- To add to the knowledge base, use \`nocoproject kb propose\` (the project lead decides; at most ${KB_PROPOSALS_PER_RUN} per run). Never edit documents directly.`,
-    '',
-  ];
-}
-
-/** `## Workflow` for a manager agent. */
-export function managerWorkflowSection(): string[] {
-  return [
-    '## Workflow',
-    '',
-    '1. Read the new comment(s) quoted in this turn’s prompt; read earlier comments only when you need more context.',
-    '2. Collect the facts with the `pm` commands.',
-    '3. Reply with one comment using `comment add`, in the triggering thread (`--parent <rootId>`): conclusion first, identifiers cited.',
-    '4. Leave the status alone; you never need to set `in_review`.',
-  ];
-}
-
-export function managerStatusRules(): string[] {
-  return ['You never change the status of any issue, including this one; people do.'];
-}
-
 type PromptInput = Pick<ClaimedRunV1, 'run' | 'issue' | 'triggers'>;
 
 export const hasTrigger = (input: PromptInput, type: string): boolean => input.triggers.some((t) => t.type === type);
-
-/** The whole prompt of a retrospective run (§C). */
-export function retrospectivePrompt(input: PromptInput): string {
-  const key = input.issue.identifier;
-  return [
-    retrospectiveOpening(key),
-    `Issue ${key} "${input.issue.title}" is done; you are writing its retrospective as the project manager. Run: ${input.run.id}.`,
-    `1. Read everything about it: \`nocoproject pm issue ${key} --json\` (issue, comments, activities, runs with usage, pull requests, sub-issues).`,
-    `2. Write exactly one internal note: a comment whose first line is \`/note\` (it notifies no one), posted with \`nocoproject issue comment add ${key} --content-file ./note.md\`. Cover what was done, how long it took and what the runs used, conventions or pitfalls worth keeping, and whether the team's conventions need updating.`,
-    `3. Propose each durable convention or pitfall with \`nocoproject kb propose ... --json\` (it goes to the project lead; at most ${KB_PROPOSALS_PER_RUN}).`,
-    '4. Do not change the status, do not @-mention anyone and do not post anything else.',
-    '5. Use only the `nocoproject` commands; never read configuration files, keys or the CLI source, and never call the server API directly.',
-  ].join('\n');
-}
 
 /** The approved proposal quoted in a `designApproved` turn. */
 export function approvedProposalLines(input: PromptInput, quote: (text: string) => string): string[] {
