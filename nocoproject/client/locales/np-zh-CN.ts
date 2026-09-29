@@ -139,6 +139,8 @@ const npCollabZhCN: NpCollabResource = {
     unread: '未读',
     unreadCount: '{{count}} 条未读',
     pendingDecisions: '{{count}} 项待处理',
+    pendingBadgeHint:
+      '{{count}} 项待处理决定，不是未读数；处理或归档后才会减少。',
     chime: {
       turnedOn: '已开启声音提醒。',
       turnedOff: '已关闭声音提醒。',

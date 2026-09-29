@@ -146,6 +146,8 @@ const npCollabEnUS = {
     unread: 'Unread',
     unreadCount: '{{count}} unread',
     pendingDecisions: '{{count}} pending',
+    pendingBadgeHint:
+      '{{count}} decision(s) waiting on you, not unread count; it only drops once you resolve or archive them.',
     chime: {
       turnedOn: 'Sound reminder turned on.',
       turnedOff: 'Sound reminder turned off.',
