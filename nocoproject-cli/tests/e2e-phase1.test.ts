@@ -173,7 +173,7 @@ describe('iteration 3 daemon e2e (echo adapter)', () => {
     const project = { id: 'p1', name: 'Demo', description: null, resources: [] };
     const doc = mock.knowledge.add({ slug: 'api-conventions', title: 'API conventions', summary: 'Errors and naming.', projectId: 'p1', content: '\nAlways return { code, message }.\nMore.' });
     mock.addIssue({ id: 'i36', identifier: 'NP-36', title: 'Learn', description: '[echo:kb=api-conventions] [echo:kb-propose=Flaky e2e tests]' });
-    const knowledge = [{ id: doc.id, slug: doc.slug, title: doc.title, summary: doc.summary, projectId: 'p1' }];
+    const knowledge = [{ id: doc.id, slug: doc.slug, title: doc.title, summary: doc.summary, projectId: 'p1', childCount: 0 }];
     const runId = mock.enqueue('i36', { project, knowledge });
     await waitFor(() => runStatus(mock, runId) === 'completed' || runStatus(mock, runId) === 'failed', 20_000, 'run');
     expect(runStatus(mock, runId)).toBe('completed');

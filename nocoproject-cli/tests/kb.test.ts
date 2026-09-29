@@ -134,3 +134,112 @@ describe('kb propose', () => {
     expect(mock.callsTo(/knowledge\/proposals/).length).toBe(before);
   });
 });
+
+describe('kb list --parent / --tree (NP-147 knowledge tree)', () => {
+  let treeMock: MockServer;
+  let treeToken: string;
+  let treeWorkDir: string;
+
+  function runTree(args: string[]): Promise<{ code: number | null; out: string; err: string }> {
+    const child = spawn(process.execPath, [CLI, ...args], {
+      cwd: treeWorkDir,
+      env: { PATH: process.env.PATH, HOME: treeWorkDir, NOCOPROJECT_HOME: treeWorkDir, NOCOPROJECT_SERVER_URL: treeMock.url, NOCOPROJECT_TOKEN: treeToken, NOCOPROJECT_ISSUE_ID: 'i41', NOCOPROJECT_ISSUE_KEY: 'NP-41' },
+    });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d: Buffer) => (out += d.toString()));
+    child.stderr.on('data', (d: Buffer) => (err += d.toString()));
+    return new Promise((resolveRun) => child.on('close', (code) => resolveRun({ code, out, err })));
+  }
+
+  beforeAll(async () => {
+    treeMock = new MockServer();
+    await treeMock.start();
+    treeMock.runtimes.set('echo', { id: 'rt-echo', provider: 'echo' });
+    treeMock.addIssue({ id: 'i41', identifier: 'NP-41', title: 'Knowledge tree issue' });
+    const manual = treeMock.knowledge.add({ slug: 'product-manual', title: 'Product manual', summary: 'Full user guide.', projectId: 'p1' });
+    const inboxGuide = treeMock.knowledge.add({ slug: 'inbox-guide', title: 'Inbox guide', summary: 'How the inbox works.', projectId: 'p1', parentId: manual.id });
+    treeMock.knowledge.add({ slug: 'inbox-actions', title: 'Inbox actions', summary: 'Accept, reject, snooze.', projectId: 'p1', parentId: inboxGuide.id });
+    treeMock.knowledge.add({ slug: 'tasks-guide', title: 'Tasks guide', summary: 'How tasks work.', projectId: 'p1', parentId: manual.id });
+    treeMock.knowledge.add({ slug: 'other-root', title: 'Other root', summary: 'A separate root document.', projectId: 'p1' });
+    treeToken = treeMock.issueToken('i41', { project: PROJECT });
+    treeWorkDir = mkdtempSync(join(tmpdir(), 'ncp-kb-tree-'));
+    writeFileSync(join(treeWorkDir, 'child.md'), '# Settings guide\n\nHow settings work.\n');
+  });
+  afterAll(async () => treeMock.stop());
+
+  it('lists only the direct children of a document by slug', async () => {
+    const r = await runTree(['kb', 'list', '--parent', 'product-manual', '--json']);
+    expect(r.code).toBe(0);
+    const list = JSON.parse(r.out);
+    expect(list.map((d: { slug: string }) => d.slug)).toEqual(['inbox-guide', 'tasks-guide']);
+    expect(list[0].childCount).toBe(1);
+
+    const text = await runTree(['kb', 'list', '--parent', 'product-manual']);
+    expect(text.out).toContain('inbox-guide  Inbox guide  (project, v1)');
+    expect(text.out).toContain('tasks-guide  Tasks guide  (project, v1)');
+    expect(text.out).not.toContain('inbox-actions');
+  });
+
+  it('prints a specific message when a document has no children', async () => {
+    const r = await runTree(['kb', 'list', '--parent', 'inbox-actions']);
+    expect(r.code).toBe(0);
+    expect(r.out).toBe('(inbox-actions has no child documents)\n');
+  });
+
+  it('exits 4 for an unknown --parent', async () => {
+    const r = await runTree(['kb', 'list', '--parent', 'no-such-doc', '--json']);
+    expect(r.code).toBe(4);
+    expect(JSON.parse(r.out).error.code).toBe('KNOWLEDGE_NOT_FOUND');
+  });
+
+  it('prints the whole tree, indented by depth', async () => {
+    const r = await runTree(['kb', 'list', '--tree']);
+    expect(r.code).toBe(0);
+    const lines = r.out.split('\n');
+    expect(lines).toContain('product-manual  Product manual  (project, v1)');
+    expect(lines).toContain('  Full user guide.');
+    expect(lines).toContain('  inbox-guide  Inbox guide  (project, v1)');
+    expect(lines).toContain('    inbox-actions  Inbox actions  (project, v1)');
+    expect(lines).toContain('  tasks-guide  Tasks guide  (project, v1)');
+    expect(lines).toContain('other-root  Other root  (project, v1)');
+    const rootIdx = lines.indexOf('product-manual  Product manual  (project, v1)');
+    const childIdx = lines.indexOf('  inbox-guide  Inbox guide  (project, v1)');
+    const grandchildIdx = lines.indexOf('    inbox-actions  Inbox actions  (project, v1)');
+    expect(rootIdx).toBeGreaterThanOrEqual(0);
+    expect(childIdx).toBeGreaterThan(rootIdx);
+    expect(grandchildIdx).toBeGreaterThan(childIdx);
+  });
+
+  it('prints the whole tree as nested JSON', async () => {
+    const r = await runTree(['kb', 'list', '--tree', '--json']);
+    expect(r.code).toBe(0);
+    const forest = JSON.parse(r.out);
+    const manual = forest.find((n: any) => n.slug === 'product-manual');
+    expect(manual.children.map((c: any) => c.slug)).toEqual(['inbox-guide', 'tasks-guide']);
+    const inbox = manual.children.find((c: any) => c.slug === 'inbox-guide');
+    expect(inbox.children.map((c: any) => c.slug)).toEqual(['inbox-actions']);
+    expect(inbox.children[0].children).toEqual([]);
+    const otherRoot = forest.find((n: any) => n.slug === 'other-root');
+    expect(otherRoot.children).toEqual([]);
+  });
+
+  it('rejects combining --parent and --tree', async () => {
+    const r = await runTree(['kb', 'list', '--parent', 'product-manual', '--tree', '--json']);
+    expect(r.code).toBe(5);
+    expect(JSON.parse(r.out).error.code).toBe('INVALID_ARGUMENTS');
+  });
+
+  it('proposes a new child document with --parent, passing the slug through as parentId', async () => {
+    const r = await runTree(['kb', 'propose', '--title', 'Settings guide', '--parent', 'product-manual', '--content-file', 'child.md', '--reason', 'New settings area.', '--json']);
+    expect(r.code).toBe(0);
+    const call = treeMock.callsTo(/POST \/np\/agent\/knowledge\/proposals/).at(-1);
+    expect(call?.body).toEqual({ title: 'Settings guide', parentId: 'product-manual', content: '# Settings guide\n\nHow settings work.\n', reason: 'New settings area.' });
+  });
+
+  it('rejects --parent combined with --doc', async () => {
+    const r = await runTree(['kb', 'propose', '--doc', 'product-manual', '--parent', 'product-manual', '--content-file', 'child.md', '--reason', 'x', '--json']);
+    expect(r.code).toBe(5);
+    expect(JSON.parse(r.out).error.code).toBe('INVALID_ARGUMENTS');
+  });
+});

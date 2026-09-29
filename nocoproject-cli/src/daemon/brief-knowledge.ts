@@ -36,7 +36,8 @@ export function knowledgeSection(input: KnowledgeBriefInput): string[] {
   for (const doc of docs) {
     const scope = doc.projectId ? '' : ', system-wide';
     const summary = doc.summary.replace(/\s+/g, ' ').trim() || '(no summary)';
-    lines.push(`- **${doc.title}** (\`${doc.slug}\`${scope}) — ${summary}`);
+    const childHint = doc.childCount > 0 ? ` (${doc.childCount} sub-document${doc.childCount === 1 ? '' : 's'}: \`nocoproject kb list --parent ${doc.slug}\`)` : '';
+    lines.push(`- **${doc.title}** (\`${doc.slug}\`${scope}) — ${summary}${childHint}`);
   }
   lines.push(
     '',

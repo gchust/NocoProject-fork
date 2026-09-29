@@ -136,7 +136,14 @@ export function knowledgeOf(claimed: Pick<ClaimedRunV1, 'knowledge'>): ClaimedKn
   const list = Array.isArray(claimed.knowledge) ? claimed.knowledge : [];
   return list
     .filter((d) => d && typeof d.slug === 'string' && d.slug && typeof d.title === 'string')
-    .map((d) => ({ id: String(d.id), slug: d.slug, title: d.title, summary: typeof d.summary === 'string' ? d.summary : '', projectId: d.projectId ?? null }));
+    .map((d) => ({
+      id: String(d.id),
+      slug: d.slug,
+      title: d.title,
+      summary: typeof d.summary === 'string' ? d.summary : '',
+      projectId: d.projectId ?? null,
+      childCount: typeof d.childCount === 'number' ? d.childCount : 0,
+    }));
 }
 
 /** Built field by field (never spread from the claim) so `agent.env` and the token cannot leak in. */

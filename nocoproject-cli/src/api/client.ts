@@ -257,6 +257,8 @@ export interface KnowledgeProposalBody {
   readonly title?: string;
   readonly slug?: string;
   readonly projectId?: string;
+  /** The parent document's id or slug, in the same scope; only used when creating a new document (NP-147). */
+  readonly parentId?: string;
   readonly summary?: string;
   readonly content: string;
   readonly reason: string;

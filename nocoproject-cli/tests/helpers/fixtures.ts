@@ -70,8 +70,8 @@ export function iter3Run(overrides: Partial<ClaimedRunV1> = {}): ClaimedRunV1 {
   return {
     ...iter2Run(),
     knowledge: [
-      { id: 'kd1', slug: 'api-conventions', title: 'API conventions', summary: 'Error envelope,\npagination and naming rules.', projectId: 'p1' },
-      { id: 'kd2', slug: 'release-process', title: 'Release process', summary: '', projectId: null },
+      { id: 'kd1', slug: 'api-conventions', title: 'API conventions', summary: 'Error envelope,\npagination and naming rules.', projectId: 'p1', childCount: 0 },
+      { id: 'kd2', slug: 'release-process', title: 'Release process', summary: '', projectId: null, childCount: 0 },
     ],
     ...overrides,
   };
