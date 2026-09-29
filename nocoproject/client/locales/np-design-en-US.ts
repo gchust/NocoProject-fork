@@ -130,7 +130,6 @@ const npDesignEnUS = {
     noIssues: 'No issues yet.',
     documents: 'Documents',
     noDocuments: 'Write down this project’s conventions for agents to read.',
-    proposals: 'Proposals from agents',
     archived: 'Archived',
     openInList: 'Open in the issue list',
   },

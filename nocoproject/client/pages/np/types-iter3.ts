@@ -73,6 +73,10 @@ export interface KnowledgeProposal {
   readonly summary?: string | null;
   readonly content: string;
   readonly reason: string | null;
+  /** The document's version this proposal was based on (null for a new document). */
+  readonly baseVersion?: number | null;
+  /** The document's version now (null for a new document); greater than `baseVersion` means it moved on meanwhile. */
+  readonly currentVersion?: number | null;
   readonly proposedByAgentId: string;
   readonly proposedByAgentName?: string | null;
   readonly sourceRunId?: string | null;

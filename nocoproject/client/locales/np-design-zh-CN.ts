@@ -124,7 +124,6 @@ const npDesignZhCN: NpDesignResource = {
     noIssues: '还没有任务。',
     documents: '文档',
     noDocuments: '把这个项目的约定写下来，Agent 开工前会读。',
-    proposals: 'Agent 的修改建议',
     archived: '已归档',
     openInList: '在任务列表中打开',
   },

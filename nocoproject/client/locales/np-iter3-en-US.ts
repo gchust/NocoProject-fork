@@ -347,10 +347,17 @@ const npIter3EnUS = {
     },
     proposals: {
       title: 'Proposals waiting for you ({{count}})',
+      folded: '{{count}} proposals await a decision',
       cardLabel: 'Proposal: {{title}}',
       proposesChange: 'proposes a change to',
       proposesNew: 'proposes a new document',
       new: 'New',
+      versionRange: 'Based on v{{base}} · currently v{{current}}',
+      stale: 'Outdated',
+      staleTitle: 'This proposal is based on an older version',
+      staleDescription:
+        'The document is now at version {{current}}; this proposal was based on version {{base}}. Accepting replaces the current content with the proposed text.',
+      acceptAnyway: 'Accept anyway',
       showContent: 'Show proposed text',
       accept: 'Accept',
       reject: 'Reject',
