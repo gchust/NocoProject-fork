@@ -170,11 +170,22 @@ export async function decideKnowledgeProposal(
 
 /** The `currentVersion` of a 409 `KNOWLEDGE_PROPOSAL_STALE` error body, if any. */
 export function staleVersionOfError(payload: unknown): number | null {
-  const details = (payload as { details?: { currentVersion?: unknown } } | null)
+  return staleDetail(payload, 'currentVersion');
+}
+
+/** The `baseVersion` of a 409 `KNOWLEDGE_PROPOSAL_STALE` error body, if any (older servers leave it out). */
+export function staleBaseVersionOfError(payload: unknown): number | null {
+  return staleDetail(payload, 'baseVersion');
+}
+
+function staleDetail(
+  payload: unknown,
+  key: 'currentVersion' | 'baseVersion',
+): number | null {
+  const details = (payload as { details?: Record<string, unknown> } | null)
     ?.details;
-  return typeof details?.currentVersion === 'number'
-    ? details.currentVersion
-    : null;
+  const value = details?.[key];
+  return typeof value === 'number' ? value : null;
 }
 
 /** A slug from a title, as the server would derive it: lowercase ASCII words joined by hyphens. */

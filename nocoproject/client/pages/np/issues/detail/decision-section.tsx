@@ -16,6 +16,7 @@ import {
   useDecisionTitle,
 } from '../../decision/decision-model.js';
 import { InboxTypeIcon } from '../../decision/decision-meta.js';
+import { StaleProposalDialog } from '../../decision/stale-proposal-dialog.js';
 import {
   type DecisionRunner,
   useDecisionRunner,
@@ -60,7 +61,9 @@ export function DecisionSection({
   const open = decisions.filter(
     (item) =>
       !resolved.some((entry) => entry.item.id === item.id) &&
-      (item.resolvedAt === null || runner.pendingKey(item.id) !== null),
+      (item.resolvedAt === null ||
+        runner.pendingKey(item.id) !== null ||
+        runner.stale?.item.id === item.id),
   );
   if (open.length === 0 && resolved.length === 0) return null;
   return (
@@ -87,6 +90,7 @@ export function DecisionSection({
           agents={agents}
         />
       ))}
+      <StaleProposalDialog runner={runner} />
     </section>
   );
 }

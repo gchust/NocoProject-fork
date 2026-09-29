@@ -10,6 +10,10 @@ import { useNavigate } from 'react-router';
 
 import { toast } from '@/components/ui/toast';
 
+import {
+  staleBaseVersionOfError,
+  staleVersionOfError,
+} from '../api-knowledge.js';
 import { npKeys } from '../constants.js';
 import {
   actionBody,
@@ -60,6 +64,15 @@ export function patchInboxCaches(
   );
 }
 
+/** An accept that came back 409 `KNOWLEDGE_PROPOSAL_STALE`: the document moved on since the agent proposed (NP-152). */
+export interface StaleProposal {
+  readonly item: InboxItem;
+  readonly action: InboxDecisionAction;
+  readonly comment: string;
+  readonly currentVersion: number;
+  readonly baseVersion: number | null;
+}
+
 export interface DecisionRunner {
   /** Carries out one action of a decision: a request, an in-app page, an external link or opening the issue. */
   readonly run: (
@@ -70,6 +83,36 @@ export interface DecisionRunner {
   /** The key of the action in flight on `itemId`, else null. */
   readonly pendingKey: (itemId: string) => string | null;
   readonly busy: boolean;
+  /** A knowledge proposal waiting for "accept anyway", else null; `StaleProposalDialog` shows it. */
+  readonly stale: StaleProposal | null;
+  /** Sends the stale accept again with `confirmStale`. */
+  readonly acceptStale: () => void;
+  readonly dismissStale: () => void;
+}
+
+/** The stale proposal behind a failed accept, or null when the failure is anything else. */
+function staleProposalOf(
+  error: unknown,
+  item: InboxItem,
+  action: InboxDecisionAction,
+  comment: string,
+): StaleProposal | null {
+  if (
+    !(error instanceof ApiClientError) ||
+    error.status !== 409 ||
+    error.code !== 'KNOWLEDGE_PROPOSAL_STALE' ||
+    action.body?.confirmStale === true
+  )
+    return null;
+  const currentVersion = staleVersionOfError(error.payload);
+  if (currentVersion === null) return null;
+  return {
+    item,
+    action,
+    comment,
+    currentVersion,
+    baseVersion: staleBaseVersionOfError(error.payload),
+  };
 }
 
 /**
@@ -77,7 +120,8 @@ export interface DecisionRunner {
  * you" section run the same code. A request resolves the item at once in every cached list (optimistic) and the request
  * follows; success toasts "{{action}} — done", failure toasts the localized reason and the refetch puts the item back.
  * Navigation actions mark the item read and leave: an external link opens in a new tab, an in-app page or the issue
- * opens in place.
+ * opens in place. Accepting a knowledge proposal whose document moved on is not "someone else decided": the runner keeps
+ * it in `stale` so the caller can confirm it (NP-152), as the knowledge page does.
  */
 export function useDecisionRunner(
   options: {
@@ -96,6 +140,7 @@ export function useDecisionRunner(
     readonly itemId: string;
     readonly key: string;
   } | null>(null);
+  const [stale, setStale] = useState<StaleProposal | null>(null);
 
   const markRead = useMutation({
     mutationFn: (item: InboxItem) =>
@@ -145,7 +190,12 @@ export function useDecisionRunner(
         }),
       });
     },
-    onError: (error: unknown) =>
+    onError: (error: unknown, { item, action, comment }) => {
+      const staleProposal = staleProposalOf(error, item, action, comment);
+      if (staleProposal) {
+        setStale(staleProposal);
+        return;
+      }
       toast.add({
         type: 'error',
         priority: 'high',
@@ -155,7 +205,8 @@ export function useDecisionRunner(
             : error instanceof ApiClientError && error.status === 409
               ? t('np.inboxActions.conflict')
               : t('np.common.requestFailed'),
-      }),
+      });
+    },
     onSettled: () => {
       setPending(null);
       void queryClient.invalidateQueries({ queryKey: npKeys.inbox });
@@ -201,5 +252,19 @@ export function useDecisionRunner(
     pendingKey: (itemId) =>
       pending && pending.itemId === itemId ? pending.key : null,
     busy: decide.isPending,
+    stale,
+    acceptStale: () => {
+      if (!stale) return;
+      setStale(null);
+      decide.mutate({
+        item: stale.item,
+        action: {
+          ...stale.action,
+          body: { ...stale.action.body, confirmStale: true },
+        },
+        comment: stale.comment,
+      });
+    },
+    dismissStale: () => setStale(null),
   };
 }
