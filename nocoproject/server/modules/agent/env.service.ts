@@ -127,6 +127,7 @@ async function requireAgent(
     .selectFrom('agents')
     .select(['id', 'ownerUserId'])
     .where('id', '=', agentId)
+    .where('deletedAt', 'is', null)
     .executeTakeFirst();
   if (!row) throw notFound('Agent');
   return { ownerUserId: str(row.ownerUserId) ?? '' };

@@ -264,6 +264,13 @@ const npCollabZhCN: NpCollabResource = {
     duplicate: '这个仓库已经关联过了。',
   },
   agentDetail: {
+    delete: '删除 Agent',
+    deleteTitle: '删除 {{name}}？',
+    deleteDescription:
+      '删除后将无法再使用这个 Agent，关联任务的执行人将被清空，历史评论和运行记录保留。请先结束或取消所有待执行及运行中的任务。',
+    deleted: '已删除 Agent {{name}}',
+    activeRuns: '请先结束或取消该 Agent 所有待执行及运行中的任务，再删除。',
+
     breadcrumb: 'Agent',
     loadFailed: '无法加载这个 Agent',
     notFound: '这个 Agent 不存在或已归档。',

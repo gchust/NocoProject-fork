@@ -229,4 +229,16 @@ describe.skipIf(!db)('NocoProject Phase 2 migrations (PostgreSQL)', () => {
     );
     await migrator().latest();
   });
+  it('adds and rolls back the agent deletion tombstone independently', async () => {
+    while ((await migrator().rollback()).rolledBack.length > 0);
+    await migrator().upTo('2026100600001_np_member_preferences');
+    expect(await columns(db!, 'agents')).not.toContain('deleted_at');
+    const applied = await migrator().latest();
+    expect(applied.executed).toEqual(['2026100700001_np_agent_deletion']);
+    expect(await columns(db!, 'agents')).toContain('deleted_at');
+    const rolledBack = await migrator().rollback();
+    expect(rolledBack.rolledBack).toEqual(['2026100700001_np_agent_deletion']);
+    expect(await columns(db!, 'agents')).not.toContain('deleted_at');
+    await migrator().latest();
+  });
 });

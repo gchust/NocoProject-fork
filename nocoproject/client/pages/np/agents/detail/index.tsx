@@ -31,6 +31,7 @@ import {
 } from '../../permissions.js';
 import { AgentEnvSection } from './agent-env.js';
 import { AgentForm } from './agent-form.js';
+import { AgentDelete } from './agent-delete.js';
 import { AgentSkillsSection } from './agent-skills.js';
 
 /**
@@ -125,6 +126,14 @@ function AgentDetailView({
             <NpTag tone='grey'>{agent.provider}</NpTag>
             <NpOnlineState online={isRuntimeOnline(agent)} />
           </span>
+        }
+        actions={
+          <AgentDelete
+            agent={agent}
+            canDelete={Boolean(
+              me.data?.userId && me.data.userId === agent.ownerUserId,
+            )}
+          />
         }
         description={t('np.agentDetail.owner', {
           name: agent.ownerName ?? '—',

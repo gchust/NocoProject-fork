@@ -276,6 +276,14 @@ const npCollabEnUS = {
     duplicate: 'This repository is already attached.',
   },
   agentDetail: {
+    delete: 'Delete agent',
+    deleteTitle: 'Delete {{name}}?',
+    deleteDescription:
+      'This agent will no longer be available. Assigned issues will become unassigned; historical comments and runs will remain. Finish or cancel all pending and active runs before deleting.',
+    deleted: 'Agent {{name}} deleted',
+    activeRuns:
+      'Finish or cancel all pending and active runs before deleting this agent.',
+
     breadcrumb: 'Agent',
     loadFailed: 'Unable to load this agent',
     notFound: 'This agent does not exist or has been archived.',
