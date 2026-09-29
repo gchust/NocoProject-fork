@@ -164,7 +164,6 @@ const npIter2EnUS = {
     created: '{{count}} issues created',
     fixProblems: 'Fix the problems shown in the table first.',
     stateChanged: 'This batch was already confirmed or cancelled.',
-    newBatch: 'Start another batch',
     notFound: 'This batch does not exist.',
     recentTitle: 'My recent batches',
     recentEmpty: 'No batches yet.',
