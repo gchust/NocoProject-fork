@@ -1,12 +1,10 @@
 /**
- * NocoProject protocol types: business roles and their assignment in `/config/members` (NP-153 stage 2,
- * docs/phase2/protocol-business-roles.md).
+ * Browser-side types for business roles and the viewer's business scopes (NP-153,
+ * `server/modules/shared/protocol.roles-server.ts`, `server/modules/shared/access.ts`).
  *
- * A business role is a built-in permission set whose key starts with `np-`; an assignment is a built-in assignment.
- * Used only by the browser and the server; not copied by the CLI.
+ * Copied from the contract rather than imported, for the same reason as `types.ts`: the client tsconfig must not reach
+ * into `server/`. Keep them in step with those files.
  */
-import type { NpScopes } from './access.js';
-import type { Member, MeResponse } from './protocol.js';
 
 /** A title as the authorization plugin stores it: plain text, or an i18n key in a namespace. */
 export type AccessTitle =
@@ -24,7 +22,6 @@ export interface AccessGrantAction {
   readonly policy?: AccessGrantPolicy;
 }
 
-/** One grant of a role, in the permission sets' own shape. */
 export interface AccessGrant {
   readonly resource: { readonly type: string; readonly id: string };
   readonly actions: readonly AccessGrantAction[];
@@ -38,17 +35,13 @@ export interface AccessCatalogAction {
 export interface AccessCatalogScope {
   readonly key: string;
   readonly title: AccessTitle | null;
-  /** Record access keys (`allRecords`, `nocoproject.visible`, ...), see `AccessCatalog.recordAccess`. */
+  /** Record access keys (`allRecords`, `nocoproject.visible`, ...). */
   readonly options: readonly string[];
   readonly defaultValue: string | null;
 }
 
-/**
- * `GET /np/access/catalog`: everything a business role may hold. Only NocoProject's own resources: its pages, its
- * settings items and its business actions. Platform resources never appear.
- */
+/** `GET /np/access/catalog`: everything a business role may hold. */
 export interface AccessCatalog {
-  /** Page ids (`page` grants, action `access`); the client titles them from its route tree. */
   readonly pages: readonly string[];
   readonly settings: readonly {
     readonly id: string;
@@ -62,7 +55,6 @@ export interface AccessCatalog {
       readonly scopes: readonly AccessCatalogScope[];
     })[];
   }[];
-  /** The record accesses the scopes offer; `allRecords` is the platform's, titled by the client. */
   readonly recordAccess: readonly {
     readonly key: string;
     readonly title: AccessTitle | null;
@@ -73,42 +65,32 @@ export interface AccessCatalog {
 export interface BusinessRole {
   readonly key: string;
   readonly title: AccessTitle | null;
-  /** `np-owner`, `np-admin`, `np-member`: never deleted. */
   readonly builtIn: boolean;
   /** Whether `/config` may change its grants (not `np-owner`). */
   readonly editable: boolean;
-  /**
-   * It also holds platform grants (added in the permission workspace): `/config` keeps them when editing and refuses
-   * to assign or revoke the role (409 `ROLE_HAS_PLATFORM_GRANTS`).
-   */
+  /** It also holds platform grants: kept when edited here, never assigned here. */
   readonly hasForeignGrants: boolean;
-  /** The NocoProject grants only; platform grants are not listed. */
+  /** The NocoProject grants only. */
   readonly grants: readonly AccessGrant[];
-  /** Users assigned the role directly. */
   readonly holderIds: readonly string[];
   readonly holderCount: number;
 }
 
-/** `POST /np/access/roles` (`title` required) and `PUT /np/access/roles/:key` (`title` optional). */
 export interface SaveBusinessRoleRequest {
   readonly title?: string;
   readonly grants: readonly AccessGrant[];
 }
 
-/** `PUT /np/members/:userId/roles`: the user's complete set of business roles. */
-export interface ReplaceMemberRolesRequest {
-  readonly roles: readonly string[];
-}
+/** The viewer's scope of a business action: every record, the records NocoProject relates to them, or none. */
+export type NpScope = 'all' | 'related' | 'none';
 
-/** The answer of `PUT /np/members/:userId/roles`: the member with the business roles they hold directly. */
-export interface MemberWithRoles extends Member {
-  readonly roles: readonly string[];
-}
+/** `composite/action` → scope, e.g. `nocoproject.issues/close`. */
+export type NpScopes = Readonly<Record<string, NpScope>>;
 
-/**
- * `GET /np/me` in the browser: the signed-in user and their scope of every business action (`composite/action` →
- * `all` / `related` / `none`), resolved like the services resolve them. The pages only hide what would be refused.
- */
-export interface MeAccessResponse extends MeResponse {
-  readonly scopes: NpScopes;
+/** `GET /np/me` in the browser (NP-153): the signed-in user and their business scopes. */
+export interface MeAccess {
+  readonly userId: string;
+  readonly name: string;
+  /** Absent from an older server; read as "related" everywhere. */
+  readonly scopes?: NpScopes;
 }

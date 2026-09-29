@@ -5,6 +5,7 @@ import npIter3ZhCN from './np-iter3-zh-CN.js';
 import npDesignZhCN from './np-design-zh-CN.js';
 import npIter4ZhCN from './np-iter4-zh-CN.js';
 import npSignalsZhCN from './np-signals-zh-CN.js';
+import npRolesZhCN from './np-roles-zh-CN.js';
 
 const zhCN: AppResource = {
   'auth.welcome': '欢迎回来',
@@ -206,6 +207,7 @@ const zhCN: AppResource = {
     ...npDesignZhCN,
     ...npIter4ZhCN,
     ...npSignalsZhCN,
+    ...npRolesZhCN,
     common: {
       online: '在线',
       offline: '离线',

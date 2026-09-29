@@ -6,6 +6,7 @@ import npIter3EnUS from './np-iter3-en-US.js';
 import npDesignEnUS from './np-design-en-US.js';
 import npIter4EnUS from './np-iter4-en-US.js';
 import npSignalsEnUS from './np-signals-en-US.js';
+import npRolesEnUS from './np-roles-en-US.js';
 
 const enUS = {
   'auth.welcome': 'Welcome back',
@@ -220,6 +221,7 @@ const enUS = {
     ...npDesignEnUS,
     ...npIter4EnUS,
     ...npSignalsEnUS,
+    ...npRolesEnUS,
     common: {
       online: 'Online',
       offline: 'Offline',

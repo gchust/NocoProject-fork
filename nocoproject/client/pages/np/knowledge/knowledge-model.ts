@@ -1,11 +1,15 @@
-import { isWorkspaceAdmin, type Viewer } from '../permissions.js';
+import {
+  canDecideAllKnowledge,
+  canDecideLedKnowledge,
+  type Viewer,
+} from '../permissions.js';
 import type { ProjectListItem } from '../types.js';
 import type { KnowledgeDocSummary } from '../types-iter3.js';
 
 /**
- * Knowledge base rules as the browser applies them (§B): project documents are written by the project lead and
- * owner/admin, workspace documents by owner/admin only; the server enforces the same and says so with `canEdit` when
- * it sends it.
+ * Knowledge base rules as the browser applies them (§B, NP-153 `knowledge/decide`): on every document for whoever
+ * holds it on every record, else in the projects the viewer leads; workspace documents only for the former. The server
+ * enforces the same and says so with `canEdit` when it sends it.
  */
 export function canEditKnowledge(
   doc: Pick<KnowledgeDocSummary, 'projectId' | 'canEdit'>,
@@ -23,8 +27,8 @@ export function canWriteIn(
   projects: readonly ProjectListItem[] | undefined,
 ): boolean {
   if (!viewer) return false;
-  if (isWorkspaceAdmin(viewer)) return true;
-  if (!projectId) return false;
+  if (canDecideAllKnowledge(viewer)) return true;
+  if (!projectId || !canDecideLedKnowledge(viewer)) return false;
   const project = projects?.find((candidate) => candidate.id === projectId);
   return !!project?.leadUserId && project.leadUserId === viewer.userId;
 }

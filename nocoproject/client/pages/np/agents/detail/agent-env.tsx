@@ -42,11 +42,11 @@ import { EnvVarDialog, RevealedDialog } from './env-dialogs.js';
 export function AgentEnvSection({
   agentId,
   canEdit,
-  isAdmin,
+  canAudit,
 }: {
   readonly agentId: string;
   readonly canEdit: boolean;
-  readonly isAdmin: boolean;
+  readonly canAudit: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -68,7 +68,7 @@ export function AgentEnvSection({
   const audits = useQuery({
     queryKey: npKeys.agentEnvAudits(agentId),
     queryFn: () => fetchAgentEnvAudits(api, agentId),
-    enabled: isAdmin,
+    enabled: canAudit,
   });
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: npKeys.agentEnv(agentId) });
@@ -116,7 +116,7 @@ export function AgentEnvSection({
           </p>
         </div>
         <div className='flex gap-2'>
-          {isAdmin ? (
+          {canAudit ? (
             <Button
               variant='outline'
               size='sm'
@@ -195,7 +195,7 @@ export function AgentEnvSection({
           ))}
         </ul>
       )}
-      {isAdmin ? (
+      {canAudit ? (
         <div className='space-y-2'>
           <h3 className='text-sm font-semibold'>
             {t('np.envVars.auditsTitle')}

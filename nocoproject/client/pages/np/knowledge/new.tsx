@@ -28,6 +28,7 @@ import {
 import { fetchProjects } from '../api.js';
 import { npKeys } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
+import { canDecideAllKnowledge } from '../permissions.js';
 import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import { writableProjects } from './knowledge-model.js';
 
@@ -69,7 +70,8 @@ function Body({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
-  const { viewer, isAdmin } = useWorkspaceViewer();
+  const { viewer } = useWorkspaceViewer();
+  const decidesAll = canDecideAllKnowledge(viewer);
   const projects = useQuery({
     queryKey: npKeys.projects,
     queryFn: () => fetchProjects(api),
@@ -92,7 +94,7 @@ function Body({
   const [content, setContent] = useState('');
   const [titleError, setTitleError] = useState<string>();
   const effectiveProject =
-    projectId ?? (isAdmin ? null : (writable[0]?.id ?? null));
+    projectId ?? (decidesAll ? null : (writable[0]?.id ?? null));
 
   const create = useMutation({
     mutationFn: () =>
@@ -149,11 +151,11 @@ function Body({
           <PropertySelect
             id='np-knowledge-project'
             size='default'
-            options={(isAdmin ? (projects.data ?? []) : writable).map(
+            options={(decidesAll ? (projects.data ?? []) : writable).map(
               (project) => ({ value: project.id, label: project.name }),
             )}
             value={effectiveProject}
-            noneLabel={isAdmin ? t('np.knowledge.workspace') : undefined}
+            noneLabel={decidesAll ? t('np.knowledge.workspace') : undefined}
             onChange={setProjectId}
           />
           <FieldDescription>

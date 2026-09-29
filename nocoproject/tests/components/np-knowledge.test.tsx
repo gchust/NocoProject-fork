@@ -14,6 +14,10 @@ import { answer, type RequestOptions, renderNp } from './np-harness.js';
 const api = vi.hoisted(() => ({ request: vi.fn() }));
 const toast = vi.hoisted(() => ({ add: vi.fn() }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,

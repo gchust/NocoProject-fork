@@ -43,6 +43,7 @@ import type {
   ReasoningEffort,
   RunTriggerTypePhase1Iter4,
 } from './types-iter4.js';
+import type { NpScopes } from './types-roles.js';
 
 export type * from './types-collab.js';
 export type * from './types-iter2.js';
@@ -105,6 +106,8 @@ export type RunTopicPayload =
 export interface Me {
   readonly userId: string;
   readonly name: string;
+  /** NP-153: the viewer's scope of every business action (`types-roles.ts`); absent from an older server. */
+  readonly scopes?: NpScopes;
 }
 
 /** `GET /np/me/preferences` (NP-108): the viewer's own preferences, kept with the account. */

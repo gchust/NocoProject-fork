@@ -1,4 +1,5 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitMergeIcon } from 'lucide-react';
@@ -26,7 +27,7 @@ import {
 } from '../../api-iter4.js';
 import { npKeys, statusLabelKey } from '../../constants.js';
 import type { MergeBlocker, MergePreflight } from '../../types-iter4.js';
-import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
+import { settingsCheck } from '../../config/config-access.js';
 import { githubErrorText } from './pr-model.js';
 
 export interface MergeTarget {
@@ -77,7 +78,8 @@ function MergeBody({
   const { t } = useTranslation();
   const api = useApiClient();
   const queryClient = useQueryClient();
-  const { isAdmin } = useWorkspaceViewer();
+  // The token is fixed on the GitHub settings tab; link there only for whoever may change it.
+  const canFixToken = useCan(settingsCheck('github', 'update')).can;
   const preflight = useQuery({
     queryKey: preflightKey(target),
     queryFn: () =>
@@ -164,7 +166,7 @@ function MergeBody({
         <Alert variant='destructive'>
           <AlertDescription>
             {t('np.prMerge.forbiddenToken')}
-            {isAdmin ? (
+            {canFixToken ? (
               <>
                 {' '}
                 <Link

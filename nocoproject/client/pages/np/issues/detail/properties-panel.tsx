@@ -38,7 +38,8 @@ import {
   statusLabelKey,
 } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
-import { canActAsIssueOwner, viewerFrom } from '../../permissions.js';
+import { canChangeIssueOwner, canCloseIssue } from '../../permissions.js';
+import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import type {
   AgentListItem,
   IssueDetail,
@@ -99,6 +100,7 @@ export function PropertiesPanel({
     mutate: (changes) => update.mutate(changes),
   });
 
+  const { viewer } = useWorkspaceViewer();
   const members = useQuery({
     queryKey: npKeys.members,
     queryFn: () => fetchMembers(api),
@@ -131,14 +133,14 @@ export function PropertiesPanel({
 
   const projectId = detail.project?.id ?? issue.projectId ?? null;
   const project = projects.data?.find((item) => item.id === projectId);
-  const viewer = viewerFrom(me?.userId, members.data);
-  const ownerPowers = canActAsIssueOwner(viewer, issue, project?.leadUserId);
+  const canClose = canCloseIssue(viewer, issue, project?.leadUserId);
+  const canReassign = canChangeIssueOwner(viewer, issue, project?.leadUserId);
 
   const statusItems = statusCatalog.map((entry) => ({
     value: entry.key,
     label: t(statusLabelKey(entry.key), { defaultValue: entry.key }),
     disabled:
-      !ownerPowers &&
+      !canClose &&
       entry.key !== issue.statusKey &&
       isTerminalStatus(entry.key, statusCatalog),
   }));
@@ -239,7 +241,7 @@ export function PropertiesPanel({
                     : member.name,
               }))}
               value={issue.ownerUserId}
-              disabled={busy || !ownerPowers}
+              disabled={busy || !canReassign}
               onChange={(value) => {
                 if (value) update.mutate({ ownerUserId: value });
               }}
@@ -248,7 +250,7 @@ export function PropertiesPanel({
             <span className='truncate'>{issue.ownerName ?? '—'}</span>
           )}
         </PropertyRow>
-        {me && issue.ownerUserId !== me.userId && ownerPowers ? (
+        {me && issue.ownerUserId !== me.userId && canReassign ? (
           <PropertyRow label=''>
             <Button
               variant='ghost'

@@ -31,15 +31,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/toast';
 
-import { fetchMembers } from '../../api-collab.js';
 import {
   deleteSkill,
   fetchSkill,
   stripSkillFrontMatter,
 } from '../../api-agent-extras.js';
-import { fetchMe } from '../../api.js';
 import { npKeys } from '../../constants.js';
-import { isWorkspaceAdmin, viewerFrom } from '../../permissions.js';
+import { canManageSkill } from '../../permissions.js';
+import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import type { SkillDetail } from '../../types.js';
 import { SkillAgents } from './skill-agents.js';
 import { SkillEditor } from './skill-editor.js';
@@ -70,11 +69,7 @@ function SkillView({ skillId }: { readonly skillId: string }): ReactElement {
       !(error instanceof ApiClientError && [403, 404].includes(error.status)) &&
       count < 2,
   });
-  const me = useQuery({ queryKey: npKeys.me, queryFn: () => fetchMe(api) });
-  const members = useQuery({
-    queryKey: npKeys.members,
-    queryFn: () => fetchMembers(api),
-  });
+  const { viewer } = useWorkspaceViewer();
 
   if (detail.isError && !detail.data) {
     const notFound =
@@ -103,12 +98,8 @@ function SkillView({ skillId }: { readonly skillId: string }): ReactElement {
     );
   }
   if (!detail.data) return <NpDetailSkeleton />;
-  const viewer = viewerFrom(me.data?.userId, members.data);
   const { skill } = detail.data;
-  const canEdit =
-    skill.canEdit ??
-    (isWorkspaceAdmin(viewer) ||
-      (!!skill.createdById && skill.createdById === viewer?.userId));
+  const canEdit = skill.canEdit ?? canManageSkill(viewer, skill);
   return (
     <SkillDetailBody key={skill.id} detail={detail.data} canEdit={canEdit} />
   );

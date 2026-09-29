@@ -17,11 +17,11 @@ import {
 import { activityLabel } from '../../client/pages/np/issues/detail/timeline.js';
 import { toolSummary } from '../../client/pages/np/issues/detail/tool-summary.js';
 import {
-  canActAsIssueOwner,
-  canChangeMemberRole,
+  canChangeIssueOwner,
+  canCloseIssue,
+  canDeleteProject,
   canEditAgent,
   canEditProject,
-  memberRoleOptions,
   viewerFrom,
 } from '../../client/pages/np/permissions.js';
 import {
@@ -36,7 +36,6 @@ import type {
   ExecutorProposal,
   InboxItem,
   IssueListItem,
-  Member,
   SubtaskSummary,
 } from '../../client/pages/np/types.js';
 
@@ -53,10 +52,6 @@ function subtask(overrides: Partial<SubtaskSummary>): SubtaskSummary {
     blockedCount: 0,
     ...overrides,
   };
-}
-
-function member(userId: string, role: Member['role']): Member {
-  return { userId, name: userId, email: null, role };
 }
 
 describe('sub-issues and proposals', () => {
@@ -145,69 +140,44 @@ describe('project progress', () => {
   });
 });
 
-describe('member role rules', () => {
-  const members = [
-    member('owner1', 'owner'),
-    member('admin1', 'admin'),
-    member('m1', 'member'),
-  ];
-  const as = (userId: string) => viewerFrom(userId, members);
-  const enabled = (viewerId: string, target: Member, assignRoles = false) =>
-    memberRoleOptions(as(viewerId), target, members, assignRoles)
-      .filter((option) => !option.disabled)
-      .map((option) => option.value);
+describe('business scope rules (NP-153)', () => {
+  const as = (userId: string, scopes: Record<string, string> = {}) =>
+    viewerFrom({
+      userId,
+      name: userId,
+      scopes: scopes as Record<string, 'all' | 'related' | 'none'>,
+    });
 
-  it('lets a plain member change nothing', () => {
-    expect(canChangeMemberRole(as('m1'), members[2], members, false)).toBe(
-      false,
-    );
-    expect(canChangeMemberRole(as('m1'), members[1], members, false)).toBe(
-      false,
-    );
-  });
-
-  it('leaves admin and member to whoever may assign roles in user management (NP-117)', () => {
-    // A business admin alone changes no role.
-    expect(enabled('admin1', members[2])).toEqual(['member']);
-    expect(enabled('admin1', members[2], true)).toEqual(['admin', 'member']);
-    expect(enabled('admin1', members[0], true)).toEqual(['owner']);
-    expect(canChangeMemberRole(as('admin1'), members[0], members, true)).toBe(
-      false,
-    );
-  });
-
-  it('lets an owner grant owner, and never demote the last owner', () => {
-    expect(enabled('owner1', members[2])).toEqual(['owner', 'member']);
-    expect(enabled('owner1', members[2], true)).toEqual([
-      'owner',
-      'admin',
-      'member',
-    ]);
-    expect(canChangeMemberRole(as('owner1'), members[0], members, true)).toBe(
-      false,
-    );
-    const twoOwners = [...members, member('owner2', 'owner')];
-    expect(
-      canChangeMemberRole(
-        viewerFrom('owner1', twoOwners),
-        twoOwners[3],
-        twoOwners,
-        false,
-      ),
-    ).toBe(true);
-  });
-
-  it('applies the owner, lead and admin rules to issues, projects and agents', () => {
+  it('applies "related" through the owner, lead and agent owner rules', () => {
     const issue = { ownerUserId: 'm1' };
-    expect(canActAsIssueOwner(as('m1'), issue)).toBe(true);
-    expect(canActAsIssueOwner(as('m2'), issue)).toBe(false);
-    expect(canActAsIssueOwner(as('m2'), issue, 'm2')).toBe(true);
-    expect(canActAsIssueOwner(as('admin1'), issue)).toBe(true);
-    expect(canActAsIssueOwner(null, issue)).toBe(false);
+    expect(canCloseIssue(as('m1'), issue)).toBe(true);
+    expect(canCloseIssue(as('m2'), issue)).toBe(false);
+    expect(canCloseIssue(as('m2'), issue, 'm2')).toBe(true);
+    expect(canChangeIssueOwner(as('m2'), issue, 'm2')).toBe(true);
+    expect(canCloseIssue(null, issue)).toBe(false);
     expect(canEditProject(as('m1'), { leadUserId: 'm1' })).toBe(true);
     expect(canEditProject(as('m1'), { leadUserId: 'x' })).toBe(false);
-    expect(canEditAgent(as('owner1'), { ownerUserId: 'x' })).toBe(true);
     expect(canEditAgent(as('m1'), { ownerUserId: 'x' })).toBe(false);
+    expect(canDeleteProject(as('m1'))).toBe(false);
+  });
+
+  it('passes "all" on every record and refuses "none" even on your own', () => {
+    const issue = { ownerUserId: 'm1' };
+    const admin = as('a1', {
+      'nocoproject.issues/close': 'all',
+      'nocoproject.projects/delete': 'all',
+      'nocoproject.agents/manage': 'all',
+    });
+    expect(canCloseIssue(admin, issue)).toBe(true);
+    expect(canChangeIssueOwner(admin, issue)).toBe(false);
+    expect(canDeleteProject(admin)).toBe(true);
+    expect(canEditAgent(admin, { ownerUserId: 'x' })).toBe(true);
+    const observer = as('m1', {
+      'nocoproject.issues/close': 'none',
+      'nocoproject.projects/manage': 'none',
+    });
+    expect(canCloseIssue(observer, issue)).toBe(false);
+    expect(canEditProject(observer, { leadUserId: 'm1' })).toBe(false);
   });
 });
 

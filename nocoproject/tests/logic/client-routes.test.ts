@@ -142,6 +142,10 @@ describe('app client routes', () => {
         authorizedAs: 'settings:nocoproject.members',
       },
       {
+        name: 'np-config-member-role',
+        authorizedAs: 'settings:nocoproject.members',
+      },
+      {
         name: 'np-config-workflows',
         authorizedAs: 'settings:nocoproject.workflows',
       },

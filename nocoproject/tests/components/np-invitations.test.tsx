@@ -112,6 +112,8 @@ function membersApi(
         return Promise.resolve({ data: MEMBERS });
       if (options.path === 'np/projects')
         return Promise.resolve({ data: projects });
+      if (options.path === 'np/access/roles')
+        return Promise.resolve({ data: [] });
       if (options.path === 'np/invitations' && options.method === 'POST') {
         created.push(options.json);
         return Promise.resolve({

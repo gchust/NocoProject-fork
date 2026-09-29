@@ -105,7 +105,8 @@ export function NpMultiSelect({
       <ComboboxChips ref={anchor} className='min-h-8'>
         <ComboboxValue>
           {value.map((item) => (
-            <ComboboxChip key={item}>
+            // A disabled option cannot be removed either (a role the viewer may not revoke, NP-153).
+            <ComboboxChip key={item} showRemove={!byValue.get(item)?.disabled}>
               {byValue.get(item)?.render ?? labelOf(item)}
             </ComboboxChip>
           ))}

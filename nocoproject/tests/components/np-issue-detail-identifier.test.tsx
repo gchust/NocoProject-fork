@@ -14,6 +14,10 @@ const realtime = vi.hoisted(() => ({
   onOpen: vi.fn(() => () => {}),
 }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@/components/ui/toast', () => ({ toast: { add: vi.fn() } }));
 
 vi.mock('@nocobase/app-client', async (original) => ({
