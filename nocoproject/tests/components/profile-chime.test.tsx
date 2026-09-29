@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import GeneralConfigTab from '../../client/pages/np/config/general.js';
+import { ChimePreferenceSection } from '../../client/pages/profile/chime-preference.js';
 import { answer, type RequestOptions, renderNp } from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
@@ -12,7 +12,6 @@ const chime = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,
-  useService: () => ({ subscribe: () => () => {}, onOpen: () => () => {} }),
 }));
 vi.mock('@/components/ui/toast', () => ({ toast }));
 vi.mock('../../client/pages/np/inbox/inbox-chime.js', async (original) => ({
@@ -28,26 +27,12 @@ afterEach(() => {
   chime.play.mockReset();
 });
 
-function readOnlyMember(
-  routes: Record<string, unknown>,
-): (options: RequestOptions) => Promise<unknown> {
-  return answer({
-    'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
-    'GET np/members': {
-      data: [{ userId: 'u1', name: 'Zhou', email: null, role: 'member' }],
-    },
-    'GET np/settings': { data: { canEdit: false } },
-    'GET np/workflows': { data: [] },
-    ...routes,
-  });
-}
-
-describe('sound reminder in settings (NP-108)', () => {
-  it('lets a read-only member turn the chime off and on, saved to the account', async () => {
+describe('sound reminder on the profile page (NP-108, moved by NP-153)', () => {
+  it('lets a member turn the chime off and on, saved to the account', async () => {
     const user = userEvent.setup();
     const patched: unknown[] = [];
     api.request.mockImplementation(
-      readOnlyMember({
+      answer({
         'GET np/me/preferences': { data: { inboxChime: true } },
         'PATCH np/me/preferences': (options: RequestOptions) => {
           patched.push(options.json);
@@ -55,11 +40,9 @@ describe('sound reminder in settings (NP-108)', () => {
         },
       }),
     );
-    await renderNp(<GeneralConfigTab />);
+    await renderNp(<ChimePreferenceSection />);
 
-    expect(
-      await screen.findByRole('heading', { name: 'My reminders' }),
-    ).toBeVisible();
+    expect(await screen.findByText('Preferences')).toBeVisible();
     const toggle = screen.getByRole('switch', { name: 'Sound reminder' });
     await waitFor(() => expect(toggle).not.toHaveAttribute('data-disabled'));
     expect(toggle).toHaveAttribute('aria-checked', 'true');
@@ -89,12 +72,12 @@ describe('sound reminder in settings (NP-108)', () => {
   it('shows the saved choice and puts the switch back when saving fails', async () => {
     const user = userEvent.setup();
     api.request.mockImplementation(
-      readOnlyMember({
+      answer({
         'GET np/me/preferences': { data: { inboxChime: false } },
         'PATCH np/me/preferences': () => Promise.reject(new Error('offline')),
       }),
     );
-    await renderNp(<GeneralConfigTab />);
+    await renderNp(<ChimePreferenceSection />);
     const toggle = await screen.findByRole('switch', {
       name: 'Sound reminder',
     });

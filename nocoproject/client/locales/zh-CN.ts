@@ -143,6 +143,12 @@ const zhCN: AppResource = {
     passwordTooShort: '密码过短，请使用更长的密码。',
     passwordTooLong: '密码过长，请使用更短的密码。',
     noPassword: '此账号未设置密码，请使用原有方式登录。',
+    preferences: '偏好',
+    computer: '我的电脑',
+    computerDescription: '连接你电脑上安装的编码工具。',
+    apiKeys: 'API 密钥',
+    apiKeysDescription: '创建密钥，让脚本和第三方集成以你的身份调用本应用。',
+    apiKeysLink: '打开 API 密钥',
   },
   account: {
     profile: '个人资料',

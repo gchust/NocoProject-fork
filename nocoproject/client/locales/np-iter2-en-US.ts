@@ -440,9 +440,9 @@ const npIter2EnUS = {
     deleteDescription:
       'The project, its members and repositories are removed. Its issues stay and no longer belong to a project.',
     deleted: 'Project {{name}} deleted',
-    workflow: 'Workflow',
+    workflow: 'Process template',
     workflowConflict:
-      'Some issues are in a status the new workflow does not have. Move them first.',
+      'Some issues are in a status the new process template does not have. Move them first.',
   },
   resourceEdit: {
     title: 'Edit repository',

@@ -156,6 +156,13 @@ const enUS = {
     passwordTooLong: 'This password is too long. Use a shorter password.',
     noPassword:
       'This account has no password. Use your existing sign-in method.',
+    preferences: 'Preferences',
+    computer: 'My computer',
+    computerDescription: 'Connect the coding tools installed on your computer.',
+    apiKeys: 'API keys',
+    apiKeysDescription:
+      'Create keys that let scripts and integrations call this application as you.',
+    apiKeysLink: 'Open API keys',
   },
   account: {
     profile: 'Profile',

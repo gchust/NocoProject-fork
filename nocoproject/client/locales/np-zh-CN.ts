@@ -142,7 +142,6 @@ const npCollabZhCN: NpCollabResource = {
     chime: {
       turnedOn: '已开启声音提醒。',
       turnedOff: '已关闭声音提醒。',
-      settingsTitle: '我的提醒',
       settingsDescription: '只对你自己生效，换电脑、换浏览器也一样。',
       label: '声音提醒',
       hint: '有新的待决定事项时响一声。',
@@ -345,7 +344,7 @@ const npCollabZhCN: NpCollabResource = {
     login: '登录到本应用',
     start: '启动守护进程',
     apiKeyPlaceholder: 'API 密钥',
-    apiKeyHint: '在“设置 → API 密钥”中创建一个 API 密钥。',
+    apiKeyHint: '在”个人资料 → API 密钥”中创建一个 API 密钥。',
     after:
       '几秒钟内这台电脑就会出现在列表中，每个检测到的编码工具对应一个运行时。',
     copy: '复制命令',

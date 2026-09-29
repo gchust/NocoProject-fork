@@ -30,7 +30,6 @@ import {
 } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
 import type { IntakeParserSetting, WorkspaceSettings } from '../types.js';
-import { ChimePreferenceSection } from './chime-preference.js';
 import { ConfigSectionHeading } from './config-section.js';
 import { ModelPricesTable } from './model-prices-table.js';
 import { PmSettingsFields } from './pm-settings-fields.js';
@@ -49,7 +48,8 @@ import { thresholdDraft, thresholdsFromDraft } from './thresholds-model.js';
  * model prices usage costs are estimated from, the metric thresholds (§C), and since iteration 4 the default process,
  * the project manager agent and the retrospective switch. Whoever may change the settings item `nocoproject.general`
  * (NP-117; owner/admin by default) edits — the server says so in `canEdit`; everyone else sees the values read-only.
- * Above them sits the viewer's own inbox chime switch (NP-108), which every member can change.
+ * The viewer's own inbox chime switch (NP-108) moved to `/profile` in NP-153, since it is a personal preference and
+ * not a workspace setting.
  */
 export default function GeneralConfigTab(): ReactElement {
   const { t } = useTranslation();
@@ -82,20 +82,14 @@ export default function GeneralConfigTab(): ReactElement {
     );
   }
   return (
-    <>
-      <ChimePreferenceSection />
-      <section
-        className='space-y-4 pt-4'
-        aria-labelledby='np-config-general-heading'
-      >
-        <ConfigSectionHeading
-          id='np-config-general-heading'
-          title={t('np.settingsPage.title')}
-          description={t('np.settingsPage.description')}
-        />
-        {content}
-      </section>
-    </>
+    <section className='space-y-4' aria-labelledby='np-config-general-heading'>
+      <ConfigSectionHeading
+        id='np-config-general-heading'
+        title={t('np.settingsPage.title')}
+        description={t('np.settingsPage.description')}
+      />
+      {content}
+    </section>
   );
 }
 

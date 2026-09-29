@@ -149,7 +149,6 @@ const npCollabEnUS = {
     chime: {
       turnedOn: 'Sound reminder turned on.',
       turnedOff: 'Sound reminder turned off.',
-      settingsTitle: 'My reminders',
       settingsDescription: 'Applies to you on every computer and browser.',
       label: 'Sound reminder',
       hint: 'Chime when a new decision needs you.',
@@ -360,7 +359,7 @@ const npCollabEnUS = {
     login: 'Sign in to this application',
     start: 'Start the daemon',
     apiKeyPlaceholder: 'API key',
-    apiKeyHint: 'Create an API key in Settings → API Keys.',
+    apiKeyHint: 'Create an API key in Profile → API keys.',
     after:
       'The computer appears in this list within a few seconds, with one runtime per detected coding tool.',
     copy: 'Copy command',

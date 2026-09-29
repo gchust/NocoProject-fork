@@ -24,7 +24,7 @@ const npIter4EnUS = {
     issue_status_write: 'Change task status',
     design_propose: 'Propose designs',
     checklist_write: 'Update checklists',
-    workflow_propose: 'Propose workflows',
+    workflow_propose: 'Propose process templates',
     pullRequest_link: 'Link pull requests',
   },
   entries: {
@@ -320,7 +320,7 @@ const npIter4EnUS = {
     settings: {
       general: 'General settings',
       members: 'Members and invitations',
-      workflows: 'Workflow templates',
+      workflows: 'Process templates',
       labels: 'Labels',
       github: 'GitHub connection',
     },

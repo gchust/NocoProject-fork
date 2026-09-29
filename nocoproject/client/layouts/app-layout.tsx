@@ -15,6 +15,7 @@ import { LayoutSidebar } from './components/layout-sidebar.js';
 import { NavigationSections } from './components/navigation-sections.js';
 import { AppBrand } from './components/app-brand.js';
 import { HeaderActions } from './components/header-actions.js';
+import { hasVisiblePlatformSettings } from './components/settings-gate.js';
 import { SidebarFooter } from './components/sidebar-footer.js';
 import {
   useRouteNavigation,
@@ -137,9 +138,9 @@ export function AppLayout({
               </p>
             </div>
             <HeaderActions
-              showSettings={
-                navigationPages(settingsNavigation.items).length > 0
-              }
+              showSettings={hasVisiblePlatformSettings(
+                navigationPages(settingsNavigation.items),
+              )}
               showDev={import.meta.env.DEV}
             />
           </LayoutHeader>
