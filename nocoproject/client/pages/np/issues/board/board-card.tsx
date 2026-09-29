@@ -130,7 +130,10 @@ export function BoardCardFace({
   );
 }
 
-/** A draggable card. The title link opens the issue; dragging starts after a few pixels so a click stays a click. */
+/**
+ * A draggable card. The title link opens the issue; dragging starts after a few pixels so a click stays a click, and
+ * on a touch screen after a press-and-hold, so the page keeps native touch scrolling (`touch-manipulation`).
+ */
 export function BoardCard({
   issue,
   issueLink,
@@ -153,7 +156,7 @@ export function BoardCard({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
-        'cursor-grab touch-none rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing',
+        'cursor-grab touch-manipulation rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing',
         isDragging && 'opacity-40',
       )}
       {...attributes}
