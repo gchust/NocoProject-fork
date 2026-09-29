@@ -25,6 +25,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 ## 2. Lists and tables
 
 - Toolbar on the left (search, filters, view switch — `IssueToolbar`), the primary button in the page header.
+- Below `md` the toolbar folds the search and the filters behind one "Filters" button (showing the active count), collapsed on every visit; "Clear filters" and the view switch stay on its row, so the board or table keeps the height (NP-164).
 - Creating issues is one "New issue" button and one dialog (`/issues/new`, `NewIssueButton`), never a split button: tabs AI draft (default; describe or paste, choose the project, "Draft issues" → batch entry's drafts table → create one or many) and Manual (the single-issue form); creating in either tab closes the dialog with a toast (NP-124). The last tab is remembered in `localStorage` (`nocoproject:new-issue-tab`, try/catch), `?tab=` overrides, `?batch=` holds the open draft batch and `?project=` preselects the project. Old batch-entry routes redirect into the AI tab.
 - The board shows the design-first columns (Analysis, Proposal review) only while one holds an issue or a visible issue is design-first (`withoutIdleDesignColumns`).
 - Lists are `DataTable`. Server-paged lists pass `pagination={false}` and put "Load more" under the table; client-paged lists keep `pageSize={20}`.

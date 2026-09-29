@@ -1,6 +1,18 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import { KanbanSquareIcon, ListIcon, SearchIcon, XIcon } from 'lucide-react';
-import type { ReactElement, ReactNode, RefObject } from 'react';
+import {
+  KanbanSquareIcon,
+  ListFilterIcon,
+  ListIcon,
+  SearchIcon,
+  XIcon,
+} from 'lucide-react';
+import {
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+  useId,
+  useState,
+} from 'react';
 
 import {
   InputGroup,
@@ -17,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
 
 import type { IssueFilterKey, IssueView } from './filters.js';
 
@@ -50,7 +63,7 @@ function FilterSelect({
         onChange(next && next !== 'all' ? next : undefined)
       }
     >
-      <SelectTrigger className='w-40' aria-label={label}>
+      <SelectTrigger className='w-full md:w-40' aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -75,6 +88,8 @@ export interface IssueToolbarFilter {
 /**
  * Search, filters and the list/board switch above the issues (§J 1, 7). Everything writes to the query string
  * through the page; the search box keeps its own text and reports it (see `use-url-search.ts`).
+ * Below `md` the search and the filters fold behind a "Filters" button (with the active count) so the board or the
+ * table gets the height (NP-164); "clear filters" and the view switch stay on the one row.
  */
 export function IssueToolbar({
   searchRef,
@@ -108,38 +123,68 @@ export function IssueToolbar({
   readonly extra?: ReactNode;
 }): ReactElement {
   const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const fieldsId = useId();
+  const activeCount =
+    filters.filter((filter) => filter.value !== undefined).length +
+    (searchText.trim() === '' ? 0 : 1);
   return (
     <div className='flex flex-wrap items-center gap-2'>
-      <InputGroup className='w-full sm:w-64'>
-        <InputGroupAddon>
-          <SearchIcon />
-        </InputGroupAddon>
-        <InputGroupInput
-          ref={searchRef}
-          value={searchText}
-          placeholder={t('np.issues.searchPlaceholder')}
-          aria-label={t('np.issues.searchLabel')}
-          onChange={(event) => {
-            onSearchTextChange(event.target.value);
-            if (!(event.nativeEvent as InputEvent).isComposing) {
-              onSearchSettled(event.target.value);
+      <Button
+        variant='outline'
+        size='sm'
+        className='md:hidden'
+        aria-expanded={expanded}
+        aria-controls={fieldsId}
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <ListFilterIcon data-icon='inline-start' />
+        {t('np.filters.toggle')}
+        {activeCount > 0 ? (
+          <span className='text-muted-foreground tabular-nums'>
+            {activeCount}
+          </span>
+        ) : null}
+      </Button>
+      {/* Below md: a two-column block on its own line, shown only when expanded; from md: part of the row. */}
+      <div
+        id={fieldsId}
+        className={cn(
+          'order-last w-full grid-cols-2 gap-2 md:contents',
+          expanded ? 'grid' : 'hidden',
+        )}
+      >
+        <InputGroup className='col-span-2 w-full md:w-64'>
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            ref={searchRef}
+            value={searchText}
+            placeholder={t('np.issues.searchPlaceholder')}
+            aria-label={t('np.issues.searchLabel')}
+            onChange={(event) => {
+              onSearchTextChange(event.target.value);
+              if (!(event.nativeEvent as InputEvent).isComposing) {
+                onSearchSettled(event.target.value);
+              }
+            }}
+            onCompositionEnd={(event) =>
+              onSearchSettled(event.currentTarget.value)
             }
-          }}
-          onCompositionEnd={(event) =>
-            onSearchSettled(event.currentTarget.value)
-          }
-        />
-      </InputGroup>
-      {filters.map((filter) => (
-        <FilterSelect
-          key={filter.key}
-          label={filter.label}
-          allLabel={filter.allLabel}
-          options={filter.options}
-          value={filter.value}
-          onChange={(value) => onFilterChange(filter.key, value)}
-        />
-      ))}
+          />
+        </InputGroup>
+        {filters.map((filter) => (
+          <FilterSelect
+            key={filter.key}
+            label={filter.label}
+            allLabel={filter.allLabel}
+            options={filter.options}
+            value={filter.value}
+            onChange={(value) => onFilterChange(filter.key, value)}
+          />
+        ))}
+      </div>
       {hasFilters ? (
         <Button variant='ghost' size='sm' onClick={onClear}>
           <XIcon data-icon='inline-start' />

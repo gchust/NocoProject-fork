@@ -32,6 +32,7 @@ const npCollabZhCN: NpCollabResource = {
     },
   },
   filters: {
+    toggle: '筛选',
     project: '按项目筛选',
     allProjects: '全部项目',
     label: '按标签筛选',
