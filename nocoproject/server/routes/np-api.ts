@@ -8,8 +8,9 @@
  * `/api/np/workflows`.
  *
  * Every prefix is mounted behind its own guard: a run token is refused with 403 before the session lookup,
- * `auth.required()` answers 401 for anonymous callers, and `ensureMember` bootstraps the caller's members row. The
- * application-level rules (who may see and change what) are enforced by the services through `shared/authz.ts`.
+ * `auth.required()` answers 401 for anonymous callers, the built-in authorization context and the caller's
+ * `ActorAccess` are installed (NP-117), and `ensureMember` bootstraps the caller's members row. The application-level
+ * rules (who may see and change what) are enforced by the services through `shared/authz.ts`.
  */
 import {
   authenticationToken,
@@ -20,6 +21,7 @@ import {
   defineApiRoutes,
   type AppApiRouteContribution,
 } from '@nocobase/app-server/router';
+import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
 import { Hono } from 'hono';
 
 import type { AppIdentityConfig } from '@nocobase/app-server/config';
@@ -104,6 +106,7 @@ import {
   npRunServiceToken,
   npRuntimeServiceToken,
 } from '../providers/np.js';
+import { npAccess } from '../providers/np-authorization.js';
 
 export const npApiRoutes: AppApiRouteContribution<Application> =
   defineApiRoutes((app) => {
@@ -111,7 +114,14 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
     const auth = container.resolve(authenticationToken);
     const members = container.resolve(npMemberServiceToken);
     const inbox = container.resolve(npInboxServiceToken);
-    const guard = [rejectRunTokens(), auth.required(), ensureMember(members)];
+    const authz = container.resolve(authorizationToken);
+    const guard = [
+      rejectRunTokens(),
+      auth.required(),
+      authz.middleware(),
+      npAccess(authz),
+      ensureMember(members),
+    ];
     const router = new Hono();
 
     const me = npRouter<AuthEnv>();

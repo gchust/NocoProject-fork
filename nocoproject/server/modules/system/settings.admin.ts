@@ -7,7 +7,8 @@
  * of `runExecutor` stage actions.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, viewerOf } from '../shared/authz.js';
+import { NP_SETTINGS } from '../shared/access.js';
+import { canUseSetting, requireSetting, viewerOf } from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
 import type {
@@ -238,19 +239,24 @@ export function createWorkspaceSettingsService(deps: {
     conn: Conn,
     actor: Actor,
   ): Promise<WorkspaceSettingsViewV5> {
-    const viewer = await viewerOf(conn, actor);
+    await viewerOf(conn, actor);
     return {
       ...(await deps.settings.read(conn)),
       issuePrefix: await deps.settings.issuePrefix(conn),
-      canEdit: isAdmin(viewer),
+      canEdit: await canUseSetting(conn, actor, NP_SETTINGS.general, 'update'),
     };
   }
   return {
     view: (actor) => view(deps.tx.read(), actor),
     async update(actor, patch) {
+      await requireSetting(
+        deps.tx.read(),
+        actor,
+        NP_SETTINGS.general,
+        'update',
+        'You may not change the workspace settings.',
+      );
       await deps.tx.run(async (tx) => {
-        if (!isAdmin(await viewerOf(tx.conn, actor)))
-          forbid('Only an owner or admin may change the workspace settings.');
         const values = await patchValues(
           tx.conn,
           deps.settings,

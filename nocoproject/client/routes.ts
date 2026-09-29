@@ -19,6 +19,14 @@ import {
 import { NpInboxNavIcon } from './components/np-inbox-nav-icon.js';
 
 /**
+ * NP-117: a `/config` tab opens for whoever may read its settings item (`server/modules/shared/access.ts`); the page
+ * grant `np-config` still applies above it.
+ */
+function settingsRead(id: string) {
+  return { resource: { type: 'settings', id }, action: 'read' } as const;
+}
+
+/**
  * The sidebar follows the product plan §3.1 (iteration 3 §G): 收件箱, 我的任务 and 项目经理 (iteration 4 §C) on top,
  * the groups 工作 (issues, projects) and Agent 团队 (agents, runtimes, skills, knowledge), then 报表 and 设置. Settings
  * live in the front end (`/config`) rather than the system settings shell. Creating issues — one or many — is the
@@ -322,8 +330,8 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // 设置 (§G): workspace settings in the front end. Every member opens it; owner/admin edit, others read (the
-    // server enforces the same rule on every write).
+    // 设置 (§G): workspace settings in the front end. Each tab checks its settings item `nocoproject.*` (NP-117): by
+    // default members read all but GitHub, owner/admin change them (the server enforces the same rule on every write).
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-config' }, action: 'access' },
     breadcrumb: { title: 'navigation.config' },
@@ -333,16 +341,19 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     path: '/config',
     children: [
       {
+        authz: settingsRead('nocoproject.general'),
         componentLoader: () => import('./pages/np/config/general.js'),
         name: 'np-config-general',
         path: 'general',
       },
       {
+        authz: settingsRead('nocoproject.members'),
         componentLoader: () => import('./pages/np/config/members.js'),
         name: 'np-config-members',
         path: 'members',
       },
       {
+        authz: settingsRead('nocoproject.workflows'),
         componentLoader: () => import('./pages/np/config/workflows.js'),
         name: 'np-config-workflows',
         path: 'workflows',
@@ -357,11 +368,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
         ],
       },
       {
+        authz: settingsRead('nocoproject.labels'),
         componentLoader: () => import('./pages/np/config/labels.js'),
         name: 'np-config-labels',
         path: 'labels',
       },
       {
+        authz: settingsRead('nocoproject.github'),
         componentLoader: () => import('./pages/np/config/github.js'),
         name: 'np-config-github',
         path: 'github',

@@ -9,29 +9,34 @@ import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
 import { useIsParentEntry } from '@/components/use-default-tab';
 
+import { useConfigAccess } from './config-access.js';
 import { visibleConfigTabs } from './config-model.js';
-import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 
 /**
  * Route `/config` (§G, "设置"): the workspace settings in the front end instead of the system settings shell. Tabs
- * are child routes — 通用, 成员, 工作流模板, 标签 and (owner/admin) GitHub. Every member opens the page; owner/admin
- * edit, the others read. The bare URL redirects to `general` once the viewer's role is known.
+ * are child routes — 通用, 成员, 工作流模板, 标签 and GitHub — each shown when the viewer may read its settings item
+ * (NP-117, `config-access.ts`); by default every member reads all but GitHub and owner/admin change them. The bare URL
+ * redirects to the first readable tab once the checks are known.
  */
 export default function ConfigPage(): ReactElement {
   const { t } = useTranslation();
   const location = useLocation();
   const isParentEntry = useIsParentEntry();
-  const viewer = useWorkspaceViewer();
+  const access = useConfigAccess();
+  const visible = visibleConfigTabs(access.readable);
   if (isParentEntry) {
-    return viewer.isLoading ? (
+    return access.isPending ? (
       <PageContainer>
         <NpListSkeleton />
       </PageContainer>
     ) : (
-      <Navigate replace to={{ pathname: 'general', search: location.search }} />
+      <Navigate
+        replace
+        to={{ pathname: visible[0] ?? 'general', search: location.search }}
+      />
     );
   }
-  const tabs = visibleConfigTabs(viewer.isAdmin).map((tab) => ({
+  const tabs = visible.map((tab) => ({
     path: tab,
     label: t(`np.config.tabs.${tab}`),
   }));
@@ -40,7 +45,7 @@ export default function ConfigPage(): ReactElement {
       <PageHeader
         title={t('np.config.title')}
         description={
-          viewer.isAdmin || viewer.isLoading
+          access.editsAny || access.isPending
             ? t('np.config.description')
             : t('np.config.readOnlyDescription')
         }

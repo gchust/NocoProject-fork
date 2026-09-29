@@ -152,31 +152,47 @@ describe('member role rules', () => {
     member('m1', 'member'),
   ];
   const as = (userId: string) => viewerFrom(userId, members);
-  const enabled = (viewerId: string, target: Member) =>
-    memberRoleOptions(as(viewerId), target, members)
+  const enabled = (viewerId: string, target: Member, assignRoles = false) =>
+    memberRoleOptions(as(viewerId), target, members, assignRoles)
       .filter((option) => !option.disabled)
       .map((option) => option.value);
 
   it('lets a plain member change nothing', () => {
-    expect(canChangeMemberRole(as('m1'), members[2], members)).toBe(false);
-    expect(canChangeMemberRole(as('m1'), members[1], members)).toBe(false);
+    expect(canChangeMemberRole(as('m1'), members[2], members, false)).toBe(
+      false,
+    );
+    expect(canChangeMemberRole(as('m1'), members[1], members, false)).toBe(
+      false,
+    );
   });
 
-  it('lets an admin move people between admin and member, but not grant or touch owner', () => {
-    expect(enabled('admin1', members[2])).toEqual(['admin', 'member']);
-    expect(enabled('admin1', members[0])).toEqual(['owner']);
-    expect(canChangeMemberRole(as('admin1'), members[0], members)).toBe(false);
+  it('leaves admin and member to whoever may assign roles in user management (NP-117)', () => {
+    // A business admin alone changes no role.
+    expect(enabled('admin1', members[2])).toEqual(['member']);
+    expect(enabled('admin1', members[2], true)).toEqual(['admin', 'member']);
+    expect(enabled('admin1', members[0], true)).toEqual(['owner']);
+    expect(canChangeMemberRole(as('admin1'), members[0], members, true)).toBe(
+      false,
+    );
   });
 
   it('lets an owner grant owner, and never demote the last owner', () => {
-    expect(enabled('owner1', members[2])).toEqual(['owner', 'admin', 'member']);
-    expect(canChangeMemberRole(as('owner1'), members[0], members)).toBe(false);
+    expect(enabled('owner1', members[2])).toEqual(['owner', 'member']);
+    expect(enabled('owner1', members[2], true)).toEqual([
+      'owner',
+      'admin',
+      'member',
+    ]);
+    expect(canChangeMemberRole(as('owner1'), members[0], members, true)).toBe(
+      false,
+    );
     const twoOwners = [...members, member('owner2', 'owner')];
     expect(
       canChangeMemberRole(
         viewerFrom('owner1', twoOwners),
         twoOwners[3],
         twoOwners,
+        false,
       ),
     ).toBe(true);
   });

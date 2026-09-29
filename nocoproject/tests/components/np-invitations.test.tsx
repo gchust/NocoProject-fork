@@ -7,6 +7,8 @@ import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { authzDouble } from './np-authz-double.js';
+
 import locales from '../../client/locales/index.js';
 import InvitePage from '../../client/pages/auth/invite.js';
 import MembersSettingsPage from '../../client/pages/np/config/members.js';
@@ -29,6 +31,10 @@ vi.mock('@nocobase/app-client', async (original) => ({
   useApiClient: () => api,
 }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@nocobase/app-plugin-authentication/client', () => ({
   useSignUpAvailable: () => false,
   useAuthentication: () => ({
@@ -97,6 +103,7 @@ function membersApi(
   created: unknown[] = [],
   projects: readonly unknown[] = PROJECTS,
 ): void {
+  authzDouble.as(userId === 'u1' ? 'owner' : 'member');
   api.request.mockImplementation(
     (options: { path: string; method?: string; json?: unknown }) => {
       if (options.path === 'np/me')
@@ -209,7 +216,9 @@ describe('inviting members', () => {
   it('lists pending invitations and revokes after confirmation', async () => {
     membersApi('u1');
     await renderWith(<MembersSettingsPage />, '/members');
-    expect(await screen.findByText('pending@example.com')).toBeVisible();
+    await screen.findByText('Mia Member');
+    await screen.findByText('pending@example.com');
+    expect(screen.getByText('pending@example.com')).toBeVisible();
     expect(screen.getByText('Pending invitations')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
     const confirm = await screen.findByRole('alertdialog');

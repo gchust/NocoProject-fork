@@ -266,6 +266,26 @@ const npIter4ZhCN: NpIter4Resource = {
     stepSave:
       '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
   },
+  access: {
+    section: 'NocoProject',
+    settings: {
+      general: '通用设置',
+      members: '成员与邀请',
+      workflows: '工作流模板',
+      labels: '标签',
+      github: 'GitHub 连接',
+    },
+    actions: {
+      read: '查看',
+      update: '修改',
+      invite: '邀请并管理邀请',
+    },
+    sets: {
+      member: 'NocoProject 成员',
+      admin: 'NocoProject 管理员',
+      owner: 'NocoProject 所有者',
+    },
+  },
 };
 
 export default npIter4ZhCN;

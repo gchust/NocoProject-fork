@@ -64,6 +64,7 @@ import {
   createMemberService,
   type MemberService,
 } from './member/member.service.js';
+import type { RoleAssignments } from './member/member.roles.js';
 import {
   createInvitationService,
   type InvitationAccounts,
@@ -236,6 +237,11 @@ export interface NpServiceDeps {
   /** NP-88: invitation email and account creation; absent = no email is sent, no account can be created. */
   readonly mailer?: () => InvitationMailer;
   readonly accounts?: () => InvitationAccounts | null;
+  /**
+   * NP-117: where member roles are stored. The provider backs it with the built-in permission sets; the service tests
+   * pass a double over `members.role`.
+   */
+  readonly roles: () => RoleAssignments;
   /** Replaces the database approval gateway (the replacement checklist test). */
   readonly approvalGateway?: (
     context: ApprovalGatewayContext,
@@ -295,7 +301,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
     tx,
     settings,
     workflows,
-    members: createMemberService({ tx, ids }),
+    members: createMemberService({ tx, ids, roles: deps.roles }),
     labels: createLabelService({ tx, ids }),
     dependencies: createDependencyService({
       tx,
@@ -395,6 +401,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       users,
       mailer: deps.mailer ?? (() => unconfiguredMailer),
       accounts: deps.accounts ?? (() => null),
+      roles: deps.roles,
     }),
   } satisfies NpServices);
 

@@ -7,6 +7,7 @@ import type { Context, Env, ErrorHandler, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
+import type { ActorAccess } from './access.js';
 import type { Actor, ActorVia } from './activity.js';
 import { NpError, type NpErrorKind } from './errors.js';
 import type { ApiErrorBody } from './protocol.js';
@@ -127,7 +128,17 @@ export function requestVia(
   return client.startsWith(CLI_CLIENT_PREFIX) ? 'cli' : 'api_key';
 }
 
-/** The signed-in user as an actor, with `via` for API-key requests. Only valid behind `auth.required()`. */
+/** The request variable the browser guard sets to the signed-in user's `ActorAccess` (NP-117). */
+export const NP_ACCESS_VARIABLE = 'npAccess';
+
+export interface NpAccessEnv {
+  Variables: { npAccess?: ActorAccess };
+}
+
+/**
+ * The signed-in user as an actor, with `via` for API-key requests and `access` when the guard installed the built-in
+ * authorization. Only valid behind `auth.required()`.
+ */
 export function sessionActor(
   context: Pick<Context<AuthEnv>, 'get'> & Partial<Pick<Context, 'req'>>,
 ): Actor {
@@ -139,9 +150,15 @@ export function sessionActor(
       'Authentication required',
     );
   const via = requestVia(context as Pick<Context, 'req'>);
-  return via
-    ? { type: 'user', id: auth.user.id, via }
-    : { type: 'user', id: auth.user.id };
+  const access = (context as unknown as Pick<Context<NpAccessEnv>, 'get'>).get(
+    NP_ACCESS_VARIABLE,
+  );
+  return {
+    type: 'user',
+    id: auth.user.id,
+    ...(via ? { via } : {}),
+    ...(access ? { access } : {}),
+  };
 }
 
 export function sessionUserId(context: Pick<Context<AuthEnv>, 'get'>): string {

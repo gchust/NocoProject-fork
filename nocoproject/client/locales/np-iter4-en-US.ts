@@ -288,6 +288,27 @@ const npIter4EnUS = {
     stepSave:
       'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
   },
+  // NP-117: titles the permission workspace shows for the NocoProject settings items and permission sets.
+  access: {
+    section: 'NocoProject',
+    settings: {
+      general: 'General settings',
+      members: 'Members and invitations',
+      workflows: 'Workflow templates',
+      labels: 'Labels',
+      github: 'GitHub connection',
+    },
+    actions: {
+      read: 'View',
+      update: 'Change',
+      invite: 'Invite and manage invitations',
+    },
+    sets: {
+      member: 'NocoProject member',
+      admin: 'NocoProject admin',
+      owner: 'NocoProject owner',
+    },
+  },
 };
 
 export default npIter4EnUS;

@@ -88,7 +88,7 @@ describe('iteration 2 browser routes', () => {
     );
     expect(response.status).toBe(200);
     expect(doubles.connections.view).toHaveBeenCalledWith(
-      { type: 'user', id: 'u1' },
+      expect.objectContaining({ type: 'user', id: 'u1' }),
       'http://example.test/main/np/webhooks/github',
     );
   });

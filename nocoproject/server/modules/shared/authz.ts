@@ -17,10 +17,17 @@
  * | Delete a project                                    | owner/admin                                              |
  * | Change a runtime's visibility                       | runtime owner                                            |
  * | Member roles                                        | see member.service.ts                                    |
+ * | Workspace settings, members, workflows, labels, GitHub | the settings items of `access.ts` (`canUseSetting`)   |
  *
+ * "owner/admin" is the role projected from the built-in permission sets `np-owner` / `np-admin` (NP-117, `access.ts`).
  * Refusals are `403 FORBIDDEN`; an issue the caller cannot see is `404 NOT_FOUND`, so its existence does not leak.
  * Agents acting through a run token are not members: their scope is enforced by the agent API (own run's issue).
  */
+import {
+  NP_SETTINGS,
+  type NpSettingsAction,
+  type NpSettingsId,
+} from './access.js';
 import type { Actor } from './activity.js';
 import type { Conn } from './db.js';
 import { isoOrNull, str, unique } from './db.js';
@@ -41,10 +48,16 @@ export function isMemberRole(value: unknown): value is MemberRole {
   return value === 'owner' || value === 'admin' || value === 'member';
 }
 
-/** The caller as a member. A user without a members row (not bootstrapped yet) counts as a plain member. */
+/**
+ * The caller as a member. With `actor.access` (every browser request, NP-117) the role comes from the built-in
+ * permission sets; otherwise from the `members.role` projection of them (internal actors, such as the project
+ * manager's asking member, and the service tests). A user without a members row counts as a plain member.
+ */
 export async function viewerOf(conn: Conn, actor: Actor): Promise<Viewer> {
   if (actor.type !== 'user' || !actor.id)
     forbid('Only signed-in members may do this.');
+  if (actor.access)
+    return { userId: actor.id, role: await actor.access.role(conn) };
   const row = await conn.query
     .selectFrom('members')
     .select('role')
@@ -54,6 +67,38 @@ export async function viewerOf(conn: Conn, actor: Actor): Promise<Viewer> {
     userId: actor.id,
     role: isMemberRole(row?.role) ? row.role : 'member',
   };
+}
+
+/**
+ * Whether the signed-in `actor` holds `action` on a NocoProject settings item (`shared/access.ts`). A request with the
+ * built-in authorization asks it; without one, the default grants of the seeded sets apply: every member reads,
+ * owner/admin change. Call it with a read connection before opening the write's transaction (`ActorAccess.can`).
+ */
+export async function canUseSetting(
+  conn: Conn,
+  actor: Actor,
+  setting: NpSettingsId,
+  action: NpSettingsAction,
+): Promise<boolean> {
+  if (actor.type !== 'user' || !actor.id) return false;
+  if (actor.access)
+    return actor.access.can({
+      resource: { type: 'settings', id: setting },
+      action,
+    });
+  if (action === 'read' && setting !== NP_SETTINGS.github) return true;
+  return isAdmin(await viewerOf(conn, actor));
+}
+
+/** 403 `FORBIDDEN` unless `canUseSetting`. */
+export async function requireSetting(
+  conn: Conn,
+  actor: Actor,
+  setting: NpSettingsId,
+  action: NpSettingsAction,
+  message: string,
+): Promise<void> {
+  if (!(await canUseSetting(conn, actor, setting, action))) forbid(message);
 }
 
 export function isAdmin(viewer: Viewer): boolean {

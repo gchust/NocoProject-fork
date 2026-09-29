@@ -1,15 +1,18 @@
 /**
- * Members and their roles (docs/phase1/iteration-1-contract.md §B).
+ * Members and their roles (docs/phase1/iteration-1-contract.md §B; NP-117).
  *
- * Bootstrap: every signed-in `/np/*` request passes `ensure(userId)` first. The first user ever becomes `owner`;
- * everyone else becomes `member` on first contact. Role rules:
+ * Roles are the built-in permission sets `np-owner` / `np-admin` / `np-member` (`shared/access.ts`), reached through
+ * `RoleAssignments`; `members.role` only projects them. Every signed-in `/np/*` request passes `ensure(userId)` first:
+ * a user seen for the first time gets a members row with their projected role and the `np-member` set. Arriving first
+ * no longer makes anyone owner: a new installation's owner is its initial administrator (seed
+ * `2026100800002_np_role_permission_sets`). Role rules for `PATCH /np/members/:userId`:
  *
- * - owner/admin may change roles between admin and member;
- * - only an owner may grant or revoke owner;
- * - the last owner cannot be demoted.
+ * - only an owner may grant or revoke owner, and the last active owner cannot give it up (409 `LAST_OWNER`);
+ * - admin and member are ordinary role assignments: only whoever may assign roles in the Users page (`user` `assign-role`)
+ *   changes them here, as there.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, isMemberRole, viewerOf } from '../shared/authz.js';
+import { forbid, isMemberRole, viewerOf } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import {
   bool,
@@ -17,20 +20,20 @@ import {
   isUniqueViolation,
   knexOf,
   now,
-  num,
   str,
 } from '../shared/db.js';
-import { conflict, invalid, notFound } from '../shared/errors.js';
+import { invalid, notFound } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type {
   Member,
   MemberPreferences,
   MemberRole,
 } from '../shared/protocol.js';
+import type { RoleAssignments } from './member.roles.js';
 
 export interface MemberService {
-  /** Makes sure the signed-in user has a members row; returns the role. */
-  ensure(userId: string): Promise<MemberRole>;
+  /** Makes sure the signed-in user has a members row (and, the first time, the `np-member` set). */
+  ensure(userId: string): Promise<void>;
   list(actor: Actor): Promise<Member[]>;
   updateRole(actor: Actor, userId: string, role: unknown): Promise<Member>;
   /** The member's own preferences (NP-108); the row exists, `ensureMember` runs before every browser route. */
@@ -82,89 +85,132 @@ async function insertMember(
     .execute();
 }
 
-async function roleOf(conn: Conn, userId: string): Promise<MemberRole | null> {
-  const row = await conn.query
+async function hasRow(conn: Conn, userId: string): Promise<boolean> {
+  return conn.query
     .selectFrom('members')
-    .select('role')
+    .select('id')
     .where('userId', '=', userId)
-    .executeTakeFirst();
-  return row && isMemberRole(row.role) ? row.role : null;
+    .exists();
 }
 
-async function ownerCount(conn: Conn): Promise<number> {
-  const row = await conn.query
-    .selectFrom('members')
-    .select((eb) => [eb.fn.countAll().as('count')])
-    .where('role', '=', 'owner')
-    .executeTakeFirst();
-  return num(row?.count);
+/** Serializes member bootstrap and role changes. */
+async function lockMembers(conn: Conn): Promise<void> {
+  if (!isPostgres(conn)) return;
+  const knex = await knexOf(conn);
+  await knex.raw("SELECT pg_advisory_xact_lock(hashtext('np:members'))");
 }
 
-async function describe(conn: Conn, userId: string): Promise<Member> {
+/**
+ * Makes sure `userId` has a members row: a new row projects the user's current role and admits them (`np-member`).
+ * Returns whether the row was created. Runs in the caller's transaction (the invitation acceptance shares it).
+ */
+export async function admitMember(
+  tx: Tx,
+  ids: IdSource,
+  roles: RoleAssignments,
+  userId: string,
+): Promise<boolean> {
+  await lockMembers(tx.conn);
+  if (await hasRow(tx.conn, userId)) return false;
+  await insertMember(tx, ids, userId, await roles.roleOf(tx.conn, userId));
+  await roles.admit(tx.conn, userId);
+  return true;
+}
+
+/** Writes the `members.role` projection of the user's current assignments. */
+async function project(
+  tx: Tx,
+  ids: IdSource,
+  roles: RoleAssignments,
+  userId: string,
+): Promise<MemberRole> {
+  const role = await roles.roleOf(tx.conn, userId);
+  if (await hasRow(tx.conn, userId)) {
+    await tx.conn.query
+      .updateTable('members')
+      .set({ role, updatedAt: now() })
+      .where('userId', '=', userId)
+      .execute();
+  } else {
+    await insertMember(tx, ids, userId, role);
+  }
+  return role;
+}
+
+interface Target extends Omit<Member, 'role'> {
+  readonly disabled: boolean;
+}
+
+async function describe(conn: Conn, userId: string): Promise<Target> {
   const user = await conn.query
     .selectFrom('user')
-    .select(['id', 'name', 'username', 'email'])
+    .select(['id', 'name', 'username', 'email', 'disabledAt', 'deletedAt'])
     .where('id', '=', userId)
     .executeTakeFirst();
-  if (!user) throw notFound('User');
+  if (!user || user.deletedAt) throw notFound('User');
   return {
     userId,
     name: str(user.name) || str(user.username) || str(user.email) || userId,
     email: str(user.email),
-    role: (await roleOf(conn, userId)) ?? 'member',
+    disabled: !!user.disabledAt,
   };
 }
 
-function validateTransition(
-  actorRole: MemberRole,
+const RANK: Readonly<Record<MemberRole, number>> = {
+  member: 0,
+  admin: 1,
+  owner: 2,
+};
+
+/** Whether `actor` may change ordinary role assignments: the Users page's `user` `assign-role`. */
+async function canAssignRoles(conn: Conn, actor: Actor): Promise<boolean> {
+  if (actor.access)
+    return actor.access.can({
+      resource: { type: 'user', id: '*' },
+      action: 'assign-role',
+    });
+  const viewer = await viewerOf(conn, actor);
+  return viewer.role === 'owner' || viewer.role === 'admin';
+}
+
+/** Applies `from → to` through the role store; the caller has checked who may. */
+async function applyRole(
+  conn: Conn,
+  roles: RoleAssignments,
+  userId: string,
   from: MemberRole,
   to: MemberRole,
-): void {
-  if (actorRole !== 'owner' && actorRole !== 'admin')
-    forbid('Only an owner or admin may change member roles.');
-  if ((from === 'owner' || to === 'owner') && actorRole !== 'owner')
-    forbid('Only an owner may grant or revoke the owner role.');
+): Promise<void> {
+  if (to === 'owner') {
+    await roles.setOwner(conn, userId, true);
+    return;
+  }
+  if (from === 'owner') await roles.setOwner(conn, userId, false);
+  await roles.setAdmin(conn, userId, to === 'admin');
 }
 
 export function createMemberService(deps: {
   tx: TxRunner;
   ids: IdSource;
+  roles: () => RoleAssignments;
 }): MemberService {
   // Members are never deleted, so a user seen once needs no further lookup in this process.
-  const known = new Map<string, MemberRole>();
+  const known = new Set<string>();
 
-  async function ensure(userId: string): Promise<MemberRole> {
-    const cached = known.get(userId);
-    if (cached) return cached;
-    const existing = await roleOf(deps.tx.read(), userId);
-    if (existing) {
-      known.set(userId, existing);
-      return existing;
+  async function ensure(userId: string): Promise<void> {
+    if (known.has(userId)) return;
+    if (!(await hasRow(deps.tx.read(), userId))) {
+      const roles = deps.roles();
+      try {
+        const created = await deps.tx.run((tx) =>
+          admitMember(tx, deps.ids, roles, userId),
+        );
+        if (created) await roles.changed(userId);
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+      }
     }
-    try {
-      const role = await deps.tx.run(async (tx) => {
-        // Serialize bootstrap so two first users cannot both become owner.
-        if (isPostgres(tx.conn)) {
-          const knex = await knexOf(tx.conn);
-          await knex.raw(
-            "SELECT pg_advisory_xact_lock(hashtext('np:members'))",
-          );
-        }
-        const again = await roleOf(tx.conn, userId);
-        if (again) return again;
-        const anyone = await tx.conn.query
-          .selectFrom('members')
-          .select('id')
-          .exists();
-        const next: MemberRole = anyone ? 'member' : 'owner';
-        await insertMember(tx, deps.ids, userId, next);
-        return next;
-      });
-      return role;
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-      return (await roleOf(deps.tx.read(), userId)) ?? 'member';
-    }
+    known.add(userId);
   }
 
   return {
@@ -202,35 +248,36 @@ export function createMemberService(deps: {
     async updateRole(actor, userId, role) {
       if (!isMemberRole(role))
         throw invalid('INVALID_ROLE', 'role must be owner, admin or member.');
+      const roles = deps.roles();
+      // Checked before the transaction (`ActorAccess.can`); applied only if the change needs it.
+      const assigner = await canAssignRoles(deps.tx.read(), actor);
       const result = await deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
-        if (!isAdmin(viewer))
-          forbid('Only an owner or admin may change member roles.');
-        if (isPostgres(tx.conn)) {
-          const knex = await knexOf(tx.conn);
-          await knex.raw(
-            "SELECT pg_advisory_xact_lock(hashtext('np:members'))",
+        await lockMembers(tx.conn);
+        const { disabled, ...target } = await describe(tx.conn, userId);
+        const from = await roles.roleOf(tx.conn, userId);
+        if (from === role)
+          return {
+            ...target,
+            role: await project(tx, deps.ids, roles, userId),
+          };
+        if (disabled && RANK[role] > RANK[from])
+          throw invalid(
+            'USER_DISABLED',
+            'A disabled account cannot be given a higher role.',
+          );
+        if (from === 'owner' || role === 'owner') {
+          if (viewer.role !== 'owner')
+            forbid('Only an owner may grant or revoke the owner role.');
+        } else if (!assigner) {
+          forbid(
+            'Only someone who may assign roles in user management may change this role.',
           );
         }
-        const target = await describe(tx.conn, userId);
-        const current = (await roleOf(tx.conn, userId)) ?? null;
-        const from = current ?? 'member';
-        validateTransition(viewer.role, from, role);
-        if (from === role && current) return target;
-        if (from === 'owner' && (await ownerCount(tx.conn)) <= 1)
-          throw conflict('LAST_OWNER', 'The last owner cannot be demoted.');
-        if (current) {
-          await tx.conn.query
-            .updateTable('members')
-            .set({ role, updatedAt: now() })
-            .where('userId', '=', userId)
-            .execute();
-        } else {
-          await insertMember(tx, deps.ids, userId, role);
-        }
-        return { ...target, role };
+        await applyRole(tx.conn, roles, userId, from, role);
+        return { ...target, role: await project(tx, deps.ids, roles, userId) };
       });
-      known.set(userId, result.role);
+      await roles.changed(userId);
       return result;
     },
 

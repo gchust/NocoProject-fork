@@ -132,12 +132,31 @@ describe('app client routes', () => {
       { name: 'np-reports-metrics', authorizedAs: 'np-reports' },
       { name: 'np-reports-usage', authorizedAs: 'np-reports' },
       { name: 'np-config', authorizedAs: 'np-config' },
-      { name: 'np-config-general', authorizedAs: 'np-config' },
-      { name: 'np-config-members', authorizedAs: 'np-config' },
-      { name: 'np-config-workflows', authorizedAs: 'np-config' },
-      { name: 'np-config-workflow-detail', authorizedAs: 'np-config' },
-      { name: 'np-config-labels', authorizedAs: 'np-config' },
-      { name: 'np-config-github', authorizedAs: 'np-config' },
+      // NP-117: each settings tab checks its own settings item (under the page grant np-config).
+      {
+        name: 'np-config-general',
+        authorizedAs: 'settings:nocoproject.general',
+      },
+      {
+        name: 'np-config-members',
+        authorizedAs: 'settings:nocoproject.members',
+      },
+      {
+        name: 'np-config-workflows',
+        authorizedAs: 'settings:nocoproject.workflows',
+      },
+      {
+        name: 'np-config-workflow-detail',
+        authorizedAs: 'settings:nocoproject.workflows',
+      },
+      {
+        name: 'np-config-labels',
+        authorizedAs: 'settings:nocoproject.labels',
+      },
+      {
+        name: 'np-config-github',
+        authorizedAs: 'settings:nocoproject.github',
+      },
     ]);
   });
 
