@@ -149,7 +149,7 @@ export function PropertiesPanel({
   const busy = update.isPending;
 
   return (
-    // The side column is a stack of small cards (nocosolution/frontend/frontend-standard.md §S3): properties, the session, runs,
+    // The side column is a stack of small cards (nocosolution/NocoSolution 前端规范.md §S3): properties, the session, runs,
     // participants, details and usage.
     <div className='space-y-3 p-3 md:p-4'>
       <section className={PANEL_CARD} aria-labelledby='np-properties-heading'>

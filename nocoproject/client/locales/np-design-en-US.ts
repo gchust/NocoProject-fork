@@ -1,7 +1,7 @@
 import type { LocaleResource } from '@nocobase/i18n';
 
 /**
- * NocoProject wording added by the design pass (`nocosolution/frontend/frontend-standard.md`): the inbox detail pane, decisions with
+ * NocoProject wording added by the design pass (`nocosolution/NocoSolution 前端规范.md`): the inbox detail pane, decisions with
  * their content, the live run indicator, the composer tabs and the project page. Merged into `np` by `en-US.ts`
  * after the iteration 3 groups; every group is new, so the spread never shadows an earlier one. `np-design-zh-CN.ts`
  * is checked against the shape derived from this object.

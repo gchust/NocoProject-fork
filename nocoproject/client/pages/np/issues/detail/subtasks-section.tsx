@@ -85,7 +85,7 @@ export function SubtasksSection({
   const staged = groups.some((group) => group.stage !== null);
 
   const empty = subtasks.length === 0;
-  // Empty, the section is one compact row (nocosolution/frontend/frontend-standard.md §3.4): a muted heading, "none" and the actions.
+  // Empty, the section is one compact row (nocosolution/NocoSolution 前端规范.md §3.4): a muted heading, "none" and the actions.
   return (
     <section
       className={

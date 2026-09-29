@@ -110,7 +110,7 @@ export function NpExecutorSelect({
         title={selected === 'none' ? undefined : current?.label}
         className={cn('w-full', className)}
       >
-        {/* The trigger shows who executes as the shared avatar and name, and a muted dash for nobody (nocosolution/frontend/frontend-standard.md §6). A long name truncates before the chevron; the trigger's title holds it in full. */}
+        {/* The trigger shows who executes as the shared avatar and name, and a muted dash for nobody (nocosolution/NocoSolution 前端规范.md §6). A long name truncates before the chevron; the trigger's title holds it in full. */}
         <SelectValue className='min-w-0'>
           {(current: string) => {
             const item = items.find((entry) => entry.value === current);

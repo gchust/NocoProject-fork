@@ -1,5 +1,5 @@
 /**
- * A line diff for knowledge proposals (nocosolution/frontend/frontend-standard.md §S2): what the agent's proposed text adds to and
+ * A line diff for knowledge proposals (nocosolution/NocoSolution 前端规范.md §S2): what the agent's proposed text adds to and
  * removes from the current version. A plain longest-common-subsequence table is enough for documents of a few
  * hundred lines; past `MAX_CELLS` the diff degrades to "everything removed, everything added" rather than freezing
  * the page.

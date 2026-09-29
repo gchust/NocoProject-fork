@@ -12,7 +12,7 @@ import locales from '../../client/locales/index.js';
 import IssueDetailPage from '../../client/pages/np/issues/detail/index.js';
 
 /**
- * The issue page's "Waiting for you" section and live run indicator (nocosolution/frontend/frontend-standard.md §S3): an open decision is
+ * The issue page's "Waiting for you" section and live run indicator (nocosolution/NocoSolution 前端规范.md §S3): an open decision is
  * shown with the thing being decided in full and its actions right under it; deciding folds the card into a line.
  */
 

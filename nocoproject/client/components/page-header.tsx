@@ -9,7 +9,7 @@ export interface PageHeaderProps {
 
 /**
  * The heading of a page: its only `h1`, an optional description, and the actions that apply to the whole page.
- * NocoProject sizes it for a work tool (nocosolution/frontend/frontend-standard.md §3.1): a 2xl title, a one-line description, the
+ * NocoProject sizes it for a work tool (nocosolution/NocoSolution 前端规范.md §3.1): a 2xl title, a one-line description, the
  * actions vertically centred on the right with the one primary action last.
  */
 export function PageHeader({

@@ -19,7 +19,7 @@ function text(value: unknown): string | null {
 }
 
 /**
- * The thing being decided, in full (nocosolution/frontend/frontend-standard.md §S3, the lesson taken from NocoSupport): never an
+ * The thing being decided, in full (nocosolution/NocoSolution 前端规范.md §S3, the lesson taken from NocoSupport): never an
  * "accept" button without what is being accepted. Shared by the inbox's detail pane and the issue page's decision
  * card. `detail` is the issue (the same cached query the issue page reads); while it loads the blocks that need it
  * show skeletons, the ones that come from the item itself render at once.
