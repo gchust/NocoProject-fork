@@ -10,7 +10,7 @@ import type {
   RunSummary,
 } from '../types.js';
 
-/** Reading a decision (nocosolution/NocoSolution 前端规范.md §S3): its title, its sentence, and what explains it on the issue. */
+/** Reading a decision (nocosolution/guidelines/NocoSolution 前端规范.md §S3): its title, its sentence, and what explains it on the issue. */
 
 /** The newest comment an agent wrote on the issue: its delivery note, or why it is blocked. */
 export function latestAgentComment(

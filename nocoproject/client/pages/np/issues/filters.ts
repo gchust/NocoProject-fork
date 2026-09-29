@@ -22,7 +22,7 @@ export function readIssueView(params: URLSearchParams): IssueView {
 }
 
 /**
- * The view to show (nocosolution/NocoSolution 前端规范.md §8): `?view=` when the URL names one, else the person's last choice
+ * The view to show (nocosolution/guidelines/NocoSolution 前端规范.md §8): `?view=` when the URL names one, else the person's last choice
  * on this page, else the board.
  */
 export function resolveIssueView(

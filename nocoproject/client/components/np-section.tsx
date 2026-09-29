@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The heading of a block inside a page (nocosolution/NocoSolution 前端规范.md §3.4): a small semibold title, an optional count and
+ * The heading of a block inside a page (nocosolution/guidelines/NocoSolution 前端规范.md §3.4): a small semibold title, an optional count and
  * one-line description, and the block's actions on the right. Every card and section on a detail page starts with
  * one, so blocks line up.
  */
