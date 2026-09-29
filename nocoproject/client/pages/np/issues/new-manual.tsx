@@ -64,7 +64,7 @@ import { ProcessSelect } from './process-fields.js';
 const FORM_ID = 'np-issue-new-form';
 
 /**
- * The 手动 tab of "新建任务" (iteration 4 §D; the iteration 1–3 form): title, description, priority, project (`?project=`
+ * The Manual tab of "New issue" (iteration 4 §D; the iteration 1–3 form): title, description, priority, project (`?project=`
  * preselects it), owner (the signed-in user by default), executor (an agent asks "start now?" before creating),
  * process (iteration 4 §B, starting at the workspace default) and session mode (iteration 2 §J). NP-78: attachments
  * upload as they are chosen, dropped or pasted into the description, and are attached by `attachmentIds` when the
@@ -93,7 +93,7 @@ export function ManualIssueForm({
     queryKey: npKeys.members,
     queryFn: () => fetchMembers(api),
   });
-  // The workspace default process (§A) is where the select starts; a member who may not read settings starts at 自动.
+  // The workspace default process (§A) is where the select starts; a member who may not read settings starts at Automatic.
   const settings = useQuery({
     queryKey: npKeys.settings,
     queryFn: () => fetchWorkspaceSettings(api),
@@ -183,7 +183,7 @@ export function ManualIssueForm({
         ownerUserId: owner ?? undefined,
         executor: executor.type === 'none' ? undefined : executor,
         executionMode: sessionMode ? 'session' : undefined,
-        // Always explicit: 自动 asks the server's classifier even when the workspace default is another process.
+        // Always explicit: Automatic asks the server's classifier even when the workspace default is another process.
         process,
         attachmentIds:
           files.length > 0 ? files.map((file) => file.id) : undefined,

@@ -1,8 +1,8 @@
 import type { InboxItem } from '../types.js';
 
 /**
- * The localized sentence of an inbox card, from its `type` and `payload` (iteration 1 leftover "收件箱按 type +
- * payload 本地化", iteration 2 §K). Returns the locale key under `np.inboxBody` with its values, or null when the
+ * The localized sentence of an inbox card, from its `type` and `payload` (iteration 1 leftover "localize the inbox
+ * by type + payload", iteration 2 §K). Returns the locale key under `np.inboxBody` with its values, or null when the
  * payload lacks what the sentence needs — the card then shows the server's English `body`.
  *
  * `status` and `failure` translate a status key and a failure reason; they are passed in so this stays pure.

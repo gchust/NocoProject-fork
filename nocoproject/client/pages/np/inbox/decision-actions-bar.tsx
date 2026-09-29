@@ -23,7 +23,7 @@ import {
 import { useActionLabel } from './use-action-label.js';
 
 /**
- * The buttons of a decision (§E), shared by the inbox's detail pane and the issue page's "等你决定" card
+ * The buttons of a decision (§E), shared by the inbox's detail pane and the issue page's "Waiting for you" card
  * (nocosolution/frontend/nocosolution-frontend-standard.md §15). The hierarchy is fixed: the primary action is the one filled button and comes
  * first, the other requests are outlined, a rejection is red, and navigation (open the issue, reassign) is a plain
  * text button. An action that `needsComment` opens an inline text field first (⌘Enter sends); an external link
@@ -41,7 +41,7 @@ export function DecisionActionsBar({
 }: {
   readonly actions: readonly InboxDecisionAction[];
   readonly itemTitle: string;
-  /** The inbox item type, for type-specific labels ("验收通过" rather than "接受"). */
+  /** The inbox item type, for type-specific labels ("Accept" worded differently per decision type). */
   readonly itemType?: string;
   readonly pendingKey: string | null;
   readonly disabled: boolean;

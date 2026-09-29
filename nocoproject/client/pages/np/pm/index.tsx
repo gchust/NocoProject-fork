@@ -22,11 +22,11 @@ import { useRealtimeTopic } from '../use-realtime.js';
 import { pmConversationKey, pmNotConfigured } from './pm-model.js';
 
 /**
- * Route `/pm` (iteration 4 §C, "项目经理"): the viewer's conversation with the project manager agent. The server keeps
+ * Route `/pm` (iteration 4 §C, "Project manager"): the viewer's conversation with the project manager agent. The server keeps
  * one project-less session issue per person (`GET` / `POST /np/pm/conversation` → `issueId`); the page renders that
  * issue's session panel — the message list and the composer — at full width with no properties column, filling the
  * content area so only the message list scrolls. Without a project manager (`settings.pmAgentId` unset, or the
- * server says so) it shows an empty state that links to 设置.
+ * server says so) it shows an empty state that links to Settings.
  */
 export default function PmPage(): ReactElement {
   const { t } = useTranslation();

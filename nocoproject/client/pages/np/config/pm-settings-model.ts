@@ -6,7 +6,7 @@ import type {
   WorkspaceSettingsPhase1Iter4,
 } from '../types-iter4.js';
 
-/** 设置 → 通用, iteration 4 (§A, §C): the fields as the form edits them. */
+/** Settings → General, iteration 4 (§A, §C): the fields as the form edits them. */
 export interface PmSettingsDraft {
   readonly agentEntries: AgentEntryBindings;
   readonly defaultProcess: DefaultProcess;

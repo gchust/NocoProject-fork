@@ -1,22 +1,23 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery } from '@tanstack/react-query';
-import { type ReactElement, useMemo, useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { Link } from 'react-router';
 
-import { NpMarkdown } from '@/components/np-markdown';
 import { NpTag } from '@/components/np-tag';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 import {
   fetchKnowledgeDetail,
   fetchKnowledgeProposals,
 } from '../api-knowledge.js';
 import { npKeys } from '../constants.js';
+import {
+  KnowledgeContentBlock,
+  KnowledgeDiff,
+} from '../knowledge/knowledge-diff.js';
 import type { InboxItem } from '../types.js';
-import { diffStats, foldDiff, lineDiff } from './line-diff.js';
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
@@ -116,7 +117,7 @@ export function KnowledgeProposalContent({
                 </Button>
               </div>
               {full ? (
-                <ContentBlock content={proposal.content} />
+                <KnowledgeContentBlock content={proposal.content} />
               ) : (
                 <KnowledgeDiff
                   before={doc.data.doc.content}
@@ -128,7 +129,7 @@ export function KnowledgeProposalContent({
             <Skeleton className='h-32 w-full' />
           )
         ) : (
-          <ContentBlock content={proposal.content} />
+          <KnowledgeContentBlock content={proposal.content} />
         )
       ) : (
         <p className='text-sm text-muted-foreground'>
@@ -136,86 +137,5 @@ export function KnowledgeProposalContent({
         </p>
       )}
     </div>
-  );
-}
-
-function ContentBlock({ content }: { readonly content: string }): ReactElement {
-  return (
-    <div className='max-h-96 overflow-y-auto rounded-md border bg-muted/40 px-4 py-3'>
-      <NpMarkdown content={content} />
-    </div>
-  );
-}
-
-/** Added lines in green, removed lines in red and struck, long unchanged runs folded (§8.1). */
-export function KnowledgeDiff({
-  before,
-  after,
-}: {
-  readonly before: string;
-  readonly after: string;
-}): ReactElement {
-  const { t } = useTranslation();
-  const lines = useMemo(() => lineDiff(before, after), [before, after]);
-  const blocks = useMemo(() => foldDiff(lines), [lines]);
-  const stats = diffStats(lines);
-  return (
-    <figure className='overflow-hidden rounded-md border'>
-      <figcaption className='flex items-center gap-3 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground'>
-        <span className='text-success tabular-nums'>+{stats.added}</span>
-        <span className='text-destructive tabular-nums'>−{stats.removed}</span>
-        <span>{t('np.decision.knowledge.diffCaption')}</span>
-      </figcaption>
-      <div className='max-h-96 overflow-auto bg-card font-mono text-xs leading-5'>
-        {stats.added === 0 && stats.removed === 0 ? (
-          <p className='px-3 py-2 font-sans text-muted-foreground'>
-            {t('np.decision.knowledge.noChange')}
-          </p>
-        ) : (
-          blocks.map((block) =>
-            block.kind === 'gap' ? (
-              <div
-                key={`gap-${block.n}`}
-                className='border-y border-dashed bg-muted/30 px-3 py-0.5 font-sans text-muted-foreground'
-              >
-                {t('np.decision.knowledge.unchanged', { count: block.count })}
-              </div>
-            ) : (
-              block.lines.map((line) => (
-                <div
-                  key={line.n}
-                  data-diff={line.op}
-                  className={cn(
-                    'flex gap-2 px-3 whitespace-pre-wrap wrap-anywhere',
-                    line.op === 'add' && 'bg-success/10',
-                    line.op === 'del' &&
-                      'bg-destructive/10 text-muted-foreground line-through',
-                  )}
-                >
-                  <span
-                    aria-hidden='true'
-                    className={cn(
-                      'w-3 shrink-0 select-none',
-                      line.op === 'add' && 'text-success',
-                      line.op === 'del' && 'text-destructive',
-                    )}
-                  >
-                    {line.op === 'add' ? '+' : line.op === 'del' ? '−' : ' '}
-                  </span>
-                  <span className='sr-only'>
-                    {line.op === 'add'
-                      ? t('np.decision.knowledge.added')
-                      : line.op === 'del'
-                        ? t('np.decision.knowledge.removed')
-                        : ''}
-                  </span>
-                  <span className='min-w-0 flex-1'>{line.text || ' '}</span>
-                </div>
-              ))
-            ),
-          )
-        )}
-      </div>
-    </figure>
   );
 }

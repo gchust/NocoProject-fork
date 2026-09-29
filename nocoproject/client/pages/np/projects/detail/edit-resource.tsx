@@ -28,7 +28,7 @@ import type { ProjectResource } from '../../types.js';
 import { isGitRepoUrl } from './resource-url.js';
 
 /**
- * Edit a repository's URL, default branch and label (iteration 1 leftover "仓库资源编辑"). A single-record edit
+ * Edit a repository's URL, default branch and label (iteration 1 leftover "repository resource edit"). A single-record edit
  * reached from a row, so it is component state rather than a route (`references/frontend/references/overlay.md`).
  */
 export function EditResourceDialog({

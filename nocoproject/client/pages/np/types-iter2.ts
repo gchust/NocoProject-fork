@@ -182,9 +182,16 @@ export interface SkillFile {
   readonly content: string;
 }
 
+/** An agent the skill is mounted on, visible to every member. */
+export interface SkillAgentRef {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface SkillDetail {
   readonly skill: Skill;
   readonly files: readonly SkillFile[];
+  readonly agents: readonly SkillAgentRef[];
 }
 
 export interface SkillInput {
@@ -253,7 +260,7 @@ export interface IntakeBatchAttachment {
   readonly size: number;
   readonly contentUrl: string;
   readonly issueId: string | null;
-  /** What AI 整理 read of the file; null on batches from before it was recorded. */
+  /** What AI draft read of the file; null on batches from before it was recorded. */
   readonly readStatus?: {
     readonly state:
       | 'read'

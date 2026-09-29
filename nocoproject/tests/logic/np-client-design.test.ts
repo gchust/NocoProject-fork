@@ -16,7 +16,7 @@ import {
   diffStats,
   foldDiff,
   lineDiff,
-} from '../../client/pages/np/decision/line-diff.js';
+} from '../../client/pages/np/knowledge/text-diff.js';
 import { patchInboxCaches } from '../../client/pages/np/decision/use-decision.js';
 import {
   orderDecisions,

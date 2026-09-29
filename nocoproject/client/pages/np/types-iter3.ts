@@ -73,6 +73,10 @@ export interface KnowledgeProposal {
   readonly summary?: string | null;
   readonly content: string;
   readonly reason: string | null;
+  /** The document's version this proposal was based on (null for a new document). */
+  readonly baseVersion?: number | null;
+  /** The document's version now (null for a new document); greater than `baseVersion` means it moved on meanwhile. */
+  readonly currentVersion?: number | null;
   readonly proposedByAgentId: string;
   readonly proposedByAgentName?: string | null;
   readonly sourceRunId?: string | null;
@@ -122,7 +126,8 @@ export interface MetricThresholds {
 }
 
 /**
- * A metric value. The contract says "每项给值与计算口径"; a bare number and `{ value, definition }` are both read, see
+ * A metric value. The contract says "each metric gives a value and its computation definition"; a bare number and
+ * `{ value, definition }` are both read, see
  * `metricValue` in `api-iter3.ts`.
  */
 export type MetricRaw =

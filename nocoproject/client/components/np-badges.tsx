@@ -159,7 +159,8 @@ export function NpOnlineState({
 
 /**
  * Who executes an issue: a person, an agent (with an "Agent" marker), or nobody. An agent with active runs shows a
- * pulsing "Working" indicator.
+ * pulsing "Working" indicator. A long name truncates to the space it is given (the markers keep their width) and the
+ * full name shows on hover.
  */
 export function NpExecutor({
   type,
@@ -183,7 +184,10 @@ export function NpExecutor({
   }
   const working = type === 'agent' && activeRunCount > 0;
   return (
-    <span className='inline-flex min-w-0 items-center gap-1.5 text-sm'>
+    <span
+      className='inline-flex max-w-full min-w-0 items-center gap-1.5 text-sm'
+      title={name}
+    >
       <NpActorAvatar type={type} name={name} size='xs' live={working} />
       <span className='truncate'>{name}</span>
       {type === 'agent' && !working ? (

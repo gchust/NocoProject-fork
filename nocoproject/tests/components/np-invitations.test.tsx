@@ -12,7 +12,7 @@ import InvitePage from '../../client/pages/auth/invite.js';
 import MembersSettingsPage from '../../client/pages/np/config/members.js';
 
 /**
- * NP-88 in the browser: the "邀请成员" entry on the members tab (owner/admin, and project leads for their projects),
+ * NP-88 in the browser: the "Invite members" entry on the members tab (owner/admin, and project leads for their projects),
  * the dialog's validation and per-address results with the link to copy, the pending list with revoke, and the
  * public acceptance page (lookup, accept, sign-in; refused and signed-in states).
  */

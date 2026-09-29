@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Workflow template proposals on a real PostgreSQL (NP-77 方案 §4–§6, stage 2 — the "模板提议" verification items):
+ * Workflow template proposals on a real PostgreSQL (NP-77 design proposal §4–§6, stage 2 — the "template proposal" verification items):
  * agents read templates; an invalid definition is 400 with field errors at once; a second pending proposal of the
  * same run is 409; system templates may only be copied; acceptance takes effect at once for the projects on the
  * template, with a revision snapshot; an outdated base is 409 stale; removing a status in use is 409 with counts;

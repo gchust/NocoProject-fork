@@ -40,7 +40,7 @@ const DEFAULT_MAX_CONCURRENT_RUNS = 6;
 
 type FieldName = 'name' | 'instructions' | 'runtimeId' | 'maxConcurrentRuns';
 
-/** Route `/agents/new`: create an agent bound to one runtime, of a kind (iteration 4 §C: 编码 / 项目经理). */
+/** Route `/agents/new`: create an agent bound to one runtime, of a kind (iteration 4 §C: Coding / Project manager). */
 export default function NewAgentPage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);

@@ -112,18 +112,22 @@ export function useIssueColumns(
         enableSorting: false,
         meta: { className: 'w-40 max-w-40' },
         header: t('np.issues.columns.owner'),
-        cell: ({ row }) =>
-          row.original.ownerName ? (
-            <NpActorAvatar
-              type='user'
-              name={row.original.ownerName}
-              size='xs'
-              showName
-              className='text-sm'
-            />
-          ) : (
-            <span className='text-muted-foreground'>—</span>
-          ),
+        // A definite width inside the cell lets a long name truncate: `max-w` on a cell of an auto-layout table is ignored.
+        cell: ({ row }) => (
+          <div className='w-34'>
+            {row.original.ownerName ? (
+              <NpActorAvatar
+                type='user'
+                name={row.original.ownerName}
+                size='xs'
+                showName
+                className='text-sm'
+              />
+            ) : (
+              <span className='text-muted-foreground'>—</span>
+            )}
+          </div>
+        ),
       },
       {
         id: 'executor',
@@ -131,11 +135,13 @@ export function useIssueColumns(
         meta: { className: 'w-48 max-w-48' },
         header: t('np.issues.columns.executor'),
         cell: ({ row }) => (
-          <NpExecutor
-            type={row.original.executorType}
-            name={row.original.executorName}
-            activeRunCount={row.original.activeRunCount}
-          />
+          <div className='w-42'>
+            <NpExecutor
+              type={row.original.executorType}
+              name={row.original.executorName}
+              activeRunCount={row.original.activeRunCount}
+            />
+          </div>
         ),
       },
       {

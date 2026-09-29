@@ -51,8 +51,8 @@ import { useDetailMutation } from './use-detail-mutation.js';
 
 /**
  * Issue attachments (NP-78): a card listing each file (thumbnail, name opening the preview, size, uploader, time),
- * download, and removal for those allowed (confirmed). "上传" opens the upload field, and so do files dropped or pasted
- * onto the card; every finished upload is attached right away. Rendered by the main column only when the issue has attachments or the "添加 → 附件" chip
+ * download, and removal for those allowed (confirmed). "Upload" opens the upload field, and so do files dropped or pasted
+ * onto the card; every finished upload is attached right away. Rendered by the main column only when the issue has attachments or the "Add → Attachment" chip
  * revealed it (empty sections take no room).
  */
 export function AttachmentsSection({

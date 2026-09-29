@@ -5,6 +5,7 @@ import {
   envValueTooLong,
   normalizeSkillDetail,
   skillFilePathProblem,
+  stripSkillFrontMatter,
 } from '../../client/pages/np/api-agent-extras.js';
 import { unwrap, unwrapList } from '../../client/pages/np/api-iter2.js';
 import { normalizeIssueDetail } from '../../client/pages/np/detail-normalize.js';
@@ -233,7 +234,7 @@ describe('agent env and skills', () => {
     expect(skillFilePathProblem('scripts/run.sh', [])).toBeNull();
   });
 
-  it('reads the skill detail envelope and sorts files', () => {
+  it('reads the skill detail envelope and sorts files and agents', () => {
     const detail = normalizeSkillDetail({
       data: {
         skill: { id: 's1', name: 'Review', slug: 'review', description: null },
@@ -241,9 +242,14 @@ describe('agent env and skills', () => {
           { path: 'b.md', content: '' },
           { path: 'a.md', content: '' },
         ],
+        agents: [
+          { id: 'a2', name: 'Zed' },
+          { id: 'a1', name: 'Amy' },
+        ],
       },
     });
     expect(detail.files.map((file) => file.path)).toEqual(['a.md', 'b.md']);
+    expect(detail.agents.map((agent) => agent.name)).toEqual(['Amy', 'Zed']);
     expect(
       normalizeSkillDetail({
         id: 's2',
@@ -252,6 +258,28 @@ describe('agent env and skills', () => {
         description: null,
       }).skill.id,
     ).toBe('s2');
+    expect(
+      normalizeSkillDetail({ data: { skill: { id: 's3' } } }).agents,
+    ).toEqual([]);
+  });
+
+  it('strips a leading YAML front matter block before rendering', () => {
+    expect(stripSkillFrontMatter('# Review\n\nSteps.')).toBe(
+      '# Review\n\nSteps.',
+    );
+    expect(
+      stripSkillFrontMatter(
+        '---\nname: review\ndescription: "Review code"\n---\n# Review\n',
+      ),
+    ).toBe('# Review\n');
+    // No closing delimiter: not front matter, left as written.
+    expect(stripSkillFrontMatter('---\nname: review\n')).toBe(
+      '---\nname: review\n',
+    );
+    // A `---` rule that doesn't open the content is body text, not front matter.
+    expect(stripSkillFrontMatter('# Review\n\n---\n\nMore.')).toBe(
+      '# Review\n\n---\n\nMore.',
+    );
   });
 });
 

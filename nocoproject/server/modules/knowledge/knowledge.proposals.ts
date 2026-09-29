@@ -8,11 +8,19 @@ import { requireCapability } from '../agent/capabilities.js';
  *   notification module turns that into `knowledge_proposal` decision cards.
  * - Accepting writes the new version (author: the proposing agent, with the run and proposal), `knowledge_updated`
  *   on the source issue, and emits `knowledge.decided` (cards resolve, the issue owner gets `knowledge_decided`).
+ * - Accepting an update whose document moved past `baseVersion` since it was proposed is 409
+ *   `KNOWLEDGE_PROPOSAL_STALE` (with `currentVersion`), unless the request confirms it with `confirmStale` (NP-139).
  */
 import type { Actor } from '../shared/activity.js';
 import type { Conn } from '../shared/db.js';
 import { now, num, str } from '../shared/db.js';
-import { conflict, forbidden, invalid, notFound } from '../shared/errors.js';
+import {
+  conflict,
+  forbidden,
+  invalid,
+  notFound,
+  NpError,
+} from '../shared/errors.js';
 import type {
   AgentKnowledgeProposalRequest,
   DecideKnowledgeProposalRequest,
@@ -280,6 +288,7 @@ async function applyProposal(
   conn: Conn,
   row: Record<string, unknown>,
   comment: string | null,
+  confirmStale: boolean,
 ): Promise<{ docId: string; docTitle: string; version: number }> {
   const author = {
     type: 'agent' as const,
@@ -296,6 +305,18 @@ async function applyProposal(
     if (!doc) throw notFound('Knowledge document');
     if (doc.archivedAt)
       throw conflict('KNOWLEDGE_ARCHIVED', 'Archived documents are read-only.');
+    const baseVersion =
+      row.baseVersion === null || row.baseVersion === undefined
+        ? null
+        : num(row.baseVersion);
+    const currentVersion = num(doc.version, 1);
+    if (baseVersion !== null && currentVersion > baseVersion && !confirmStale)
+      throw new NpError(
+        'conflict',
+        'KNOWLEDGE_PROPOSAL_STALE',
+        `The document is now at version ${currentVersion}; this proposal was based on version ${baseVersion}. Confirm to accept it anyway.`,
+        { currentVersion },
+      );
     const next = {
       title: title || (str(doc.title) ?? ''),
       summary: summary || (str(doc.summary) ?? ''),
@@ -346,6 +367,7 @@ export async function decideProposal(
   input: DecideKnowledgeProposalRequest,
 ): Promise<KnowledgeProposal> {
   const comment = validateComment(input?.comment);
+  const confirmStale = input?.confirmStale === true;
   await deps.tx.run(async (tx) => {
     const scope = await scopeOf(tx.conn, actor);
     const row = await tx.conn.query
@@ -368,7 +390,7 @@ export async function decideProposal(
       );
     const applied =
       decision === 'accept'
-        ? await applyProposal(deps, tx.conn, row, comment)
+        ? await applyProposal(deps, tx.conn, row, comment, confirmStale)
         : null;
     const timestamp = now();
     const result = await tx.conn.query
