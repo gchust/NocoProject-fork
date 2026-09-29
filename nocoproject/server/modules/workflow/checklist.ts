@@ -1,5 +1,5 @@
 /**
- * Issue checklists (NP-77 方案 §1, §6): a `checklist` stage action snapshots its items into `issueChecklistItems`
+ * Issue checklists (NP-77 proposal §1, §6): a `checklist` stage action snapshots its items into `issueChecklistItems`
  * when the issue enters the status; leaving that status for anything but a `closed` status requires every required
  * item to be checked (409 `CHECKLIST_INCOMPLETE`, checked by `stage-guards.ts`).
  *

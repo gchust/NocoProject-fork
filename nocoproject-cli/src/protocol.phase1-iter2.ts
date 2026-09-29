@@ -1,12 +1,16 @@
 /**
- * NocoProject 协议类型：Phase 1 迭代 2 追加（docs/phase1/iteration-2-contract.md §M，实现见
- * docs/phase1/protocol-iteration-2.md）。
+ * NocoProject protocol types: Phase 1 iteration 2 additions (docs/phase1/iteration-2-contract.md §M;
+ * implementation in docs/phase1/protocol-iteration-2.md).
  *
- * 服务端正本；守护进程包里有同内容副本（nocoproject-cli/src/protocol.phase1-iter2.ts），改这里必须同步。本文件只从
- * protocol.ts 引用 CLI 副本里也有的类型；依赖服务端补充形状（IssueV1 等）的组合类型在
- * protocol.phase1-iter2-server.ts（CLI 不复制）。
- * 只增不改：迭代 1 的类型保持不动，本轮需要更多字段的地方用 `…V2` 交叉类型表示；契约 §M 要求"追加"的枚举值
- * 写成单独的类型（InboxItemTypePhase1Iter2 等），与原联合类型合并使用，protocol.ts 里的原联合类型不改。
+ * Server source of truth; the daemon package keeps an identical copy
+ * (nocoproject-cli/src/protocol.phase1-iter2.ts) that a change here must be mirrored to. This file only
+ * imports from protocol.ts the types that are also in the CLI's copy; composite types that depend on
+ * server-only additional shapes (IssueV1, etc.) live in protocol.phase1-iter2-server.ts (not copied by
+ * the CLI).
+ * Additive only: iteration 1's types stay unchanged, and places that need more fields this round use
+ * `…V2` intersection types; enum values the contract §M asks to "append" are written as separate types
+ * (InboxItemTypePhase1Iter2, etc.) used merged with the original union type — the original union in
+ * protocol.ts is not changed.
  */
 import type {
   Comment,
@@ -20,23 +24,23 @@ import type {
   WorkflowTransitionDefinition,
 } from './protocol.js';
 
-// ---------- 会话模式与任务来源（§A、§J） ----------
+// ---------- Session mode and issue origin (§A, §J) ----------
 
 export type ExecutionMode = 'task' | 'session';
 export const EXECUTION_MODES: readonly ExecutionMode[] = ['task', 'session'];
 
-/** 迭代 4 追加 `pm`：项目经理对话任务（docs/phase1/iteration-4-contract.md §C） */
+/** Iteration 4 adds `pm`: a project manager conversation issue (docs/phase1/iteration-4-contract.md §C) */
 export type IssueOriginType = 'manual' | 'intake' | 'agent' | 'pm';
 
-/** 迭代 2 给任务追加的列 */
+/** Columns added to issues in iteration 2 */
 export interface IssuePhase2Fields {
   readonly executionMode: ExecutionMode;
   readonly originType: IssueOriginType;
-  /** intake → 批次 id；agent → 创建它的运行 id；manual → null */
+  /** intake → batch id; agent → the run id that created it; manual → null */
   readonly originId: string | null;
 }
 
-// ---------- GitHub 集成（§C） ----------
+// ---------- GitHub integration (§C) ----------
 
 export interface GitConnectionView {
   readonly configured: boolean;
@@ -47,7 +51,7 @@ export interface GitConnectionView {
   readonly lastEventAt: string | null;
 }
 
-/** 字段缺省 = 不变；空串 = 清除 */
+/** Omitted field = unchanged; empty string = clear */
 export interface UpdateGitConnectionRequest {
   readonly apiBaseUrl?: string;
   readonly token?: string;
@@ -95,7 +99,7 @@ export interface IssuePullRequestView extends PullRequest {
     readonly name: string | null;
   };
   readonly autoCompleteDisabled: boolean;
-  /** 服务端总是返回（关联时间）；CLI 不读取 */
+  /** The server always returns this (link time); the CLI does not read it */
   readonly linkedAt?: string;
 }
 
@@ -107,14 +111,14 @@ export interface UpdateIssuePullRequestRequest {
   readonly autoCompleteDisabled: boolean;
 }
 
-/** Agent 回写：POST /np/agent/issues/:id/pull-requests */
+/** Agent write-back: POST /np/agent/issues/:id/pull-requests */
 export interface AgentPullRequestLinkRequest {
   readonly url: string;
 }
 
-// ---------- 审批门禁（§D） ----------
+// ---------- Approval gate (§D) ----------
 
-/** @temporary(nocobase-official): 待替换为 NocoBase 官方 工作流审批（枚举值替换时不能改） */
+/** @temporary(nocobase-official): to be replaced by NocoBase's official workflow approvals (the enum values must not change when it is replaced) */
 export const APPROVAL_STATUSES = [
   'pending',
   'approved',
@@ -129,7 +133,7 @@ export const APPROVER_ROLES: readonly ApproverRole[] = [
   'admin',
 ];
 
-/** `workflowTemplates.definition.transitions[].approval`（可选） */
+/** `workflowTemplates.definition.transitions[].approval` (optional) */
 export interface TransitionApproval {
   readonly approvers: readonly ApproverRole[];
 }
@@ -138,7 +142,7 @@ export type WorkflowTransitionDefinitionV2 = WorkflowTransitionDefinition & {
   readonly approval?: TransitionApproval;
 };
 
-/** @temporary(nocobase-official): 待替换为 NocoBase 官方 工作流审批 */
+/** @temporary(nocobase-official): to be replaced by NocoBase's official workflow approvals */
 export interface ApprovalRequest {
   readonly id: string;
   readonly issueId: string;
@@ -165,16 +169,17 @@ export interface DecideApprovalRequest {
 }
 
 /**
- * `PATCH /np/issues/:id { statusKey }` 与 `POST /np/agent/issues/:id/status` 命中门禁时的 202 响应体 `data`：
- * 任务未变（整个 PATCH 不生效），审批请求已创建。
+ * The 202 response body `data` when `PATCH /np/issues/:id { statusKey }` or
+ * `POST /np/agent/issues/:id/status` hits the gate: the issue is unchanged (the whole PATCH did not
+ * take effect), and an approval request has been created.
  */
 export interface StatusChangePendingResponse {
-  /** 未变的任务（服务端返回完整任务行 IssueV2，这里只列出 CLI 读取的字段） */
+  /** The unchanged issue (the server returns the full IssueV2 row; only the fields the CLI reads are listed here) */
   readonly issue: IssueStatusSnapshot;
   readonly pendingApproval: ApprovalRequest;
 }
 
-/** 任务行里与状态相关的字段（完整行见服务端的 IssueV2） */
+/** Status-related fields on the issue row (see the server's IssueV2 for the full row) */
 export type IssueStatusSnapshot = {
   readonly id: string;
   readonly identifier: string;
@@ -183,7 +188,7 @@ export type IssueStatusSnapshot = {
   readonly revision: number;
 } & IssuePhase2Fields;
 
-// ---------- 表情与线程（§F） ----------
+// ---------- Reactions and threads (§F) ----------
 
 export const REACTION_EMOJIS = [
   '👍',
@@ -207,28 +212,28 @@ export interface AddReactionRequest {
   readonly emoji: string;
 }
 
-/** 评论行追加字段（浏览器详情里的 comments） */
+/** Fields added to the comment row (comments in the browser detail view) */
 export interface CommentV2 extends Comment {
   readonly reactions: readonly CommentReaction[];
-  /** 只在线程根评论上有值 */
+  /** Only set on the thread's root comment */
   readonly resolvedAt: string | null;
   readonly resolvedById: string | null;
   readonly resolvedByName: string | null;
 }
 
-/** Agent 视图的评论：`resolved` = 所在线程已解决 */
+/** The agent view of a comment: `resolved` = its thread has been resolved */
 export interface CommentForAgentV2 extends CommentForAgent {
   readonly resolved: boolean;
 }
 
-// ---------- 环境变量（§G） ----------
+// ---------- Environment variables (§G) ----------
 
 export const AGENT_ENV_NAME_PATTERN = /^[A-Z_][A-Z0-9_]*$/u;
-/** 保留名：`NOCOPROJECT_*` 前缀与这些名字（服务端 400 RESERVED_ENV_NAME；守护进程注入时跳过） */
+/** Reserved names: the `NOCOPROJECT_*` prefix plus these names (server returns 400 RESERVED_ENV_NAME; the daemon skips them when injecting) */
 export const RESERVED_ENV_NAMES: readonly string[] = ['PATH', 'HOME', 'SHELL'];
 export const RESERVED_ENV_PREFIX = 'NOCOPROJECT_';
 export const AGENT_ENV_MAX_VALUE_BYTES = 8 * 1024;
-/** 守护进程只脱敏长度 ≥ 6 的值（避免把 `1` 之类全部替换） */
+/** The daemon only redacts values with length ≥ 6 (to avoid replacing something like `1` entirely) */
 export const AGENT_ENV_REDACT_MIN_LENGTH = 6;
 
 export interface AgentEnvVarView {
@@ -263,7 +268,7 @@ export interface AgentEnvAudit {
   readonly createdAt: string;
 }
 
-// ---------- 技能（§H） ----------
+// ---------- Skills (§H) ----------
 
 export type SkillSource = 'manual' | 'import';
 
@@ -277,9 +282,9 @@ export interface Skill {
   readonly createdById: string;
   readonly createdByName: string | null;
   readonly fileCount: number;
-  /** 挂载了这个技能的 Agent 数 */
+  /** Number of agents this skill is attached to */
   readonly agentCount: number;
-  /** 当前用户能否修改（创建者或 owner/admin） */
+  /** Whether the current user can modify it (the creator, or an owner/admin) */
   readonly canEdit: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -315,7 +320,7 @@ export interface PutSkillFilesRequest {
 export const SKILL_MAX_FILES = 20;
 export const SKILL_MAX_FILE_BYTES = 64 * 1024;
 
-/** 认领载荷 `agent.skills[]` 的元素 */
+/** Element of the claim payload's `agent.skills[]` */
 export interface ClaimedSkill {
   readonly id: string;
   readonly slug: string;
@@ -331,7 +336,7 @@ export interface SkillRef {
   readonly slug: string;
 }
 
-// ---------- 批量录入（§E） ----------
+// ---------- Bulk intake (§E) ----------
 
 export type IntakeSource = 'paste' | 'issue';
 export type IntakeParserKind = 'ai' | 'heuristic';
@@ -366,14 +371,14 @@ export interface IntakeBatch {
   readonly createdById: string;
   readonly projectId: string | null;
   readonly source: IntakeSource;
-  /** source = issue 时被拆分的任务 */
+  /** The issue that was split, when source = issue */
   readonly sourceIssueId: string | null;
   readonly rawContent: string;
   readonly parser: IntakeParserKind;
   readonly status: IntakeBatchStatus;
   readonly aiSessionId: string | null;
   readonly confirmedAt: string | null;
-  /** AI 解析失败、回退启发式时的原因 */
+  /** The reason when AI parsing failed and it fell back to the heuristic parser */
   readonly parseError: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -420,7 +425,7 @@ export interface RevertIntakeResponse {
   readonly kept: readonly string[];
 }
 
-// ---------- 用量与设置（§I） ----------
+// ---------- Usage and settings (§I) ----------
 
 export type UsageGroupBy = 'agent' | 'issue' | 'project' | 'day' | 'model';
 export const USAGE_GROUP_BYS: readonly UsageGroupBy[] = [
@@ -440,7 +445,7 @@ export interface UsageRow {
   readonly cacheReadTokens: number;
   readonly cacheWriteTokens: number;
   readonly estimatedCost: number | null;
-  /** 只在 totals 上：有价格的运行数 */
+  /** Only on totals: number of runs with a price */
   readonly pricedRuns?: number;
 }
 
@@ -451,7 +456,7 @@ export interface UsageResponse {
 
 export interface ModelPrice {
   readonly provider: string;
-  /** glob，如 `claude-*` */
+  /** A glob, e.g. `claude-*` */
   readonly model: string;
   readonly inputPerM: number;
   readonly outputPerM: number;
@@ -461,16 +466,16 @@ export interface ModelPrice {
 
 export type IntakeParserSetting = 'auto' | 'heuristic';
 
-/** `GET /np/settings`（systemSettings.settings，缺省键取默认值） */
+/** `GET /np/settings` (systemSettings.settings; an omitted key takes its default value) */
 export interface WorkspaceSettingsView {
   readonly autoExecuteSubtasksDefault: boolean;
-  /** 状态键，或 `'none'` 表示 PR 合并后不改状态 */
+  /** A status key, or `'none'` to mean don't change status after a PR merges */
   readonly prMergedStatus: string;
   readonly modelPrices: readonly ModelPrice[];
   readonly intakeParser: IntakeParserSetting;
-  /** 只读：任务编号前缀 */
+  /** Read-only: the issue number prefix */
   readonly issuePrefix: string;
-  /** 只读：当前用户能否修改（owner/admin） */
+  /** Read-only: whether the current user can modify it (owner/admin) */
   readonly canEdit: boolean;
 }
 
@@ -481,33 +486,33 @@ export interface UpdateWorkspaceSettingsRequest {
   readonly intakeParser?: IntakeParserSetting;
 }
 
-// ---------- 任务详情与运行（§C、§D、§F、§I、§J） ----------
+// ---------- Issue detail and runs (§C, §D, §F, §I, §J) ----------
 
-/** 会话模式下排队中的那条运行（本轮结束后发送） */
+/** The queued run in session mode (sent once the current round finishes) */
 export interface QueuedRunRef {
   readonly id: string;
   readonly triggerCount: number;
 }
 
-/** `GET /np/issues/:id/runs` 的完整响应体（`queuedRun` 与 `data` 同级） */
+/** Full response body of `GET /np/issues/:id/runs` (`queuedRun` is a sibling of `data`) */
 export interface IssueRunsResponse {
   readonly data: readonly RunSummary[];
   readonly queuedRun: QueuedRunRef | null;
 }
 
-// ---------- 认领载荷追加（§L） ----------
+// ---------- Claim payload additions (§L) ----------
 
-/** 认领载荷 `issue.pullRequests[]` 的元素 */
+/** Element of the claim payload's `issue.pullRequests[]` */
 export interface ClaimedPullRequest {
   readonly number: number;
   readonly url: string;
   readonly state: PullRequestState;
 }
 
-/** ClaimedRun 在迭代 2 追加的字段（服务端合并进 ClaimedRun；守护进程按可选读取） */
+/** Fields added to ClaimedRun in iteration 2 (the server merges these into ClaimedRun; the daemon reads them as optional) */
 export interface ClaimedRunPhase2Extras {
   readonly agent: {
-    /** 解密后的环境变量，只走守护进程路由 */
+    /** Decrypted environment variables; only sent over the daemon route */
     readonly env: Readonly<Record<string, string>>;
     readonly skills: readonly ClaimedSkill[];
   };
@@ -517,18 +522,18 @@ export interface ClaimedRunPhase2Extras {
   };
 }
 
-// ---------- 追加的枚举值 ----------
+// ---------- Added enum values ----------
 
 export type InboxItemTypePhase1Iter2 =
   'approval_pending' | 'approval_decided' | 'pr_review' | 'pr_merged';
-/** 迭代 1 与迭代 2 的全部收件箱类型 */
+/** All inbox types across iteration 1 and iteration 2 */
 export type InboxItemTypeV2 = InboxItemType | InboxItemTypePhase1Iter2;
-/** 收件箱项（`type` 含迭代 2 的类型） */
+/** An inbox item (`type` includes iteration 2's types) */
 export type InboxItemV2 = Omit<InboxItem, 'type'> & {
   readonly type: InboxItemTypeV2;
 };
 export type RunFailureReasonPhase1Iter2 = 'blocked';
-/** 运行的失败原因（含迭代 2 的 `blocked`：排队中的运行因新增阻塞依赖被撤回） */
+/** A run's failure reason (includes iteration 2's `blocked`: a queued run withdrawn because a new blocking dependency was added) */
 export type FailureReasonV2 = FailureReason | RunFailureReasonPhase1Iter2;
 export type ActivityActionPhase1Iter2 =
   | 'pr_linked'

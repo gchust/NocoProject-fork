@@ -1,4 +1,4 @@
-// @temporary(nocobase-official): 待替换为 NocoBase 官方 工作流审批
+// @temporary(nocobase-official): to be replaced by the official NocoBase workflow approval
 /**
  * `DbApprovalGateway`: today's implementation of `shared/approval.ts`, backed by the `approvalRequests` table. The
  * rules are in the interface file; this implementation adds the activities (`approval_requested`, `approval_self`,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# CI 部署密钥的强制命令（~/.ssh/authorized_keys 里 command="…/np-ci-deploy"）。
-# 这把密钥只能做一件事：`deploy <提交号>`，从标准输入接收构建产物并部署。
+# Forced command for the CI deploy key (command="…/np-ci-deploy" in ~/.ssh/authorized_keys).
+# This key can only do one thing: `deploy <commit sha>`, receiving the build output over stdin and deploying it.
 set -euo pipefail
 
 read -r ACTION TAG EXTRA <<<"${SSH_ORIGINAL_COMMAND:-}"

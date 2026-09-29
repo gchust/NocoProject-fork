@@ -1,5 +1,5 @@
 /**
- * The AI 整理 tab's attachments on the way into a batch (NP-78): the uploads are checked to be the member's own
+ * The AI draft tab's (np.newIssue.tabs.ai) attachments on the way into a batch (NP-78): the uploads are checked to be the member's own
  * loose files before anything is read, their text is extracted for the AI parser (`attachment-text.ts`), and when
  * only the rule-based parser ran on an empty description, one draft named after the first file is produced so the
  * files still land on an issue.

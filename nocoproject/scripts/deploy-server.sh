@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# 从开发机手动把当前检出部署到 ali-agents 服务器（https://project.nocobase.cn/main）。说明见 docs/deploy.md。
-# 平时由 CI 在 main 通过后自动部署（.github/workflows/ci.yml 的 deploy 作业）；这个脚本用于同步服务器脚本和应急发布。
+# Manually deploy the current checkout from a dev machine to the ali-agents server (https://project.nocobase.cn/main). See docs/deploy.md.
+# Normally CI deploys automatically after main passes (the deploy job in .github/workflows/ci.yml); this script is for syncing server scripts and emergency releases.
 #
-#   pnpm deploy:server                          # 构建、上传、部署
-#   NP_DEPLOY_SKIP_BUILD=1 pnpm deploy:server   # 复用已有的 linux-x64 dist/
-#   NP_DEPLOY_SCRIPTS_ONLY=1 pnpm deploy:server # 只同步服务器脚本与 systemd 单元
+#   pnpm deploy:server                          # build, upload, deploy
+#   NP_DEPLOY_SKIP_BUILD=1 pnpm deploy:server   # reuse the existing linux-x64 dist/
+#   NP_DEPLOY_SCRIPTS_ONLY=1 pnpm deploy:server # only sync server scripts and the systemd unit
 set -euo pipefail
 
 HOST="${NP_DEPLOY_HOST:-ali-agents-ts}"
