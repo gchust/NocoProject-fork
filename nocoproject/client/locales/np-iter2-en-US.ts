@@ -157,7 +157,7 @@ const npIter2EnUS = {
     rowProblems: 'Problems in row {{position}}',
     addRow: 'Add row',
     batchOwner: 'Owner of the new issues',
-    defaultExecutor: 'Executor for rows without one',
+    defaultExecutor: 'Executor for issues without one',
     discard: 'Discard batch',
     save: 'Save drafts',
     confirm: 'Create {{count}} issues',
