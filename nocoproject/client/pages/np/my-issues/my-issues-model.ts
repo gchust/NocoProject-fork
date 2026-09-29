@@ -4,7 +4,7 @@ import type { IssueFilters } from '../types.js';
 export type MyIssuesRole = 'owned' | 'executing';
 
 /**
- * The filters a "my issues" tab fixes (§G): 我负责的 is `ownerUserId = me`, 我执行的 is `executorId = me` (a person
+ * The filters a "my issues" tab fixes (§G): I own is `ownerUserId = me`, I execute is `executorId = me` (a person
  * executing, not an agent). The fixed key is hidden from the toolbar; every other filter still comes from the URL.
  */
 export function myIssueFilters(

@@ -2,7 +2,7 @@
 /**
  * The approval gate (iteration-2 contract §D), on a real PostgreSQL.
  *
- * "替换检查清单" (方案 §8): the shared cases run twice — against `DbApprovalGateway` (today's temporary implementation)
+ * "Replace the checklist" (design proposal §8): the shared cases run twice — against `DbApprovalGateway` (today's temporary implementation)
  * and against an in-memory double of a future official gateway — to show the business code only needs the
  * `ApprovalGateway` interface. Activities, inbox cards and the workflow switch are checked against the database
  * gateway only.

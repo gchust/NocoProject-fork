@@ -49,9 +49,9 @@ import { ProjectActions } from './project-actions.js';
 /**
  * Route `/projects/:projectId` (§J 4, client/pages/np/README.md §3): a covering child page over the project list.
  * The header carries the progress ring, name, status, lead, dates and workflow; three tabs (`?tab=`, because the
- * page's child routes are its dialogs) hold 概览 (numbers, status distribution, description, properties,
- * repositories, members), 任务 (the board, columns in workflow order, drag to change status) and 知识库 (documents
- * and pending agent proposals). "新建任务" opens the issues page's dialog with the project preselected (one issue or
+ * page's child routes are its dialogs) hold Overview (numbers, status distribution, description, properties,
+ * repositories, members), Issues (the board, columns in workflow order, drag to change status) and Knowledge (documents
+ * and pending agent proposals). "New issue" opens the issues page's dialog with the project preselected (one issue or
  * many, iteration 4 §D; the old `intake` child redirects there). The `resources/new` dialog renders in the outlet
  * beside the layer.
  */

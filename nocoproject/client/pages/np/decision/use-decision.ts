@@ -73,9 +73,9 @@ export interface DecisionRunner {
 }
 
 /**
- * Deciding from anywhere (nocosolution/frontend/nocosolution-frontend-standard.md §15): the inbox's detail pane and the issue page's "等你决定"
- * section run the same code. A request resolves the item at once in every cached list (optimistic) and the request
- * follows; success toasts "已{{action}}", failure toasts the localized reason and the refetch puts the item back.
+ * Deciding from anywhere (nocosolution/frontend/nocosolution-frontend-standard.md §15): the inbox's detail pane and the issue page's "Waiting for
+ * you" section run the same code. A request resolves the item at once in every cached list (optimistic) and the request
+ * follows; success toasts "{{action}} — done", failure toasts the localized reason and the refetch puts the item back.
  * Navigation actions mark the item read and leave: an external link opens in a new tab, an in-app page or the issue
  * opens in place.
  */

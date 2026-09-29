@@ -195,7 +195,7 @@ export const npKeys = {
     ['np', 'inbox', 'list', kind, archived] as const,
   inboxUnread: ['np', 'inbox', 'unread'] as const,
   inboxPending: ['np', 'inbox', 'pending'] as const,
-  /** The viewer's open decisions on one issue (the issue page's "等你决定" section). */
+  /** The viewer's open decisions on one issue (the issue page's "Waiting for you" section). */
   issueDecisions: (issueId: string) =>
     ['np', 'inbox', 'issue', issueId] as const,
   // Phase 1 iteration 2

@@ -23,7 +23,7 @@ import type { MemberPreferences } from '../types.js';
 import { ConfigSectionHeading } from './config-section.js';
 
 /**
- * The viewer's own reminder preferences at the top of 设置 → 通用 (NP-108). Unlike the workspace settings below it,
+ * The viewer's own reminder preferences at the top of Settings → General (NP-108). Unlike the workspace settings below it,
  * every member may change these; they are kept with the account (`PATCH /np/me/preferences`) and saved as soon as the
  * switch moves. Turning the chime on plays it once.
  */

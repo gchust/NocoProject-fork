@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 
 /**
- * The issues page's one "新建任务" button (iteration 4 §D): the `new` dialog creates one issue or many (AI 整理 /
- * 手动). It is a child route of `/issues` and keeps the list's query string, so a filtered project is preselected.
+ * The issues page's one "New issue" button (iteration 4 §D): the `new` dialog creates one issue or many (AI draft /
+ * Manual). It is a child route of `/issues` and keeps the list's query string, so a filtered project is preselected.
  */
 export function NewIssueButton({
   variant = 'default',

@@ -19,7 +19,7 @@ import { useNpFormatters } from '../../format.js';
 import { KnowledgeProposalCard } from '../../knowledge/proposal-card.js';
 
 /**
- * The 知识库 tab of a project (client/pages/np/README.md §3): the project's documents with "new document", and the
+ * The Knowledge tab of a project (client/pages/np/README.md §3): the project's documents with "new document", and the
  * agents' pending proposals for this project, decidable in place.
  */
 export function ProjectKnowledge({

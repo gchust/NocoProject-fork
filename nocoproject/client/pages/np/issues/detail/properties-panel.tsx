@@ -62,7 +62,7 @@ import { Subscribers } from './subscribers.js';
 import { useConfirmedUpdate } from './use-confirmed-update.js';
 import { useIssueUpdate } from './use-issue-update.js';
 
-/** The issue page offers the two processes; 自动 is a create-time choice only. */
+/** The issue page offers the two processes; Automatic is a create-time choice only. */
 const ISSUE_PROCESS_CHOICES: readonly ProcessChoice[] = [
   'direct',
   'design_first',

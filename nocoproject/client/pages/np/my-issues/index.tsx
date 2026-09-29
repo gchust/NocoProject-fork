@@ -11,8 +11,8 @@ import { useIsParentEntry } from '@/components/use-default-tab';
 import { NewIssueButtonAbsolute } from './new-issue-link.js';
 
 /**
- * Route `/my-issues` (§G, "我的任务"): the issue list and board filtered to the viewer, with two tabs that are child
- * routes — `owned` (我负责的, owner = me) and `executing` (我执行的, executor = me). The bare URL redirects to
+ * Route `/my-issues` (§G, "My issues"): the issue list and board filtered to the viewer, with two tabs that are child
+ * routes — `owned` (I own, owner = me) and `executing` (I execute, executor = me). The bare URL redirects to
  * `owned`, keeping the query string; the view and the other filters live in the query string as on `/issues`.
  */
 export default function MyIssuesPage(): ReactElement {

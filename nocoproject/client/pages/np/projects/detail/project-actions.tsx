@@ -30,7 +30,7 @@ import { npKeys } from '../../constants.js';
 import type { ProjectDetail } from '../../types.js';
 
 /**
- * The project's "more" menu (iteration 1 leftover "删除项目"): owner/admin delete the project after a confirmation.
+ * The project's "more" menu (iteration 1 leftover "delete project"): owner/admin delete the project after a confirmation.
  * Deleting keeps the issues and moves them out of the project (protocol §6). Nobody else gets the menu.
  */
 export function ProjectActions({

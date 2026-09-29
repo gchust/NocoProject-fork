@@ -17,14 +17,14 @@ import {
 } from './new-issue-model.js';
 
 /**
- * Route `/issues/new`: "新建任务", one dialog for one issue or many (iteration 4 §D). Two tabs, the last one used
+ * Route `/issues/new`: "New issue", one dialog for one issue or many (iteration 4 §D). Two tabs, the last one used
  * remembered (localStorage) and `?tab=` overriding:
  *
- * - **AI 整理** (the default): describe the work or paste a list or meeting notes, choose the project, "整理" sends it
- *   to batch entry's parser (`POST /np/intake/batches`), and the drafts open in batch entry's table — with a 流程
- *   column — to create one issue or many. The draft batch sits in `?batch=` so a reload keeps it; the viewer's
- *   recent batches are listed under the composer.
- * - **手动**: the single-issue form.
+ * - **AI draft** (the default): describe the work or paste a list or meeting notes, choose the project, "Draft
+ *   issues" sends it to batch entry's parser (`POST /np/intake/batches`), and the drafts open in batch entry's
+ *   table — with a Process column — to create one issue or many. The draft batch sits in `?batch=` so a reload
+ *   keeps it; the viewer's recent batches are listed under the composer.
+ * - **Manual**: the single-issue form.
  *
  * `?project=` preselects the project in both. The old batch-entry links (`/issues/intake`, `/projects/:id/intake`,
  * `/intake`) redirect here on the AI tab. Closing drops `tab` and `batch` and returns to the list underneath.

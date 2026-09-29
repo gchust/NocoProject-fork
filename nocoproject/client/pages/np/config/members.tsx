@@ -88,7 +88,7 @@ function RoleSelect({
  * members and their roles. Everyone can open it, but only owner/admin change roles, only an owner grants or revokes
  * owner, and the last owner keeps the role (`memberRoleOptions`); `PATCH /np/members/:userId` enforces the same rules.
  *
- * NP-88: owner/admin, and a project lead for the projects they lead, invite people by email ("邀请成员"); the
+ * NP-88: owner/admin, and a project lead for the projects they lead, invite people by email ("Invite members"); the
  * invitations not accepted yet are listed under the members.
  */
 export default function MembersConfigTab(): ReactElement {

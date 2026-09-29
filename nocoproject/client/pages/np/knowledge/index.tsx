@@ -40,7 +40,7 @@ import {
 import { KnowledgeProposalCard } from './proposal-card.js';
 
 /**
- * Route `/knowledge` (§B, "知识库"): the Markdown documents agents read before they work — per project, or for the
+ * Route `/knowledge` (§B, "Knowledge"): the Markdown documents agents read before they work — per project, or for the
  * whole workspace. Filter by project (`?project=`, `workspace` for workspace documents) and search (`?q=`); proposals
  * agents made that the viewer decides are listed on top with accept / reject. A document opens as a covering page,
  * "New document" as a dialog.

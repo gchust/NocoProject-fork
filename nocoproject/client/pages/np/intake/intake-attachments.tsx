@@ -21,7 +21,7 @@ import { type DraftRow, attachmentHolder } from './intake-model.js';
 
 /**
  * NP-78: the files that travel with a batch, above its drafts. Each row shows the file (name opens the preview), what
- * AI 整理 read of it, and the draft whose issue will receive it; while the batch is a draft the target can be changed.
+ * AI draft read of it, and the draft whose issue will receive it; while the batch is a draft the target can be changed.
  */
 export function IntakeAttachments({
   attachments,

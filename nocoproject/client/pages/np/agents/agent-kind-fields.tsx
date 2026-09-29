@@ -13,7 +13,7 @@ import {
 } from '../types-iter4.js';
 
 /**
- * An agent's kind (编码 / 项目经理) and reasoning effort (iteration 4 §C), shared by the create dialog and the settings
+ * An agent's kind (Coding / Project manager) and reasoning effort (iteration 4 §C), shared by the create dialog and the settings
  * form. An empty effort is the tool's default; the daemon maps a set one to the tool's own flag.
  */
 export function AgentKindFields({
