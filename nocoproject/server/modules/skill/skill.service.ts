@@ -26,6 +26,7 @@ import type {
   ClaimedSkill,
   CreateSkillRequest,
   Skill,
+  SkillAgentRef,
   SkillDetail,
   SkillFile,
   SkillRef,
@@ -188,6 +189,32 @@ async function skillFiles(conn: Conn, skillId: string): Promise<SkillFile[]> {
   }));
 }
 
+/** Agents the skill is mounted on (excludes deleted agents), sorted by name for a stable listing. */
+async function agentsForSkill(
+  conn: Conn,
+  skillId: string,
+): Promise<SkillAgentRef[]> {
+  const links = await conn.query
+    .selectFrom('agentSkills')
+    .select('agentId')
+    .where('skillId', '=', skillId)
+    .execute();
+  const agentIds = unique(links.map((row) => str(row.agentId)));
+  if (agentIds.length === 0) return [];
+  const rows = await conn.query
+    .selectFrom('agents')
+    .select(['id', 'name'])
+    .where('id', 'in', agentIds)
+    .where('deletedAt', 'is', null)
+    .execute();
+  const result = rows.map((row) => ({
+    id: str(row.id) ?? '',
+    name: str(row.name) ?? '',
+  }));
+  result.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
+}
+
 async function requireRow(
   conn: Conn,
   id: string,
@@ -210,7 +237,11 @@ async function detail(
   const [skill] = await decorate(deps, conn, viewer, [
     await requireRow(conn, id),
   ]);
-  return { skill: skill, files: await skillFiles(conn, id) };
+  return {
+    skill: skill,
+    files: await skillFiles(conn, id),
+    agents: await agentsForSkill(conn, id),
+  };
 }
 
 async function editable(tx: Tx, actor: Actor, id: string): Promise<Viewer> {

@@ -295,9 +295,16 @@ export interface SkillFile {
   readonly content: string;
 }
 
+/** An agent the skill is mounted on (visible to every member; excludes deleted agents). */
+export interface SkillAgentRef {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface SkillDetail {
   readonly skill: Skill;
   readonly files: readonly SkillFile[];
+  readonly agents: readonly SkillAgentRef[];
 }
 
 export interface CreateSkillRequest {
