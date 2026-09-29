@@ -447,10 +447,18 @@ describe('knowledge rules (§B)', () => {
     ...overrides,
   });
 
-  it('lets the project lead and owner/admin edit; workspace documents are owner/admin only', () => {
-    const lead = { userId: 'lead', role: 'member' as const };
-    const member = { userId: 'm', role: 'member' as const };
-    const admin = { userId: 'a', role: 'admin' as const };
+  it('lets the project lead and whoever decides every document edit; workspace documents only the latter (NP-153)', () => {
+    const lead = { userId: 'lead', scopes: {} };
+    const member = { userId: 'm', scopes: {} };
+    const admin = {
+      userId: 'a',
+      scopes: { 'nocoproject.knowledge/decide': 'all' as const },
+    };
+    const observer = {
+      userId: 'lead',
+      scopes: { 'nocoproject.knowledge/decide': 'none' as const },
+    };
+    expect(canEditKnowledge(doc({}), observer, projects)).toBe(false);
     expect(canEditKnowledge(doc({}), lead, projects)).toBe(true);
     expect(canEditKnowledge(doc({}), member, projects)).toBe(false);
     expect(canEditKnowledge(doc({ projectId: null }), lead, projects)).toBe(
