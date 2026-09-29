@@ -45,18 +45,18 @@ describe('Phase 1 daemon e2e (echo adapter)', () => {
     expect(JSON.parse(contextText)).toMatchObject({ runId: first, project, issue: { identifier: 'NP-31' }, session: { branchName: null } });
     expect(readFileSync(join(workDir, 'AGENTS.md'), 'utf8')).toContain(`- \`${remote.url}\``);
 
-    expect(completeBody(mock, first)).toMatchObject({ branchName: 'agent/echo-bot/np-31', repoUrl: remote.url });
+    expect(completeBody(mock, first)).toMatchObject({ branchName: 'agent/np-31', repoUrl: remote.url });
     const bare = repoCachePath(harness.home, remote.url);
-    expect(sh(['log', '--format=%s', 'agent/echo-bot/np-31'], bare).split('\n')[0]).toBe(`NP-31: echo agent change (run ${first})`);
+    expect(sh(['log', '--format=%s', 'agent/np-31'], bare).split('\n')[0]).toBe(`NP-31: echo agent change (run ${first})`);
 
     mock.issues.set('i31', { ...(mock.issues.get('i31') as any), statusKey: 'todo' });
-    const session = { providerSessionId: null, workDir: null, fresh: true, branchName: 'agent/echo-bot/np-31', repoUrl: remote.url };
+    const session = { providerSessionId: null, workDir: null, fresh: true, branchName: 'agent/np-31', repoUrl: remote.url };
     const second = mock.enqueue('i31', { project, session });
     await waitFor(() => runStatus(mock, second) === 'completed' || runStatus(mock, second) === 'failed', 20_000, 'second run');
     expect(runStatus(mock, second)).toBe('completed');
     expect(startBody(mock, second)?.workDir).not.toBe(workDir);
-    expect(completeBody(mock, second)).toMatchObject({ branchName: 'agent/echo-bot/np-31', repoUrl: remote.url });
-    const subjects = sh(['log', '--format=%s', 'agent/echo-bot/np-31'], bare).split('\n');
+    expect(completeBody(mock, second)).toMatchObject({ branchName: 'agent/np-31', repoUrl: remote.url });
+    const subjects = sh(['log', '--format=%s', 'agent/np-31'], bare).split('\n');
     expect(subjects.slice(0, 2)).toEqual([`NP-31: echo agent change (run ${second})`, `NP-31: echo agent change (run ${first})`]);
   });
 

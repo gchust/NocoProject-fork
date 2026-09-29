@@ -35,18 +35,6 @@ export function repoNameFromUrl(url: string): string {
   return name || 'repo';
 }
 
-/** Git-branch-safe slug of an agent name (lower-case, max 30 chars). */
-export function agentSlug(name: string): string {
-  const s = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 30)
-    .replace(/-+$/g, '');
-  return s || 'agent';
-}
-
 function issueSegment(identifier: string): string {
   const s = identifier
     .toLowerCase()
@@ -55,9 +43,9 @@ function issueSegment(identifier: string): string {
   return s || 'issue';
 }
 
-/** `agent/<agentSlug>/<issueIdentifier lower-case>` */
-export function branchNameFor(agentName: string, issueIdentifier: string): string {
-  return `agent/${agentSlug(agentName)}/${issueSegment(issueIdentifier)}`;
+/** `agent/<issueIdentifier lower-case>` (NP-145: no agent segment; the session remembers who owns it). */
+export function branchNameFor(issueIdentifier: string): string {
+  return `agent/${issueSegment(issueIdentifier)}`;
 }
 
 /** Short, branch-safe run key used to disambiguate a colliding branch name. */
