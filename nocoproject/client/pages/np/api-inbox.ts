@@ -28,7 +28,7 @@ export async function fetchInbox(
     readonly archived: boolean;
     /** `false` for what still waits (the issue page's decisions); omitted for both. */
     readonly resolved?: boolean;
-    /** Only the items about one issue (`GET /np/inbox?issueId=`, nocosolution/frontend/nocosolution-frontend-standard.md §3). */
+    /** Only the items about one issue (`GET /np/inbox?issueId=`, nocosolution/NocoSolution 前端规范.md §S3). */
     readonly issueId?: string;
   },
   signal?: AbortSignal,

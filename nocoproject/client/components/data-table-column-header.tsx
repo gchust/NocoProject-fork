@@ -25,7 +25,7 @@ function SortIcon({
 }
 
 /**
- * A sortable column header (nocosolution/frontend/nocobase3-frontend-best-practices.md §7.3): clicking it cycles ascending → descending → unsorted and
+ * A sortable column header (nocosolution/NocoSolution 前端规范.md §7.3): clicking it cycles ascending → descending → unsorted and
  * the icon shows the current state. There is no menu on the header; hiding columns lives in `DataTableViewOptions`.
  * Use it as the `header` of a column definition:
  * `header: ({ column }) => <DataTableColumnHeader column={column} title='Email' />`.

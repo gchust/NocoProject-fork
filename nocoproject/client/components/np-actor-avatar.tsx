@@ -20,13 +20,13 @@ export interface NpActorAvatarProps {
    * as "name (kind)".
    */
   readonly decorative?: boolean;
-  /** A working agent: the avatar breathes with the primary color (nocosolution/frontend/nocosolution-frontend-standard.md §5.2). */
+  /** A working agent: the avatar breathes with the primary color (nocosolution/NocoSolution 前端规范.md §S5.2). */
   readonly live?: boolean;
   readonly className?: string;
 }
 
 /**
- * The one avatar for people, agents and the system across NocoProject (§H 4, nocosolution/frontend/nocosolution-frontend-standard.md §5.1). Shape
+ * The one avatar for people, agents and the system across NocoProject (§H 4, nocosolution/NocoSolution 前端规范.md §S5.1). Shape
  * and color both tell the kind apart: a person is a round avatar with initials, an agent a rounded square with a bot
  * in the agent hue, the system a dashed round cog. The kind is repeated as screen-reader text so it does not rest on
  * the picture alone.

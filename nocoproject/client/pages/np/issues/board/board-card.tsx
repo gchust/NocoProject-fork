@@ -17,7 +17,7 @@ import { NpProcessBadge } from '../process-fields.js';
 export type IssueLink = (issue: IssueListItem) => To;
 
 /**
- * The face of a board card; also rendered in the drag overlay (nocosolution/frontend/nocobase3-frontend-best-practices.md §8): identifier, the
+ * The face of a board card; also rendered in the drag overlay (nocosolution/NocoSolution 前端规范.md §8): identifier, the
  * design-first marker (iteration 4 §B) and priority icon, the title, dependency and sub-issue counts, labels, then owner and executor avatars with the due
  * date or last update. A card whose agent is working carries a primary bar on its left edge and a "working" pulse.
  */

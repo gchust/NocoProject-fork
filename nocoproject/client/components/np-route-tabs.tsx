@@ -53,7 +53,7 @@ export interface NpTab<Value extends string> {
 }
 
 /**
- * Tabs inside a record page (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.3), for a covering detail whose child routes are its
+ * Tabs inside a record page (nocosolution/NocoSolution 前端规范.md §3.3), for a covering detail whose child routes are its
  * dialogs: the same underline look as `NpRouteTabs`, driven by a value (the page keeps it in `?tab=`). Arrow keys
  * move between tabs.
  */

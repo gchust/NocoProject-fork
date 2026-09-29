@@ -44,7 +44,7 @@ import { INBOX_ACTION_ICON } from './inbox-icons.js';
 import { inboxActionsFor, inboxItemLink, isSettled } from './inbox-model.js';
 
 /**
- * The inbox's detail pane (nocosolution/frontend/nocosolution-frontend-standard.md §2): everything needed to decide without leaving the inbox.
+ * The inbox's detail pane (nocosolution/NocoSolution 前端规范.md §S2): everything needed to decide without leaving the inbox.
  * A sticky bar at the top holds what the item is, its title and its actions (the primary action filled, a comment
  * field inline when an action needs one), with read / archive / open-issue icon buttons. Below it: the issue
  * (status, owner, executor, a live run), the thing being decided in full, and the issue's latest activity.

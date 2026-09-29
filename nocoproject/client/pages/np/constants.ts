@@ -81,7 +81,7 @@ export function statusColor(
 }
 
 /**
- * The tone a status is drawn in (nocosolution/frontend/nocosolution-frontend-standard.md §7.1, `NpTag`): by meaning, not by the workflow's colour name, so
+ * The tone a status is drawn in (nocosolution/NocoSolution 前端规范.md §S7.1, `NpTag`): by meaning, not by the workflow's colour name, so
  * every workflow reads the same — not started grey, started blue, in review violet, blocked amber, done green,
  * cancelled slate. A custom started status the workflow marks purple reads as review, red / orange as blocked.
  */
@@ -279,7 +279,7 @@ export const LABEL_COLORS: readonly LabelColor[] = [
 ];
 
 /**
- * Label colour names mapped onto the tag hues (nocosolution/frontend/nocosolution-frontend-standard.md §7.2), so a label's dot and chip match the
+ * Label colour names mapped onto the tag hues (nocosolution/NocoSolution 前端规范.md §S7.2), so a label's dot and chip match the
  * status and priority tags in light and dark. The name beside the dot carries the meaning; the colour helps scanning.
  */
 export const LABEL_TONE: Readonly<
