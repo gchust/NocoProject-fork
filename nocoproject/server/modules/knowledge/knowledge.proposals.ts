@@ -27,6 +27,7 @@ import type {
   KnowledgeProposal,
 } from '../shared/protocol.js';
 import {
+  KNOWLEDGE_MAX_DEPTH,
   KNOWLEDGE_NOTE_MAX,
   KNOWLEDGE_REASON_MAX,
 } from '../shared/protocol.js';
@@ -41,9 +42,11 @@ import {
   scopeOf,
 } from './knowledge.access.js';
 import {
+  depthOf,
   findDocRow,
   findDocRowBySlug,
   mapProposals,
+  nextSortOrder,
   projectIdOf,
   projectKey,
   projectNames,
@@ -118,6 +121,8 @@ interface ProposalTarget {
   readonly title: string;
   readonly slug: string | null;
   readonly baseVersion: number | null;
+  /** The resolved parent document id when creating a new document (NP-147); null for a root document or an update. */
+  readonly parentId: string | null;
 }
 
 /** Resolves what the proposal is about: an existing document the run may reach, or a new one in its scope. */
@@ -138,6 +143,7 @@ async function proposalTarget(
       title: input.title ? validateTitle(input.title) : '',
       slug: null,
       baseVersion: num(row.version, 1),
+      parentId: null,
     };
   }
   const title = validateTitle(input.title);
@@ -154,6 +160,28 @@ async function proposalTarget(
       'KNOWLEDGE_SLUG_TAKEN',
       `A document with slug ${slug} exists; propose a change to it with docId.`,
     );
+  let parentId: string | null = null;
+  if (input.parentId) {
+    const parentRow = await agentDocRow(conn, input.parentId, runProjectId);
+    if (!parentRow) throw notFound('Knowledge parent document');
+    if (str(parentRow.projectId) !== projectKey(projectId))
+      throw invalid(
+        'INVALID_PARENT',
+        'parentId must be a document in the same scope as the new document.',
+      );
+    if (parentRow.archivedAt)
+      throw conflict(
+        'KNOWLEDGE_ARCHIVED',
+        'Cannot propose a document under an archived parent.',
+      );
+    parentId = str(parentRow.id);
+    const parentDepth = await depthOf(conn, parentId ?? '');
+    if (parentDepth + 1 > KNOWLEDGE_MAX_DEPTH)
+      throw invalid(
+        'KNOWLEDGE_DEPTH_EXCEEDED',
+        `Documents can be nested at most ${KNOWLEDGE_MAX_DEPTH} levels deep.`,
+      );
+  }
   return {
     docId: null,
     docTitle: title,
@@ -161,6 +189,7 @@ async function proposalTarget(
     title,
     slug,
     baseVersion: null,
+    parentId,
   };
 }
 
@@ -218,6 +247,7 @@ export async function agentPropose(
         content,
         reason,
         baseVersion: target.baseVersion,
+        parentId: target.parentId,
         proposedByAgentId: auth.agentId,
         sourceRunId: auth.runId,
         sourceIssueId: issue?.id ?? null,
@@ -289,7 +319,13 @@ async function applyProposal(
   row: Record<string, unknown>,
   comment: string | null,
   confirmStale: boolean,
-): Promise<{ docId: string; docTitle: string; version: number }> {
+): Promise<{
+  docId: string;
+  docTitle: string;
+  version: number;
+  /** The proposed parent was archived or no longer exists; the document was filed at the root instead (NP-147). */
+  parentFellBack?: boolean;
+}> {
   const author = {
     type: 'agent' as const,
     id: str(row.proposedByAgentId),
@@ -340,13 +376,30 @@ async function applyProposal(
     );
   const key = projectKey(projectId);
   const slug = await uniqueSlug(conn, key, str(row.slug) ?? slugify(title));
+  const proposedParentId = str(row.parentId);
+  let parentId: string | null = null;
+  let parentFellBack = false;
+  if (proposedParentId) {
+    const parentRow = await findDocRow(conn, proposedParentId);
+    if (parentRow && !parentRow.archivedAt) parentId = proposedParentId;
+    else parentFellBack = true;
+  }
+  const sortOrder = await nextSortOrder(conn, key, parentId);
   const newId = await insertDoc(
     conn,
     deps.ids,
-    { projectId, title, slug, summary, content: str(row.content) ?? '' },
+    {
+      projectId,
+      title,
+      slug,
+      summary,
+      content: str(row.content) ?? '',
+      parentId,
+      sortOrder,
+    },
     author,
   );
-  return { docId: newId, docTitle: title, version: 1 };
+  return { docId: newId, docTitle: title, version: 1, parentFellBack };
 }
 
 function validateComment(value: unknown): string | null {
@@ -392,6 +445,14 @@ export async function decideProposal(
       decision === 'accept'
         ? await applyProposal(deps, tx.conn, row, comment, confirmStale)
         : null;
+    const finalComment = applied?.parentFellBack
+      ? [
+          comment,
+          'The proposed parent document is no longer available; the document was filed at the root.',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : comment;
     const timestamp = now();
     const result = await tx.conn.query
       .updateTable('knowledgeProposals')
@@ -400,7 +461,7 @@ export async function decideProposal(
         ...(applied ? { docId: applied.docId } : {}),
         decidedById: actor.id,
         decidedAt: timestamp,
-        comment,
+        comment: finalComment,
         updatedAt: timestamp,
       })
       .where('id', '=', proposalId)
@@ -437,7 +498,7 @@ export async function decideProposal(
       docTitle,
       decision: applied ? 'accepted' : 'rejected',
       version: applied?.version ?? null,
-      comment,
+      comment: finalComment,
       issueId: issue?.id ?? null,
       actor: { type: 'user', id: actor.id },
     });

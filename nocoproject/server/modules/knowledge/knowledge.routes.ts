@@ -7,6 +7,7 @@ import type {
   AgentKnowledgeProposalRequest,
   CreateKnowledgeDocRequest,
   DecideKnowledgeProposalRequest,
+  MoveKnowledgeDocRequest,
   UpdateKnowledgeDocRequest,
 } from '../shared/protocol.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
@@ -86,15 +87,24 @@ export function createKnowledgeRoutes(
       ),
     }),
   );
-  routes.patch('/:id', async (context) =>
-    context.json({
-      data: await knowledge.update(
-        sessionActor(context),
-        context.req.param('id'),
-        await readJson<UpdateKnowledgeDocRequest>(context),
-      ),
-    }),
-  );
+  // A move body carries `parentId` and/or `sortOrder` (NP-147); a content edit carries `expectedVersion` plus the
+  // fields to change. Both are `PATCH /np/knowledge/:id`.
+  routes.patch('/:id', async (context) => {
+    const body = await readJson<Record<string, unknown>>(context);
+    const isMove = 'parentId' in body || 'sortOrder' in body;
+    const data = isMove
+      ? await knowledge.move(
+          sessionActor(context),
+          context.req.param('id'),
+          body as unknown as MoveKnowledgeDocRequest,
+        )
+      : await knowledge.update(
+          sessionActor(context),
+          context.req.param('id'),
+          body as unknown as UpdateKnowledgeDocRequest,
+        );
+    return context.json({ data });
+  });
   routes.get('/:id/versions/:version', async (context) => {
     const version = Number(context.req.param('version'));
     if (!Number.isInteger(version) || version < 1)
