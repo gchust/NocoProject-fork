@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export type { NpTone } from '@/components/np-tones';
 
 /**
- * The one tag of NocoProject (nocosolution/frontend/nocobase3-frontend-best-practices.md §5.3): a rounded pill in a light tint
+ * The one tag of NocoProject (nocosolution/frontend/frontend-standard.md §5.3): a rounded pill in a light tint
  * of its hue with darker text of the same hue, 12px, tight enough that the pill hugs the glyph height instead of
  * the padding; a status adds a small leading dot. Status, priority, PR and run states, decision types and role tags
  * all use it, so they read as one family in both themes.

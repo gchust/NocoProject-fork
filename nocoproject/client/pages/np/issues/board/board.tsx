@@ -158,7 +158,7 @@ export function IssueBoard({
   /** Per status key; a column without an entry has no "load more". */
   readonly columnMore?: Readonly<Record<string, BoardColumnMore>>;
   /**
-   * Fill the parent's height (nocosolution/frontend/nocobase3-frontend-best-practices.md §8): the page does not scroll, each column scrolls on its
+   * Fill the parent's height (nocosolution/frontend/frontend-standard.md §8): the page does not scroll, each column scrolls on its
    * own and the columns scroll sideways. The parent must bound the height.
    */
   readonly fill?: boolean;

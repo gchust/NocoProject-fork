@@ -8,7 +8,7 @@ import {
 import { NavigationTree } from './navigation-tree.js';
 
 /**
- * The application sidebar as flat sections (nocosolution/frontend/nocobase3-frontend-best-practices.md §2.1).
+ * The application sidebar as flat sections (nocosolution/frontend/frontend-standard.md §2.1).
  *
  * NocoProject changes the template here on purpose: its product plan (§3.1) wants every entry always visible, so a
  * top-level group without a page of its own (Work, Agent team) is not a collapsible disclosure but a small grey section

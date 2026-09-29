@@ -24,7 +24,7 @@ function text(value: unknown): string | null {
 }
 
 /**
- * What a knowledge proposal would change (nocosolution/frontend/nocosolution-frontend-standard.md §2): the agent's reason and summary, then the
+ * What a knowledge proposal would change (nocosolution/frontend/frontend-standard.md §S2): the agent's reason and summary, then the
  * proposed text — as a line diff against the current version for an update, in full for a new document. The
  * proposal comes from the pending list (the inbox payload carries only its id); once decided it is gone from that
  * list and the reason from the payload is all that is left to show.

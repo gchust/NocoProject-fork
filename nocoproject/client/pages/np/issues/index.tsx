@@ -19,7 +19,7 @@ export default function IssuesPage(): ReactElement {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  // The page is exactly the content area's height (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.6): header, toolbar, then the board
+  // The page is exactly the content area's height (nocosolution/frontend/frontend-standard.md §3.6): header, toolbar, then the board
   // or table filling the rest and scrolling inside, so the page itself never scrolls.
   return (
     <PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'>

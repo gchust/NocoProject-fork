@@ -164,7 +164,7 @@ export function IssueDescription({
     );
   }
 
-  // Without a description the block is one muted row, so an empty issue shows no blank area (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.4).
+  // Without a description the block is one muted row, so an empty issue shows no blank area (nocosolution/frontend/frontend-standard.md §3.4).
   if (!description.trim()) {
     return (
       <div className='flex items-center gap-2 text-sm text-muted-foreground'>

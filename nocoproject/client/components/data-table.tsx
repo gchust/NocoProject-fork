@@ -29,7 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 
 declare module '@tanstack/react-table' {
-  // Column sizing without a second table API (nocosolution/frontend/nocobase3-frontend-best-practices.md §7.2): a column may give its header and cells
+  // Column sizing without a second table API (nocosolution/frontend/frontend-standard.md §7.2): a column may give its header and cells
   // a class, such as a fixed width or a capped, truncating title.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData, TValue> {
@@ -67,7 +67,7 @@ export interface DataTableProps<TData, TValue = unknown> {
   readonly virtualizeAfter?: number;
   /**
    * Fill the parent's height (a flex column): the body scrolls inside the frame under a sticky header row, so the
-   * page itself does not scroll (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.6, §7.1). The parent must give the table a bounded height.
+   * page itself does not scroll (nocosolution/frontend/frontend-standard.md §3.6, §7.1). The parent must give the table a bounded height.
    */
   readonly fillHeight?: boolean;
 }
@@ -150,7 +150,7 @@ export function DataTable<TData, TValue = unknown>({
           <DataTableVirtual table={table} onRowClick={onRowClick} />
         </div>
       ) : (
-        // One table density for the whole application (nocosolution/frontend/nocobase3-frontend-best-practices.md §7.1): a card-coloured frame, a quiet
+        // One table density for the whole application (nocosolution/frontend/frontend-standard.md §7.1): a card-coloured frame, a quiet
         // 36px header row and 40px body rows.
         <div
           className={cn(

@@ -1,6 +1,6 @@
 import type { NpDesignResource } from './np-design-en-US.js';
 
-/** Chinese wording for the design pass groups (`nocosolution/frontend/nocobase3-frontend-best-practices.md`, `nocosolution/frontend/nocosolution-frontend-standard.md`); merged into `np` by `zh-CN.ts`. */
+/** Chinese wording for the design pass groups (`nocosolution/frontend/frontend-standard.md`); merged into `np` by `zh-CN.ts`. */
 const npDesignZhCN: NpDesignResource = {
   inboxPane: {
     all: '全部',
