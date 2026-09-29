@@ -93,6 +93,8 @@ export function NpExecutorSelect({
     items.push({ value: selected, label: value.id ?? selected });
   }
 
+  const current = items.find((item) => item.value === selected);
+
   return (
     <Select
       items={items}
@@ -105,10 +107,11 @@ export function NpExecutorSelect({
       <SelectTrigger
         id={id}
         aria-label={ariaLabel}
+        title={selected === 'none' ? undefined : current?.label}
         className={cn('w-full', className)}
       >
-        {/* The trigger shows who executes as the shared avatar and name, and a muted dash for nobody (nocosolution/frontend/nocobase3-frontend-best-practices.md §6). */}
-        <SelectValue>
+        {/* The trigger shows who executes as the shared avatar and name, and a muted dash for nobody (nocosolution/frontend/nocobase3-frontend-best-practices.md §6). A long name truncates before the chevron; the trigger's title holds it in full. */}
+        <SelectValue className='min-w-0'>
           {(current: string) => {
             const item = items.find((entry) => entry.value === current);
             if (!item || current === 'none') {
@@ -129,7 +132,8 @@ export function NpExecutorSelect({
           }}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      {/* The popup grows to fit the names (up to 24rem, never past the viewport) instead of clipping them at the trigger's width. */}
+      <SelectContent className='w-auto max-w-[min(24rem,var(--available-width))] min-w-(--anchor-width)'>
         {items.map((item) => {
           const agent = item.value.startsWith('agent:')
             ? offered.find(
@@ -139,15 +143,22 @@ export function NpExecutorSelect({
           const person = item.value.startsWith('user:');
           const blocked = agent?.canInvoke === false && item.value !== selected;
           return (
-            <SelectItem key={item.value} value={item.value} disabled={blocked}>
+            <SelectItem
+              key={item.value}
+              value={item.value}
+              disabled={blocked}
+              className='[&>span:first-child]:min-w-0 [&>span:first-child]:shrink'
+            >
               {agent ? (
                 <span className='flex min-w-0 items-center gap-2'>
                   <BotIcon
                     className='size-3.5 text-muted-foreground'
                     aria-hidden='true'
                   />
-                  <span className='truncate'>{item.label}</span>
-                  <span className='text-xs text-muted-foreground'>
+                  <span className='truncate' title={item.label}>
+                    {item.label}
+                  </span>
+                  <span className='shrink-0 text-xs text-muted-foreground'>
                     {agent.canInvoke === false
                       ? t('np.executor.noAccess')
                       : isRuntimeOnline(agent)
@@ -161,7 +172,9 @@ export function NpExecutorSelect({
                     className='size-3.5 text-muted-foreground'
                     aria-hidden='true'
                   />
-                  <span className='truncate'>{item.label}</span>
+                  <span className='truncate' title={item.label}>
+                    {item.label}
+                  </span>
                 </span>
               ) : (
                 item.label
