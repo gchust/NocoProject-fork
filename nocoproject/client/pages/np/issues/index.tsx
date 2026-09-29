@@ -11,7 +11,7 @@ import { NewIssueButton } from './new-issue-button.js';
 
 /**
  * Route `/issues`: every issue as a board or a list (the board by default, the person's last choice remembered,
- * `?view=` overriding; §J 1, client/pages/np/README.md §2). The header's "新建任务" opens the `new` dialog, which
+ * `?view=` overriding; §J 1, client/pages/np/README.md §2). The header's "New issue" opens the `new` dialog, which
  * creates one issue or many (iteration 4 §D); `C` opens it too and ⌘K the search. The page stays mounted underneath
  * its child routes (`new`, the `:issueId` covering page).
  */

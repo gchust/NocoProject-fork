@@ -73,7 +73,7 @@ export function PullRequestsSection({
 }: {
   readonly issueId: string;
   readonly pullRequests: readonly IssuePullRequestView[];
-  /** Open the "link by URL" dialog on mount (the issue page's "+ 关联 PR" chip reveals the section this way). */
+  /** Open the "link by URL" dialog on mount (the issue page's "+ Pull request" chip reveals the section this way). */
   readonly initialLinking?: boolean;
 }): ReactElement {
   const { t } = useTranslation();

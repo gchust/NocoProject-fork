@@ -27,10 +27,10 @@ function settingsRead(id: string) {
 }
 
 /**
- * The sidebar follows the product plan §3.1 (iteration 3 §G): 收件箱, 我的任务 and 项目经理 (iteration 4 §C) on top,
- * the groups 工作 (issues, projects) and Agent 团队 (agents, runtimes, skills, knowledge), then 报表 and 设置. Settings
- * live in the front end (`/config`) rather than the system settings shell. Creating issues — one or many — is the
- * "新建任务" dialog over the issues page (iteration 4 §D).
+ * The sidebar follows the product plan §3.1 (iteration 3 §G): Inbox, My issues and Project manager (iteration 4 §C)
+ * on top, the groups Work (issues, projects) and Agent team (agents, runtimes, skills, knowledge), then Reports and
+ * Settings. Settings live in the front end (`/config`) rather than the system settings shell. Creating issues — one
+ * or many — is the "New issue" (np.issues.new) dialog over the issues page (iteration 4 §D).
  *
  * Page tabs are child routes without `navigation` or `breadcrumb`; overlays (dialogs and drawers) are child routes
  * too. Children omit `authz` and inherit the page grant above them. `/intake`, `/issues/intake`,
@@ -75,7 +75,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // 我的任务 (§G): the issue list and board filtered to the viewer, one tab per role.
+    // My issues (§G): the issue list and board filtered to the viewer, one tab per role.
     auth: 'required',
     authz: {
       resource: { type: 'page', id: 'np-my-issues' },
@@ -104,7 +104,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // 项目经理 (iteration 4 §C): the viewer's conversation with the project manager agent, full width.
+    // Project manager (iteration 4 §C): the viewer's conversation with the project manager agent, full width.
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-pm' }, action: 'access' },
     breadcrumb: { title: 'navigation.pm' },
@@ -118,9 +118,9 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     navigation: { title: 'navigation.work', icon: Briefcase, order: 4 },
     children: [
       {
-        // The detail is a covering child page (the list keeps its filters underneath); "新建任务" is a route dialog
-        // (one issue or many, iteration 4 §D) and `intake` redirects into it; the run transcript is a dialog over the
-        // detail.
+        // The detail is a covering child page (the list keeps its filters underneath); "New issue" (np.issues.new)
+        // is a route dialog (one issue or many, iteration 4 §D) and `intake` redirects into it; the run transcript
+        // is a dialog over the detail.
         auth: 'required',
         authz: {
           resource: { type: 'page', id: 'np-issues' },
@@ -138,7 +138,8 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
             path: 'new',
           },
           {
-            // Iteration 3's batch entry drawer: the AI 整理 tab of "新建任务" since iteration 4 §D.
+            // Iteration 3's batch entry drawer: the AI draft (np.newIssue.tabs.ai) tab of "New issue" since
+            // iteration 4 §D.
             componentLoader: () => import('./pages/np/intake/redirect.js'),
             name: 'np-issue-intake',
             path: 'intake',
@@ -196,7 +197,8 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
                 path: 'resources/new',
               },
               {
-                // Iteration 3's "批量添加": the AI 整理 tab of "新建任务" with the project preselected.
+                // Iteration 3's "Batch add" (np-iter2 project.batchAdd): the AI draft tab of "New issue" with the
+                // project preselected.
                 componentLoader: () => import('./pages/np/intake/redirect.js'),
                 name: 'np-project-intake',
                 path: 'intake',
@@ -309,7 +311,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // 报表 (§G): acceptance metrics (§C) and run usage (iteration 2 §I) as two tabs.
+    // Reports (§G): acceptance metrics (§C) and run usage (iteration 2 §I) as two tabs.
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-reports' }, action: 'access' },
     componentLoader: () => import('./pages/np/reports/index.js'),
@@ -330,7 +332,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // 设置 (§G): workspace settings in the front end. Each tab checks its settings item `nocoproject.*` (NP-117): by
+    // Settings (§G): workspace settings in the front end. Each tab checks its settings item `nocoproject.*` (NP-117): by
     // default members read all but GitHub, owner/admin change them (the server enforces the same rule on every write).
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-config' }, action: 'access' },
@@ -382,7 +384,8 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // Iteration 2's batch entry page is now the AI 整理 tab of "新建任务" (iteration 4 §D); `?project` / `?batch` kept.
+    // Iteration 2's batch entry page is now the AI draft tab of "New issue" (iteration 4 §D); `?project` / `?batch`
+    // kept.
     auth: 'required',
     authz: 'skip',
     componentLoader: () => import('./pages/np/intake/redirect.js'),
@@ -390,7 +393,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     path: '/intake',
   },
   {
-    // Iteration 2's usage page is now the 用量 tab of /reports (§G).
+    // Iteration 2's usage page is now the Usage tab of /reports (§G).
     auth: 'required',
     authz: 'skip',
     componentLoader: () => import('./pages/np/reports/usage-redirect.js'),

@@ -55,7 +55,7 @@ export function useDecisionSentence(): (item: InboxItem) => string | null {
   };
 }
 
-/** A decision's title ("待验收交付"), falling back to the inbox type label. */
+/** A decision's title ("Delivery to accept"), falling back to the inbox type label. */
 export function useDecisionTitle(): (item: Pick<InboxItem, 'type'>) => string {
   const { t } = useTranslation();
   return (item) =>

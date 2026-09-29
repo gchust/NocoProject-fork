@@ -1,10 +1,13 @@
 /**
- * NocoProject 协议类型：Phase 1 迭代 3 追加（docs/phase1/iteration-3-contract.md §J，实现见
- * docs/phase1/protocol-iteration-3.md）。
+ * NocoProject protocol types: Phase 1 iteration 3 additions (docs/phase1/iteration-3-contract.md §J;
+ * implementation in docs/phase1/protocol-iteration-3.md).
  *
- * 服务端正本；CLI 用 `pnpm sync-protocol` 复制本文件。本文件只从 protocol.ts 与 protocol.phase1-iter2.ts 引用类型；
- * 依赖服务端补充形状（IssueDetailV2 等）的组合类型在 protocol.phase1-iter3-server.ts（CLI 不复制）。
- * 只增不改：原联合类型保持不动，追加的枚举值写成单独的类型（InboxItemTypePhase1Iter3 等）再合并。
+ * Server source of truth; the CLI copies this file with `pnpm sync-protocol`. This file only imports
+ * types from protocol.ts and protocol.phase1-iter2.ts; composite types that depend on server-only
+ * additional shapes (IssueDetailV2, etc.) live in protocol.phase1-iter3-server.ts (not copied by the
+ * CLI).
+ * Additive only: the original union types stay unchanged, and added enum values are written as
+ * separate types (InboxItemTypePhase1Iter3, etc.) and then merged in.
  */
 import type {
   Activity,
@@ -23,11 +26,11 @@ import type {
   WorkspaceSettingsView,
 } from './protocol.phase1-iter2.js';
 
-// ---------- 知识库（§B） ----------
+// ---------- Knowledge base (§B) ----------
 
-/** 文档最后一次由谁更新（`knowledgeDocs.updatedByType`） */
+/** Who last updated the document (`knowledgeDocs.updatedByType`) */
 export type KnowledgeAuthorType = 'user' | 'agent';
-/** 版本作者（`knowledgeDocVersions.authorType`；system 目前不写，保留） */
+/** Version author (`knowledgeDocVersions.authorType`; system is not written yet, kept for later) */
 export type KnowledgeVersionAuthorType = 'user' | 'agent' | 'system';
 export type KnowledgeProposalStatus = 'pending' | 'accepted' | 'rejected';
 
@@ -36,33 +39,33 @@ export const KNOWLEDGE_SUMMARY_MAX = 300;
 export const KNOWLEDGE_REASON_MAX = 500;
 export const KNOWLEDGE_NOTE_MAX = 500;
 export const KNOWLEDGE_CONTENT_MAX = 200_000;
-/** slug：小写字母数字与连字符，1–64 位，不以连字符开头 */
+/** slug: lowercase letters, digits, and hyphens, 1-64 chars, not starting with a hyphen */
 export const KNOWLEDGE_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 
-/** `GET /np/knowledge`、`GET /np/agent/knowledge` 的元素（不含正文） */
+/** Element of `GET /np/knowledge`, `GET /np/agent/knowledge` (without the body) */
 export interface KnowledgeDocSummary {
   readonly id: string;
-  /** null = 系统级文档 */
+  /** null = a system-wide document */
   readonly projectId: string | null;
   readonly projectName: string | null;
   readonly title: string;
   readonly slug: string;
   readonly summary: string;
-  /** 从 1 开始，每次更新 +1 */
+  /** Starts at 1, +1 on every update */
   readonly version: number;
   readonly updatedByType: KnowledgeAuthorType;
   readonly updatedById: string | null;
   readonly updatedByName: string | null;
   readonly archivedAt: string | null;
-  /** 该文档上未决的建议数 */
+  /** Number of pending proposals on this document */
   readonly pendingProposalCount: number;
-  /** 当前用户能否修改（项目 lead、owner/admin；系统级只有 owner/admin）；Agent 接口恒为 false */
+  /** Whether the current user can modify it (project lead, owner/admin; system-wide docs are owner/admin only); always false in the agent interface */
   readonly canEdit: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
 
-/** 含 Markdown 正文 */
+/** Includes the Markdown body */
 export interface KnowledgeDoc extends KnowledgeDocSummary {
   readonly content: string;
 }
@@ -87,22 +90,24 @@ export interface KnowledgeDocVersion extends KnowledgeVersionSummary {
 
 export interface KnowledgeProposal {
   readonly id: string;
-  /** null = 新建文档的建议（接受后回填为新文档 id） */
+  /** null = a proposal to create a new document (backfilled with the new document's id once accepted) */
   readonly docId: string | null;
-  /** 现有文档的标题（新建时为建议的标题） */
+  /** The existing document's title (the proposed title when creating a new one) */
   readonly docTitle: string;
   readonly projectId: string | null;
   readonly projectName: string | null;
-  /** 建议的标题（更新现有文档时为空串 = 不改标题） */
+  /** The proposed title (an empty string when updating an existing document means don't change the title) */
   readonly title: string;
-  /** 新建时的 slug（接受时可能因重名加后缀） */
+  /** The slug when creating a new document (may get a suffix on accept if the name collides) */
   readonly slug: string | null;
   readonly summary: string;
   readonly content: string;
   readonly reason: string;
   readonly isNew: boolean;
-  /** 提出建议时文档的版本（新建为 null） */
+  /** The document's version when the proposal was made (null when creating a new one) */
   readonly baseVersion: number | null;
+  /** 文档现在的版本（新建为 null）；大于 `baseVersion` 说明接受前有人先改了文档 */
+  readonly currentVersion: number | null;
   readonly proposedByAgentId: string;
   readonly proposedByAgentName: string | null;
   readonly sourceRunId: string | null;
@@ -113,7 +118,7 @@ export interface KnowledgeProposal {
   readonly decidedByName: string | null;
   readonly decidedAt: string | null;
   readonly comment: string | null;
-  /** 当前用户能否决定（浏览器接口；Agent 接口恒为 false） */
+  /** Whether the current user can decide it (browser interface; always false in the agent interface) */
   readonly canDecide: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -122,9 +127,9 @@ export interface KnowledgeProposal {
 /** `GET /np/knowledge/:id` */
 export interface KnowledgeDocDetail {
   readonly doc: KnowledgeDoc;
-  /** 新版本在前 */
+  /** Newest version first */
   readonly versions: readonly KnowledgeVersionSummary[];
-  /** 该文档上未决的建议（新在前） */
+  /** Pending proposals on this document (newest first) */
   readonly proposals: readonly KnowledgeProposal[];
 }
 
@@ -146,21 +151,23 @@ export interface UpdateKnowledgeDocRequest {
 
 export interface DecideKnowledgeProposalRequest {
   readonly comment?: string;
+  /** 接受一条已过期的建议（`baseVersion < currentVersion`）时带上，绕过 409 `KNOWLEDGE_PROPOSAL_STALE` */
+  readonly confirmStale?: boolean;
 }
 
-/** `POST /np/agent/knowledge/proposals`：`docId`（id 或 slug）与 `title`（+ 可选 `slug`）二选一 */
+/** `POST /np/agent/knowledge/proposals`: exactly one of `docId` (id or slug) or `title` (+ optional `slug`) */
 export interface AgentKnowledgeProposalRequest {
   readonly docId?: string;
   readonly title?: string;
   readonly slug?: string;
-  /** 新建时的项目；缺省 = 运行所属项目，null = 系统级 */
+  /** The project when creating a new document; defaults to the run's project, null = system-wide */
   readonly projectId?: string | null;
   readonly summary?: string;
   readonly content: string;
   readonly reason: string;
 }
 
-/** 认领载荷 `knowledge[]` 的元素（索引，不带正文） */
+/** Element of the claim payload's `knowledge[]` (an index, without the body) */
 export interface ClaimedKnowledgeDoc {
   readonly id: string;
   readonly slug: string;
@@ -169,17 +176,17 @@ export interface ClaimedKnowledgeDoc {
   readonly projectId: string | null;
 }
 
-/** ClaimedRun 在迭代 3 追加的字段（守护进程按可选读取） */
+/** Fields added to ClaimedRun in iteration 3 (the daemon reads them as optional) */
 export interface ClaimedRunPhase3Extras {
-  /** 运行所属项目的文档在前，系统级在后；不含归档文档 */
+  /** Documents of the run's own project come first, then system-wide ones; excludes archived documents */
   readonly knowledge: readonly ClaimedKnowledgeDoc[];
 }
 
-// ---------- 验收指标（§C） ----------
+// ---------- Acceptance metrics (§C) ----------
 
 export type MetricStatus = 'ok' | 'warn' | 'n/a';
 
-/** `settings.metricThresholds`；方向见 METRIC_THRESHOLD_DIRECTIONS */
+/** `settings.metricThresholds`; see METRIC_THRESHOLD_DIRECTIONS for direction */
 export interface MetricThresholds {
   /** aiShare.share ≥ */
   readonly aiShare: number;
@@ -203,7 +210,7 @@ export const METRIC_THRESHOLD_KEYS: readonly MetricThresholdKey[] = [
   'decisionResolveP50Ms',
 ];
 
-/** min：值 ≥ 阈值为 ok；max：值 ≤ 阈值为 ok */
+/** min: ok when the value ≥ threshold; max: ok when the value ≤ threshold */
 export const METRIC_THRESHOLD_DIRECTIONS: Readonly<
   Record<MetricThresholdKey, 'min' | 'max'>
 > = {
@@ -232,7 +239,7 @@ export interface MetricsAdoption {
 export interface MetricsAiShare {
   readonly deliveredByAgent: number;
   readonly deliveredTotal: number;
-  /** 没有交付时为 null */
+  /** null when there were no deliveries */
   readonly share: number | null;
 }
 
@@ -272,13 +279,13 @@ export interface MetricsHumanLoad {
   readonly decisionsResolved: number;
   readonly decisionResolveP50Ms: number | null;
   readonly openDecisions: number;
-  /** 期间创建的决定项按类型计数 */
+  /** Decision items created in the period, counted by type */
   readonly byType: Readonly<Partial<Record<InboxItemTypeV3, number>>>;
 }
 
 /** `GET /np/metrics` */
 export interface MetricsReport {
-  /** UTC 日期，含两端 */
+  /** UTC dates, inclusive of both ends */
   readonly from: string;
   readonly to: string;
   readonly projectId: string | null;
@@ -293,31 +300,31 @@ export interface MetricsReport {
   readonly statuses: Readonly<Record<MetricThresholdKey, MetricStatus>>;
 }
 
-/** `GET /np/settings` 追加 */
+/** Addition to `GET /np/settings` */
 export type WorkspaceSettingsViewV3 = WorkspaceSettingsView & {
   readonly metricThresholds: MetricThresholds;
 };
 
-/** `PATCH /np/settings` 追加（部分键即可，与已存的合并） */
+/** Addition to `PATCH /np/settings` (partial keys are fine; merged with the stored value) */
 export type UpdateWorkspaceSettingsRequestV3 =
   UpdateWorkspaceSettingsRequest & {
     readonly metricThresholds?: Partial<MetricThresholds>;
   };
 
-// ---------- 分页（§D） ----------
+// ---------- Pagination (§D) ----------
 
 export const ISSUE_PAGE_DEFAULT_LIMIT = 50;
 export const ISSUE_PAGE_MAX_LIMIT = 100;
 export const BOARD_COLUMN_DEFAULT_LIMIT = 50;
 export const ACTIVITY_PAGE_DEFAULT_LIMIT = 50;
 export const ACTIVITY_PAGE_MAX_LIMIT = 200;
-/** 详情里的评论超过这个数才分页 */
+/** Comments in a detail view are only paginated past this count */
 export const DETAIL_COMMENTS_LIMIT = 200;
 
-/** 任务列表行（服务端的 IssueListItemV2） */
+/** An issue list row (the server's IssueListItemV2) */
 export type IssueListRow = IssueListItemV1 & IssuePhase2Fields;
 
-/** `GET /np/issues` 的完整响应体（`nextCursor` 与 `data` 同级；null = 最后一页） */
+/** Full response body of `GET /np/issues` (`nextCursor` is a sibling of `data`; null = last page) */
 export interface IssueListPage<T = IssueListRow> {
   readonly data: readonly T[];
   readonly nextCursor: string | null;
@@ -330,51 +337,51 @@ export interface BoardGroupV3<T = IssueListRow> {
   readonly nextCursor: string | null;
 }
 
-/** `GET /np/issues?view=board` 的 data（带 `statusKey` 时只有那一列） */
+/** The data of `GET /np/issues?view=board` (only that one column when `statusKey` is given) */
 export interface IssueBoardResponseV3<T = IssueListRow> {
   readonly groups: readonly BoardGroupV3<T>[];
 }
 
-/** `GET /np/issues/:id/activities` 的完整响应体；`data` 按时间升序，`nextCursor` 取更早的一页 */
+/** Full response body of `GET /np/issues/:id/activities`; `data` is ascending by time, `nextCursor` gets an earlier page */
 export interface ActivityPage {
   readonly data: readonly Activity[];
   readonly nextCursor: string | null;
 }
 
-/** `GET /np/issues/:id/comments` 的完整响应体；`data` 按时间升序，`nextCursor` 取更早的一页 */
+/** Full response body of `GET /np/issues/:id/comments`; `data` is ascending by time, `nextCursor` gets an earlier page */
 export interface CommentPage {
   readonly data: readonly CommentV2[];
   readonly nextCursor: string | null;
 }
 
-/** 任务详情追加的分页游标 */
+/** Pagination cursors added to the issue detail */
 export interface IssueDetailPaging {
   readonly activitiesNextCursor: string | null;
   readonly commentsNextCursor: string | null;
 }
 
-// ---------- 收件箱直接操作与交付（§E） ----------
+// ---------- Direct inbox actions and delivery (§E) ----------
 
 export type InboxActionKind = 'primary' | 'secondary' | 'danger';
-/** GET = 导航（应用内路由，或 `external` 时为外部 URL）；POST = 调接口（路径相对 `/api`） */
+/** GET = navigate (an in-app route, or an external URL when `external`); POST = call the endpoint (path relative to `/api`) */
 export type InboxActionMethod = 'GET' | 'POST';
 
 export interface InboxAction {
   readonly key: string;
-  /** i18n key：`np.inboxActions.<key>` */
+  /** i18n key: `np.inboxActions.<key>` */
   readonly label: string;
   readonly kind: InboxActionKind;
   readonly method: InboxActionMethod;
-  /** POST：接口路径（如 `/np/issues/<id>/deliveries/accept`）；GET：应用内路由（如 `/issues/NP-12`）或外部 URL */
+  /** POST: the endpoint path (e.g. `/np/issues/<id>/deliveries/accept`); GET: an in-app route (e.g. `/issues/NP-12`) or an external URL */
   readonly path: string;
   readonly body?: Readonly<Record<string, unknown>>;
-  /** 需要先填评论；评论写进 `body[commentField]` */
+  /** A comment must be filled in first; it is written into `body[commentField]` */
   readonly needsComment?: boolean;
-  /** 评论字段名，默认 `comment`（回复 Agent 是 `content`） */
+  /** Comment field name, defaults to `comment` (`content` when replying to an agent) */
   readonly commentField?: string;
-  /** 打开任务详情（在那里继续操作） */
+  /** Opens the issue detail (to continue the action there) */
   readonly opensIssue?: boolean;
-  /** `path` 是外部 URL（新窗口打开） */
+  /** `path` is an external URL (opened in a new window) */
   readonly external?: boolean;
 }
 
@@ -387,8 +394,9 @@ export interface RequestChangesRequest {
 }
 
 /**
- * `POST /np/issues/:id/deliveries/accept | request-changes` 的 data（200；状态变化需审批时 202，`issue` 未变）。
- * `issue` 是完整任务行（服务端 IssueV2），这里只列 CLI 读取的字段。
+ * The data of `POST /np/issues/:id/deliveries/accept | request-changes` (200; 202 with `issue`
+ * unchanged when the status change needs approval).
+ * `issue` is the full issue row (the server's IssueV2); only the fields the CLI reads are listed here.
  */
 export interface DeliveryResult {
   readonly issue: IssueStatusSnapshot;
@@ -396,28 +404,28 @@ export interface DeliveryResult {
   readonly comment: CommentV2 | null;
 }
 
-// ---------- 工作流模板（§F） ----------
+// ---------- Workflow templates (§F) ----------
 
-/** `GET /np/workflows` 的行与 `GET /np/workflows/:id`（`isDefault` 已在 Workflow 上） */
+/** Row of `GET /np/workflows` and `GET /np/workflows/:id` (`isDefault` is already on Workflow) */
 export type WorkflowListItem = Workflow & {
-  /** 使用这个模板的项目数（默认模板含未指定模板的项目） */
+  /** Number of projects using this template (the default template includes projects with no template specified) */
   readonly projectCount: number;
 };
 
-// ---------- 项目详情（§B） ----------
+// ---------- Project detail (§B) ----------
 
-/** `GET /np/projects/:id` 追加项目文档（不含系统级、不含归档） */
+/** `GET /np/projects/:id` adds project documents (excludes system-wide and archived ones) */
 export type ProjectDetailV3 = ProjectDetail & {
   readonly knowledgeDocs: readonly KnowledgeDocSummary[];
 };
 
-// ---------- 追加的枚举值 ----------
+// ---------- Added enum values ----------
 
 export type InboxItemTypePhase1Iter3 =
   'knowledge_proposal' | 'knowledge_decided';
-/** 迭代 1–3 的全部收件箱类型 */
+/** All inbox types across iterations 1-3 */
 export type InboxItemTypeV3 = InboxItemTypeV2 | InboxItemTypePhase1Iter3;
-/** 收件箱项（`type` 含迭代 3 的类型；`payload.actions` 见 InboxAction） */
+/** An inbox item (`type` includes iteration 3's types; see InboxAction for `payload.actions`) */
 export type InboxItemV3 = Omit<InboxItemV2, 'type'> & {
   readonly type: InboxItemTypeV3;
 };

@@ -154,6 +154,7 @@ export function createDoubles() {
     extendLease: vi.fn(),
   };
   const runTokens = {
+    authorize: vi.fn(async () => {}),
     verify: vi.fn(async (token: string) =>
       token === RUN_TOKEN
         ? { runId: 'r1', agentId: 'a1', actorUserId: 'u1', issueId: 'i1' }

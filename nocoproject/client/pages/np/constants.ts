@@ -195,7 +195,7 @@ export const npKeys = {
     ['np', 'inbox', 'list', kind, archived] as const,
   inboxUnread: ['np', 'inbox', 'unread'] as const,
   inboxPending: ['np', 'inbox', 'pending'] as const,
-  /** The viewer's open decisions on one issue (the issue page's "等你决定" section). */
+  /** The viewer's open decisions on one issue (the issue page's "Waiting for you" section). */
   issueDecisions: (issueId: string) =>
     ['np', 'inbox', 'issue', issueId] as const,
   // Phase 1 iteration 2
@@ -312,7 +312,7 @@ export const LABEL_DOT_CLASS: Readonly<Record<LabelColor, string>> = {
  * `dist/client/assets/cli/nocoproject-cli-<version>.tgz` (`scripts/pack-cli.sh`, a build hook in `cli/plugins.ts`) and
  * fails when this does not match its package.json; bump both together.
  */
-export const CLI_VERSION = '0.3.1';
+export const CLI_VERSION = '0.4.0';
 
 /** How to install the daemon/CLI on another computer: npm fetches the tarball this application serves. */
 export function cliInstallCommand(serverUrl: string): string {

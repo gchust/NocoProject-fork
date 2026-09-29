@@ -54,14 +54,14 @@ describe('iteration 4 daemon e2e (echo adapter)', () => {
     const { mock } = await setup();
     mock.addIssue({ id: 'i80', identifier: 'NP-80', title: '项目经理 · Alice', description: '[echo:pm=how many issues?]', statusKey: 'todo' });
     mock.addIssue({ id: 'i81', identifier: 'NP-81', title: 'Other work' });
-    const runId = mock.enqueue('i80', { triggerComment: 'How many issues are there?', agentExtras: { kind: 'manager', reasoningEffort: 'high' }, issueExtras: { executionMode: 'session' } });
+    const runId = mock.enqueue('i80', { triggerComment: 'How many issues are there?', agentExtras: { capabilities: ['context.read', 'workspace.read', 'comment.create', 'knowledge.propose'], kind: 'manager', reasoningEffort: 'high' }, issueExtras: { executionMode: 'session' } });
     await waitFor(() => done(mock, runId), 20_000, 'pm run');
     expect(mock.runs.get(runId)?.status).toBe('completed');
     const reply = mock.comments.get('i80')?.find((c) => c.authorType === 'agent');
     expect(reply?.content).toContain('PM how many issues?: 2 issues');
     expect(statusCalls(mock, 'i80')).toEqual([]);
     const workDir = workDirOf(mock, runId);
-    expect(readFileSync(join(workDir, 'AGENTS.md'), 'utf8')).toContain('## Project manager');
+    expect(readFileSync(join(workDir, 'AGENTS.md'), 'utf8')).not.toContain('## Project manager');
     expect(JSON.parse(readFileSync(join(workDir, '.nocoproject', 'context.json'), 'utf8')).agent.kind).toBe('manager');
   });
 });

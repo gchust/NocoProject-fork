@@ -147,17 +147,34 @@ export async function fetchKnowledgeProposals(
 
 export type KnowledgeProposalDecision = 'accept' | 'reject';
 
+/**
+ * Accepting a proposal whose document moved past its `baseVersion` since it was proposed is 409
+ * `KNOWLEDGE_PROPOSAL_STALE` (`details.currentVersion`) unless `confirmStale` is set (NP-139).
+ */
 export async function decideKnowledgeProposal(
   api: ApiClient,
   proposalId: string,
   decision: KnowledgeProposalDecision,
   comment?: string,
+  confirmStale?: boolean,
 ): Promise<void> {
-  await api.request<unknown, { comment?: string }>({
+  const json: { comment?: string; confirmStale?: boolean } = {};
+  if (comment) json.comment = comment;
+  if (confirmStale) json.confirmStale = true;
+  await api.request<unknown, typeof json>({
     path: `np/knowledge/proposals/${id(proposalId)}/${decision}`,
     method: 'POST',
-    json: comment ? { comment } : {},
+    json,
   });
+}
+
+/** The `currentVersion` of a 409 `KNOWLEDGE_PROPOSAL_STALE` error body, if any. */
+export function staleVersionOfError(payload: unknown): number | null {
+  const details = (payload as { details?: { currentVersion?: unknown } } | null)
+    ?.details;
+  return typeof details?.currentVersion === 'number'
+    ? details.currentVersion
+    : null;
 }
 
 /** A slug from a title, as the server would derive it: lowercase ASCII words joined by hyphens. */

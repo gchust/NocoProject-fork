@@ -8,7 +8,7 @@
  * the notification module.
  *
  * Iteration 2 adds the injectable edges tests replace: the secret box, the GitHub client, the AI intake parser and
- * the approval gateway (the "替换检查清单" test runs the suite with an in-memory gateway). Iteration 3 adds the
+ * the approval gateway (the "replacement checklist" test runs the suite with an in-memory gateway). Iteration 3 adds the
  * knowledge base, the acceptance metrics and the delivery decisions (`createIteration3Services`); iteration 4 the
  * process classifier, the design decisions and the project manager (`services.iter4.ts`).
  */
@@ -232,7 +232,7 @@ export interface NpServiceDeps {
   /** NP-78: deletes stored attachment objects; the provider backs it with Drive. Absent = objects are kept (tests). */
   readonly fileObjects?: FileObjectStore;
   readonly onFileObjectError?: (error: unknown) => void;
-  /** NP-78: reads files attached on the AI 整理 tab for the AI parser; absent = files are not read. */
+  /** NP-78: reads files attached on the AI draft tab (np.newIssue.tabs.ai) for the AI parser; absent = files are not read. */
   readonly attachmentText?: AttachmentTextReader | null;
   /** NP-88: invitation email and account creation; absent = no email is sent, no account can be created. */
   readonly mailer?: () => InvitationMailer;

@@ -300,7 +300,7 @@ export default class NpProvider extends ServiceProvider<Application> {
     bindModule(container, npInvitationServiceToken, 'invitations');
   }
 
-  /** NP-78: the AI 整理 tab's files are read through the Drive manager, on the row's own disk, for the AI parser. */
+  /** NP-78: the AI draft tab's (np.newIssue.tabs.ai) files are read through the Drive manager, on the row's own disk, for the AI parser. */
   private attachmentText(): AttachmentTextReader | null {
     const { container } = this.app;
     if (!container.has(driveManagerToken)) return null;

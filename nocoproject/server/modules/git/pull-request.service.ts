@@ -1,3 +1,4 @@
+import { requireActorCapability } from '../agent/capabilities.js';
 /**
  * Linking pull requests to issues by hand (browser) and from an agent's run (docs/phase1/iteration-2-contract.md §C).
  *
@@ -195,6 +196,7 @@ async function agentLink(
   // No token, or GitHub could not be read: keep a minimal row; the webhook fills it in.
   const fetched = await fetchSnapshot(deps, ref).catch(() => null);
   return deps.tx.run(async (tx) => {
+    await requireActorCapability(tx.conn, actor, 'pullRequest.link', issue.id);
     const pr: PullRequest = fetched
       ? await storeSnapshot(deps, tx, fetched.snapshot, fetched.connectionId)
       : await ensurePullRequest(tx, deps.ids, ref);

@@ -1,5 +1,5 @@
 /**
- * Inbox items for workflow stage actions (NP-77 方案 §1–§3):
+ * Inbox items for workflow stage actions (NP-77 proposal §1–§3):
  *
  * | event                      | item                                                                               |
  * | -------------------------- | ---------------------------------------------------------------------------------- |

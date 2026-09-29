@@ -53,6 +53,7 @@ writeFileSync(
   configFile,
   JSON.stringify(
     {
+      app: { publicOrigin: `http://${hostname}:${port}` },
       client: { app: { title: 'NocoProject 预览' } },
       i18n: { defaultLocale: 'zh-CN' },
       users: { initialAdmin: ADMIN },
@@ -230,13 +231,13 @@ async function seedDemo(server: StandaloneServer): Promise<void> {
 }
 
 async function signIn(server: StandaloneServer): Promise<Api> {
-  const apiBase = `http://localhost${server.application.publicBasePath}/api`;
+  const apiBase = `http://${hostname}:${port}${server.application.publicBasePath}/api`;
   const signInResponse = await server.fetch(
     new Request(`${apiBase}/auth/sign-in/username`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        origin: 'http://localhost',
+        origin: `http://${hostname}:${port}`,
       },
       body: JSON.stringify({
         username: ADMIN.username,
@@ -256,7 +257,7 @@ async function signIn(server: StandaloneServer): Promise<Api> {
       headers: {
         'content-type': 'application/json',
         cookie,
-        origin: 'http://localhost',
+        origin: `http://${hostname}:${port}`,
       },
       body: JSON.stringify({ name: 'preview-seed' }),
     }),

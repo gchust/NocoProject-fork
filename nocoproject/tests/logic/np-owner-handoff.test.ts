@@ -93,6 +93,8 @@ describe.skipIf(!db)('owner handoff and agent invocation (PostgreSQL)', () => {
     'retains a %s executor when the new owner has access',
     async (access) => {
       await services.agents.update(ALICE, agentId, {
+        configurationRevision: (await services.agents.get(ALICE, agentId))
+          .configurationRevision,
         access,
         accessUserIds: access === 'specificUsers' ? [BOB.id!] : [],
       });
@@ -117,6 +119,8 @@ describe.skipIf(!db)('owner handoff and agent invocation (PostgreSQL)', () => {
 
   it('clears a specificUsers executor outside the grant list, even for an admin', async () => {
     await services.agents.update(ALICE, agentId, {
+      configurationRevision: (await services.agents.get(ALICE, agentId))
+        .configurationRevision,
       access: 'specificUsers',
       accessUserIds: [CAROL.id!],
     });
@@ -136,7 +140,11 @@ describe.skipIf(!db)('owner handoff and agent invocation (PostgreSQL)', () => {
       runtime.runtimeId,
       'Shared',
     );
-    await services.agents.update(ALICE, replacement, { access: 'everyone' });
+    await services.agents.update(ALICE, replacement, {
+      configurationRevision: (await services.agents.get(ALICE, replacement))
+        .configurationRevision,
+      access: 'everyone',
+    });
     const issue = await assigned();
     const after = await services.issues.update(ALICE, issue.id, {
       ownerUserId: BOB.id,
@@ -208,11 +216,14 @@ describe.skipIf(!db)('owner handoff and agent invocation (PostgreSQL)', () => {
     expect(
       (await triggerRows(db!, run!.id as string)).map((r) => r.type),
     ).toEqual(['assign']);
+    // Agent comments need a live run (NP-125 capability checks); finish it before the handoff.
+    const claimed = await claimOne(services, ALICE, runtime);
     const output = await services.comments.create(
-      { type: 'agent', id: agentId },
+      { type: 'agent', id: agentId, runId: claimed!.run.id },
       issue.id,
       { content: 'My output' },
     );
+    await services.runs.complete(claimed!.run.id, { summary: 'Done' });
     await services.issues.update(ALICE, issue.id, {
       ownerUserId: BOB.id,
       revision: issue.revision,

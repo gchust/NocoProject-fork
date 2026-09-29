@@ -30,6 +30,7 @@ const AGENTS = [
     runtimeId: 'r1',
     runtimeOnline: true,
     kind: 'coder',
+    capabilities: ['issue.execute'],
   },
   {
     id: 'pm1',
@@ -162,7 +163,7 @@ describe('new issue dialog: manual tab (iteration 4 §B, §D)', () => {
     );
   });
 
-  it('sends 自动 explicitly so the server classifies the issue', async () => {
+  it('sends Automatic explicitly so the server classifies the issue', async () => {
     const user = userEvent.setup();
     const posted: Record<string, unknown>[] = [];
     api.request.mockImplementation(

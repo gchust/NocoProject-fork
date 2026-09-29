@@ -1,11 +1,12 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircleIcon, SaveIcon, Trash2Icon } from 'lucide-react';
+import { AlertCircleIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { NpMarkdown } from '@/components/np-markdown';
 import { NpDetailSkeleton } from '@/components/np-states';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
@@ -27,34 +28,28 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/components/ui/toast';
 
 import { fetchMembers } from '../../api-collab.js';
 import {
   deleteSkill,
   fetchSkill,
-  updateSkill,
+  stripSkillFrontMatter,
 } from '../../api-agent-extras.js';
 import { fetchMe } from '../../api.js';
 import { npKeys } from '../../constants.js';
 import { isWorkspaceAdmin, viewerFrom } from '../../permissions.js';
 import type { SkillDetail } from '../../types.js';
+import { SkillAgents } from './skill-agents.js';
+import { SkillEditor } from './skill-editor.js';
 import { SkillFiles } from './skill-files.js';
 
 /**
- * Route `/skills/:skillId` (iteration 2 §H): the skill's name, description and SKILL.md, and its supporting files.
- * SKILL.md is edited as source (it may open with YAML front matter a rich text editor would not keep). Read-only for
- * anyone but its creator and owner/admin.
+ * Route `/skills/:skillId` (NP-140, iteration 2 §H): the skill's rendered SKILL.md by default (YAML front matter is
+ * stripped from the body; name and description sit above it as properties), the agents it is mounted on, and its
+ * supporting files. Its creator and owner/admin get an "edit" action opening the source form (name, description,
+ * content); saving or cancelling returns to the reading view. Read-only for everyone else.
  */
 export default function SkillDetailPage(): ReactElement {
   const { skillId = '' } = useParams();
@@ -115,15 +110,11 @@ function SkillView({ skillId }: { readonly skillId: string }): ReactElement {
     (isWorkspaceAdmin(viewer) ||
       (!!skill.createdById && skill.createdById === viewer?.userId));
   return (
-    <SkillEditor
-      key={skill.updatedAt ?? skill.id}
-      detail={detail.data}
-      canEdit={canEdit}
-    />
+    <SkillDetailBody key={skill.id} detail={detail.data} canEdit={canEdit} />
   );
 }
 
-function SkillEditor({
+function SkillDetailBody({
   detail,
   canEdit,
 }: {
@@ -135,38 +126,9 @@ function SkillEditor({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { skill } = detail;
-  const [name, setName] = useState(skill.name);
-  const [description, setDescription] = useState(skill.description ?? '');
-  const [content, setContent] = useState(skill.content ?? '');
+  const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const dirty =
-    name !== skill.name ||
-    description !== (skill.description ?? '') ||
-    content !== (skill.content ?? '');
 
-  const save = useMutation({
-    mutationFn: () =>
-      updateSkill(api, skill.id, {
-        name: name.trim(),
-        description: description.trim() || null,
-        content,
-      }),
-    onSuccess: () =>
-      toast.add({ type: 'success', title: t('np.skills.saved') }),
-    onError: (error: unknown) =>
-      toast.add({
-        type: 'error',
-        priority: 'high',
-        title:
-          error instanceof ApiClientError && error.status === 403
-            ? t('np.common.forbidden')
-            : error instanceof ApiClientError && error.status === 409
-              ? t('np.skills.duplicate')
-              : t('np.common.requestFailed'),
-      }),
-    onSettled: () =>
-      void queryClient.invalidateQueries({ queryKey: npKeys.skills }),
-  });
   const remove = useMutation({
     mutationFn: () => deleteSkill(api, skill.id),
     onSuccess: () => {
@@ -186,6 +148,8 @@ function SkillEditor({
       }),
   });
 
+  const body = stripSkillFrontMatter(skill.content ?? '');
+
   return (
     <PageContainer>
       <Breadcrumbs />
@@ -198,74 +162,48 @@ function SkillEditor({
           </>
         }
         actions={
-          canEdit ? (
-            <Button variant='outline' onClick={() => setConfirmingDelete(true)}>
-              <Trash2Icon data-icon='inline-start' />
-              {t('np.skills.delete')}
-            </Button>
+          canEdit && !editing ? (
+            <>
+              <Button
+                variant='outline'
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <Trash2Icon data-icon='inline-start' />
+                {t('np.skills.delete')}
+              </Button>
+              <Button onClick={() => setEditing(true)}>
+                <PencilIcon data-icon='inline-start' />
+                {t('np.skills.edit')}
+              </Button>
+            </>
           ) : undefined
         }
       />
-      <FieldGroup className='max-w-2xl'>
-        <Field data-invalid={!name.trim() ? true : undefined}>
-          <FieldLabel htmlFor='np-skill-edit-name'>
-            {t('np.skills.name')}
-          </FieldLabel>
-          <Input
-            id='np-skill-edit-name'
-            value={name}
-            readOnly={!canEdit}
-            maxLength={100}
-            onChange={(event) => setName(event.target.value)}
-          />
-          {!name.trim() ? (
-            <FieldError>{t('np.skills.nameRequired')}</FieldError>
-          ) : null}
-        </Field>
-        <Field>
-          <FieldLabel htmlFor='np-skill-edit-description'>
-            {t('np.skills.descriptionLabel')}
-          </FieldLabel>
-          <Textarea
-            id='np-skill-edit-description'
-            rows={2}
-            value={description}
-            readOnly={!canEdit}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-          <FieldDescription>{t('np.skills.descriptionHint')}</FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor='np-skill-edit-content'>
-            {t('np.skills.content')}
-          </FieldLabel>
-          <Textarea
-            id='np-skill-edit-content'
-            rows={18}
-            value={content}
-            readOnly={!canEdit}
-            spellCheck={false}
-            className='font-mono text-xs'
-            onChange={(event) => setContent(event.target.value)}
-          />
-          <FieldDescription>{t('np.skills.contentHint')}</FieldDescription>
-        </Field>
-        {canEdit ? (
-          <div className='flex justify-end'>
-            <Button
-              disabled={!dirty || !name.trim() || save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending ? (
-                <Spinner data-icon='inline-start' />
-              ) : (
-                <SaveIcon data-icon='inline-start' />
-              )}
-              {t('actions.save')}
-            </Button>
-          </div>
-        ) : null}
-      </FieldGroup>
+      {skill.description ? (
+        <p className='max-w-2xl text-sm text-muted-foreground'>
+          {skill.description}
+        </p>
+      ) : null}
+      {editing ? (
+        <SkillEditor
+          key={skill.updatedAt ?? skill.id}
+          skill={skill}
+          onDone={() => setEditing(false)}
+        />
+      ) : (
+        <Card className='max-w-2xl'>
+          <CardContent>
+            {body.trim() ? (
+              <NpMarkdown content={body} />
+            ) : (
+              <p className='text-sm text-muted-foreground'>
+                {t('np.skills.emptyContent')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      <SkillAgents agents={detail.agents} />
       <SkillFiles skillId={skill.id} files={detail.files} canEdit={canEdit} />
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>

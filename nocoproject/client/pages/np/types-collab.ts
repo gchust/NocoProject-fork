@@ -1,7 +1,7 @@
 /**
  * Browser-side types for Phase 1 iteration 1 (`docs/phase1/iteration-1-contract.md` §D–§H).
  *
- * Copied from the "Phase 1 迭代 1" section of `server/modules/shared/protocol.ts` for the same reason as `types.ts`:
+ * Copied from the "Phase 1 iteration 1" section of `server/modules/shared/protocol.ts` for the same reason as `types.ts`:
  * the client tsconfig must not reach into `server/`. Response shapes the contract describes only in prose
  * (`ProjectListItem`, `ProjectDetail`, the inbox list envelope) mark the fields it does not pin down as optional.
  */

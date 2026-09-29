@@ -21,6 +21,7 @@ import {
   BOB,
   buildServices,
   createAgent,
+  claimOne,
   openNpTestDatabase,
   registerRuntime,
   resetData,
@@ -103,8 +104,9 @@ async function agentPullRequest(): Promise<{ issue: IssueV2; prId: string }> {
     ownerUserId: BOB.id,
     executor: { type: 'agent', id: agentId },
   });
+  const claimed = await claimOne(services, ALICE, fixture);
   const { view } = await services.pullRequests.agentLink(
-    { type: 'agent', id: agentId },
+    { type: 'agent', id: agentId, runId: claimed!.run.id },
     issue,
     URL,
   );

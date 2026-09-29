@@ -74,7 +74,7 @@ export class ClaimLoop {
     if (slots.length === 0) return;
     let response: DaemonClaimResponse;
     try {
-      response = await this.opts.api.claim({ daemonId: this.opts.daemonId, slots });
+      response = await this.opts.api.claim({ daemonId: this.opts.daemonId, slots, configurationProtocol: 1 });
     } catch (error) {
       if (error instanceof HttpError && error.status === 426) {
         this.stop();

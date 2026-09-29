@@ -1,4 +1,4 @@
-// @temporary(nocobase-official): 待替换为 NocoBase 官方 活动流与变更事件
+// @temporary(nocobase-official): to be replaced by the official NocoBase activity stream and change events
 /**
  * Activity recorder: one row in `activities` per change to an issue, written in the caller's transaction so the
  * activity exists exactly when the change does.

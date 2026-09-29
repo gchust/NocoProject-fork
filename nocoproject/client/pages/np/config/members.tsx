@@ -93,12 +93,12 @@ function RoleSelect({
  * Tab `/config/members` (iteration 1 §J 6, moved into the front-end settings in iteration 3 §G): the workspace
  * members and their roles. Since NP-117 the roles are built-in permission sets: only an owner grants or revokes
  * owner, and the last owner keeps it; admin and member change here only for whoever may assign roles in user
- * management, which the "用户管理" button opens (`memberRoleOptions`); `PATCH /np/members/:userId` enforces the same
+ * management, which the "User management" button opens (`memberRoleOptions`); `PATCH /np/members/:userId` enforces the same
  * rules.
  *
  * NP-88: whoever may invite (`nocoproject.members` `invite`; owner/admin by default), and a project lead for the
- * projects they lead, invite people by email ("邀请成员"); the invitations not accepted yet are listed under the
- * members.
+ * projects they lead, invite people by email ("Invite members"); the invitations not accepted yet are listed under
+ * the members.
  */
 export default function MembersConfigTab(): ReactElement {
   const { t } = useTranslation();

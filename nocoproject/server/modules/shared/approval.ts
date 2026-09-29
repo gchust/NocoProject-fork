@@ -1,10 +1,10 @@
 /**
- * The approval gate seam (docs/phase1/iteration-2-contract.md §D, 方案 §8).
+ * The approval gate seam (docs/phase1/iteration-2-contract.md §D, proposal §8).
  *
  * Business modules depend on this interface only. Today's implementation is `approval/approval.gateway.ts`
- * (`DbApprovalGateway`, the `approvalRequests` table), which is @temporary(nocobase-official): 待替换为 NocoBase 官方
- * 工作流审批. When the official capability ships, a new `ApprovalGateway` replaces it wholesale; the status enum
- * (`APPROVAL_STATUSES`), the approver roles and the domain event names below must not change. The "替换检查清单" test
+ * (`DbApprovalGateway`, the `approvalRequests` table), which is @temporary(nocobase-official): to be replaced by the
+ * official NocoBase workflow approval. When the official capability ships, a new `ApprovalGateway` replaces it wholesale; the status enum
+ * (`APPROVAL_STATUSES`), the approver roles and the domain event names below must not change. The "replacement checklist" test
  * (`tests/logic/np-approval.test.ts`) runs the same cases against the database gateway and an in-memory double.
  *
  * Rules every implementation keeps:

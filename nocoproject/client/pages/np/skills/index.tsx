@@ -33,7 +33,7 @@ import { useNpFormatters } from '../format.js';
 import type { Skill } from '../types.js';
 
 /**
- * Route `/skills` (iteration 2 §H, "技能"): reusable SKILL.md instructions with supporting files, mounted on agents
+ * Route `/skills` (iteration 2 §H, "Skills"): reusable SKILL.md instructions with supporting files, mounted on agents
  * from the agent page. Every member can read them; a row opens `/skills/:skillId`, "New skill" opens `new`.
  */
 export default function SkillsPage(): ReactElement {

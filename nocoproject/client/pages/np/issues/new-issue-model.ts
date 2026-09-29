@@ -32,8 +32,8 @@ export function storeNewIssueTab(tab: NewIssueTab): void {
 }
 
 /**
- * The tab to show: `?tab=` when the URL names one (links from batch entry and "AI 拆解" say `ai`), a draft batch in
- * `?batch=` (always the AI tab), else the person's last tab, else AI 整理.
+ * The tab to show: `?tab=` when the URL names one (links from batch entry and "AI breakdown" say `ai`), a draft batch in
+ * `?batch=` (always the AI tab), else the person's last tab, else AI draft.
  */
 export function resolveNewIssueTab(
   params: URLSearchParams,

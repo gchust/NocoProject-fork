@@ -339,6 +339,8 @@ describe('settings in the front end (§G)', () => {
               provider: 'opencode',
               runtimeId: 'r1',
               kind: 'manager',
+              capabilities: ['comment.create'],
+              canInvoke: true,
             },
           ],
         },
@@ -349,9 +351,9 @@ describe('settings in the front end (§G)', () => {
       }),
     );
     await renderNpRoutes(configRoutes(), { url: '/config/general' });
-    const agentSelect = await screen.findByRole('combobox', {
-      name: 'Project manager agent',
-    });
+    const agentSelect = (
+      await screen.findAllByRole('combobox', { name: 'Agent' })
+    )[0];
     await user.click(agentSelect);
     expect(
       await screen.findByRole('option', { name: 'Project Manager' }),
@@ -362,18 +364,16 @@ describe('settings in the front end (§G)', () => {
     await user.click(
       await screen.findByRole('option', { name: 'Design first' }),
     );
-    await user.click(
-      screen.getByRole('switch', {
-        name: 'Retrospective when an issue is done',
-      }),
-    );
+    await user.click(screen.getAllByRole('switch', { name: 'Enabled' })[1]);
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(patched).toEqual([
         expect.objectContaining({
           defaultProcess: 'design_first',
-          pmAgentId: 'pm',
-          retrospectiveOnDone: false,
+          agentEntries: expect.objectContaining({
+            conversation: expect.objectContaining({ agentId: 'pm' }),
+            completion: expect.objectContaining({ enabled: true }),
+          }),
         }),
       ]),
     );

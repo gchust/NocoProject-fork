@@ -22,7 +22,7 @@ export interface BoardColumn {
  * The board's columns: one per status of the workflow, in its order, each holding the issues in that status. Moves
  * still waiting for the server (`overrides`, issue id → target status) are shown in their target column so a card
  * does not jump back while its PATCH is in flight. An issue in a status the catalog does not know gets a trailing
- * column rather than disappearing. The design-first columns (分析中, 方案待审; iteration 4 §B) show only while one of
+ * column rather than disappearing. The design-first columns (Analysis, Proposal review; iteration 4 §B) show only while one of
  * them holds an issue or a visible issue follows the design-first process (`withoutIdleDesignColumns`).
  */
 export function buildBoardColumns(

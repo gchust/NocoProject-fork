@@ -3,7 +3,7 @@
  * it (or must start fresh when it is poisoned).
  */
 import type { Conn } from '../shared/db.js';
-import { bool, str } from '../shared/db.js';
+import { bool, str, fromJson } from '../shared/db.js';
 import type { IdSource } from '../shared/ids.js';
 import type { Run } from '../shared/protocol.js';
 
@@ -17,6 +17,9 @@ export interface SessionUpdate {
 }
 
 export interface StoredSession {
+  readonly configurationFingerprint: string | null;
+  readonly configurationRevision: number | null;
+  readonly entryRevision: number | null;
   readonly providerSessionId: string | null;
   readonly workDir: string | null;
   readonly poisoned: boolean;
@@ -36,6 +39,9 @@ export async function findSession(
   const row = await conn.query
     .selectFrom('runSessions')
     .select([
+      'configurationRevision',
+      'entryRevision',
+      'configurationFingerprint',
       'providerSessionId',
       'workDir',
       'poisoned',
@@ -49,6 +55,9 @@ export async function findSession(
     .executeTakeFirst();
   if (!row) return null;
   return {
+    configurationFingerprint: str(row.configurationFingerprint),
+    configurationRevision: Number(row.configurationRevision) || null,
+    entryRevision: Number(row.entryRevision) || null,
     providerSessionId: str(row.providerSessionId),
     workDir: str(row.workDir),
     poisoned: bool(row.poisoned),
@@ -75,7 +84,20 @@ export async function upsertSession(
     subjectType: run.subjectType,
     subjectId: run.subjectId,
   };
+  const stored = await conn.query
+    .selectFrom('runs')
+    .select('configurationSnapshot')
+    .where('id', '=', run.id)
+    .executeTakeFirst();
+  const snapshot = fromJson<{
+    configurationRevision: number;
+    entryRevision: number;
+    configurationFingerprint?: string;
+  }>(stored?.configurationSnapshot);
   const values: Record<string, unknown> = {
+    configurationFingerprint: snapshot?.configurationFingerprint ?? null,
+    configurationRevision: snapshot?.configurationRevision ?? null,
+    entryRevision: snapshot?.entryRevision ?? null,
     poisoned: update.poisoned,
     lastRunId: run.id,
     updatedAt: new Date(),

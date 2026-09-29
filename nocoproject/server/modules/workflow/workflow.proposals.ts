@@ -1,5 +1,6 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
- * Workflow template proposals (NP-77 方案 §4–§6, stage 2): agents read templates and propose a whole new definition
+ * Workflow template proposals (NP-77 proposal §4–§6, stage 2): agents read templates and propose a whole new definition
  * for an existing template (`templateId`) or for a copy of one (`copyFrom`); an owner/admin accepts or rejects it.
  * Structure follows `knowledge/knowledge.proposals.ts`.
  *
@@ -179,6 +180,7 @@ export function createWorkflowProposalService(
 
   return {
     async agentList(auth) {
+      await requireCapability(deps.tx.read(), auth, 'context.read');
       const conn = deps.tx.read();
       const current = await runTemplateId(conn, auth);
       return (await deps.workflows.list()).map((item) => ({
@@ -188,6 +190,7 @@ export function createWorkflowProposalService(
     },
 
     async agentGet(auth, id) {
+      await requireCapability(deps.tx.read(), auth, 'context.read');
       const conn = deps.tx.read();
       const item = await deps.workflows.get(id);
       return {
@@ -206,6 +209,7 @@ export function createWorkflowProposalService(
         );
       const name = validateName(input.name, !hasTemplate);
       const id = await deps.tx.run(async (tx) => {
+        await requireCapability(tx.conn, auth, 'workflow.propose');
         const template = await requireTemplate(
           tx.conn,
           hasTemplate ? input.templateId : input.copyFrom,

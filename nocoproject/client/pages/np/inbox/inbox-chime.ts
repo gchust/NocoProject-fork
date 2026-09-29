@@ -9,7 +9,7 @@ import { npKeys } from '../constants.js';
  * up. The sound is synthesised with Web Audio, so there is no asset to ship.
  *
  * Whether it plays is the member's own preference, kept with the account (`GET /np/me/preferences`, default on) and
- * changed under 设置 → 通用 → 我的提醒. Browsers keep audio suspended until the page has had a user gesture;
+ * changed under Settings → General → My reminders. Browsers keep audio suspended until the page has had a user gesture;
  * `armInboxChime` resumes the context on the first pointer or key press, and a chime before that is skipped silently.
  * With several tabs open, only one plays: a Web Lock is held for a few seconds by the tab that chimes, the others see
  * it taken and stay quiet.

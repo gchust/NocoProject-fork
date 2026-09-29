@@ -414,7 +414,7 @@ describe('AI draft tab attachments (NP-78)', () => {
       url: '/issues/new?batch=b1',
       path: '/issues/new',
     });
-    // What AI 整理 read of the file is shown beside it.
+    // What AI draft read of the file is shown beside it.
     expect(
       await screen.findByText(/Not read: format not supported/u),
     ).toBeVisible();

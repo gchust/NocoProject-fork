@@ -1,3 +1,4 @@
+import { requireActorCapability } from '../agent/capabilities.js';
 /**
  * Comments on issues: human comments from the browser (which may trigger agents) and agent comments written back
  * through a run token (which never trigger anything). Iteration 2: rows carry their reactions and, on thread roots,
@@ -195,6 +196,12 @@ async function create(
     throw invalid('INVALID_COMMENT', 'content is too long.');
 
   return deps.tx.run(async (tx) => {
+    await requireActorCapability(
+      tx.conn,
+      actor,
+      'comment.create',
+      issueIdOrKey,
+    );
     let issue;
     if (actor.type === 'user') {
       // Members see and comment on visible issues; mentioning an agent needs access to it (contract §B).

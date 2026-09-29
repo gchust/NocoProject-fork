@@ -3,7 +3,8 @@
  * `tests/logic/np-git.test.ts`.
  *
  * Rules, first hit wins:
- * 1. The head branch is `agent/<slug>/<identifier>` (identifier in lower case, e.g. `agent/echo/np-12`) → that issue.
+ * 1. The head branch is `agent/<identifier>` (identifier in lower case, e.g. `agent/np-12`, NP-145) or the older
+ *    `agent/<slug>/<identifier>` (`agent/echo/np-12`, still on open pull requests) → that issue.
  * 2. Issue numbers (`\bNP-\d+\b`, prefix from the system settings, case-insensitive) in the title, the body or the
  *    head branch → every issue named (deduplicated, at most 5).
  * 3. Nothing → the pull request is stored without a link.
@@ -32,7 +33,7 @@ function escapeRegExp(value: string): string {
 /** Identifiers keep the configured prefix spelling (`NP-12`), whatever case the text used. */
 export function matchIssueIdentifiers(input: LinkRuleInput): LinkRuleMatch {
   const prefix = escapeRegExp(input.prefix);
-  const branch = new RegExp(`^agent/[^/]+/${prefix}-(\\d+)$`, 'iu').exec(
+  const branch = new RegExp(`^agent/(?:[^/]+/)?${prefix}-(\\d+)$`, 'iu').exec(
     input.headRef.trim(),
   );
   if (branch?.[1])

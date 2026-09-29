@@ -16,7 +16,7 @@ import { StarterKit } from '@tiptap/starter-kit';
  * The TipTap schema behind `NpRichTextEditor`, kept apart from the React component so the Markdown round trip can be
  * tested without rendering.
  *
- * Storage stays Markdown (iteration 2 contract "富文本"): the editor loads Markdown and hands Markdown back. A mention
+ * Storage stays Markdown (iteration 2 contract "rich text"): the editor loads Markdown and hands Markdown back. A mention
  * is an atomic inline node that reads and writes the NocoProject mention link `[@Name](mention://agent/<id>)` or
  * `[@Name](mention://user/<id>)` — the same text the server's trigger rules and `NpMarkdown` read — so switching the
  * composer from a textarea to rich text changes nothing on the wire.

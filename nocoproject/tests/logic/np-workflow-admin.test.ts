@@ -150,7 +150,7 @@ describe.skipIf(!db)('workflow template admin write (PostgreSQL)', () => {
       definition: definitionWith([CODE_REVIEW]),
       revision: 1,
     });
-    expect(put.status).toBe(404);
+    expect(put.status).toBe(403);
     await expect(
       world.services.workflowProposals.update(
         { type: 'agent', id: world.run.agentId },

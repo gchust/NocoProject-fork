@@ -1,7 +1,7 @@
 /**
  * NocoProject on the authorization plugin (NP-117, `server/modules/shared/access.ts`).
  *
- * - `registerNpAuthorization`: the settings items behind the `/config` tabs, listed under 管理 → NocoProject in the
+ * - `registerNpAuthorization`: the settings items behind the `/config` tabs, listed under Administration → NocoProject in the
  *   permission workspace, and the protection of `np-owner` (code-owned assignments, editable grants, one active
  *   assignment always remains).
  * - `createActorAccess` / `npAccess`: a request's `ActorAccess` over its `AuthorizationContext`.

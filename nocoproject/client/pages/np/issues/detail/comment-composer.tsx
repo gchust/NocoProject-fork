@@ -46,7 +46,7 @@ export interface CommentComposerProps {
 }
 
 /**
- * The comment box under the activity, in the rich text editor (iteration 2 "富文本"): Markdown out, with `@` for
+ * The comment box under the activity, in the rich text editor (iteration 2 "rich text"): Markdown out, with `@` for
  * members and agents and `/note` for a comment that triggers nobody. A reply posts with `parentId` set to the comment
  * being answered. The line under the box previews which agents the comment will trigger, from the same rules the
  * server applies (protocol §2).
@@ -76,7 +76,7 @@ export function CommentComposer({
   });
   const candidates = useMentionCandidates(agents, members.data);
 
-  // "备注" posts the comment as a `/note`, which wakes nobody (nocosolution/frontend/nocosolution-frontend-standard.md §3).
+  // "Note" posts the comment as a `/note`, which wakes nobody (nocosolution/frontend/nocosolution-frontend-standard.md §3).
   const outgoing =
     mode === 'note' && content.trim() && !/^\s*\/note\b/u.test(content)
       ? `/note ${content}`

@@ -19,7 +19,7 @@ export interface IntakeParseInput {
   } | null;
   /** Names of the labels that exist. */
   readonly labels: readonly string[];
-  /** NP-78: text of the files attached on the AI 整理 tab (only the AI parser reads it). */
+  /** NP-78: text of the files attached on the AI draft tab (np.newIssue.tabs.ai; only the AI parser reads it). */
   readonly attachments?: {
     readonly documents: readonly {
       readonly filename: string;

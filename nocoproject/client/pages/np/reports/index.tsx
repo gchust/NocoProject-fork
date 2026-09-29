@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/page-header';
 import { useIsParentEntry } from '@/components/use-default-tab';
 
 /**
- * Route `/reports` (§G, "报表"): the acceptance metrics (§C) and run usage (iteration 2 §I) as tabs that are child
+ * Route `/reports` (§G, "Reports"): the acceptance metrics (§C) and run usage (iteration 2 §I) as tabs that are child
  * routes. The bare URL redirects to `metrics`, keeping the query string (both tabs read `from` / `to`).
  */
 export default function ReportsPage(): ReactElement {
