@@ -9,11 +9,15 @@ import type {
   CommentForAgent,
   DaemonClaimRequest,
   DaemonClaimResponse,
+  DaemonCompatibilityInfo,
+  DaemonCompatibilityResponse,
   DaemonCompleteRequest,
   DaemonEventsRequest,
   DaemonFailRequest,
   DaemonHeartbeatRequest,
+  DaemonHeartbeatRequestV2,
   DaemonRegisterRequest,
+  DaemonRegisterRequestV2,
   DaemonRegisterResponse,
   DaemonRunStatusResponse,
   DaemonStartRequest,
@@ -180,16 +184,20 @@ export class DaemonApi {
   constructor(serverUrl: string, apiKey: string, timeoutMs?: number) {
     this.http = new HttpClient(serverUrl, { kind: 'apiKey', apiKey }, timeoutMs);
   }
-  register(body: DaemonRegisterRequest): Promise<DaemonRegisterResponse> {
+  register(body: DaemonRegisterRequest & DaemonRegisterRequestV2): Promise<DaemonRegisterResponse & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/register', { body });
   }
-  heartbeat(body: DaemonHeartbeatRequest): Promise<{ ok: boolean }> {
+  heartbeat(body: DaemonHeartbeatRequest & DaemonHeartbeatRequestV2): Promise<{ ok: boolean } & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/heartbeat', { body });
+  }
+  /** What the server accepts and the CLI it serves (NP-150); 404 on a server from before it. */
+  compatibility(): Promise<DaemonCompatibilityInfo> {
+    return this.http.data('GET', '/np/daemon/compatibility');
   }
   deregister(daemonId: string): Promise<unknown> {
     return this.http.data('POST', '/np/daemon/deregister', { body: { daemonId }, timeoutMs: 5000 });
   }
-  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse> {
+  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/runs/claim', { body });
   }
   lease(runId: string): Promise<unknown> {

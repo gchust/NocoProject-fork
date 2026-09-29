@@ -1,4 +1,8 @@
 import { AGENT_CAPABILITIES } from '../../server/modules/shared/protocol.capabilities.js';
+import {
+  LATEST_CLI_VERSION,
+  PROTOCOL_VERSION,
+} from '../../server/modules/shared/protocol.ts';
 /**
  * Real-PostgreSQL harness for the NocoProject integration tests (`np-*.test.ts`).
  *
@@ -310,8 +314,8 @@ export async function registerRuntime(
   const response = await services.runtimes.register(owner.id as string, {
     daemonId,
     deviceName: 'test-device',
-    version: '0.0.0',
-    protocolVersion: 1,
+    version: LATEST_CLI_VERSION,
+    protocolVersion: PROTOCOL_VERSION,
     runtimes: [
       {
         provider,

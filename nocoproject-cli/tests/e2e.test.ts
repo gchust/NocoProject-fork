@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { startDaemon, waitFor, type Harness } from './helpers/daemon-harness.js';
 import { API_KEY, MockServer } from './helpers/mock-server.js';
+import { CLI_VERSION } from '../src/version.js';
 
 let mock: MockServer | undefined;
 let harness: Harness | undefined;
@@ -36,7 +37,7 @@ describe('daemon e2e with the echo adapter', () => {
     await waitFor(() => runStatus(mock, runId) === 'completed', 20_000, 'completion');
 
     const register = mock.callsTo(/daemon\/register/)[0];
-    expect(register?.body).toMatchObject({ daemonId: 'daemon-test-1', deviceName: 'test-box', protocolVersion: 1, runtimes: [{ provider: 'echo', capabilities: { resume: true, steering: false } }] });
+    expect(register?.body).toMatchObject({ daemonId: 'daemon-test-1', deviceName: 'test-box', protocolVersion: 2, minProtocolVersion: 1, runtimes: [{ provider: 'echo', capabilities: { resume: true, steering: false } }] });
     expect(register?.auth).toBe(API_KEY);
 
     const start = mock.callsTo(new RegExp(`runs/${runId}/start`))[0];
@@ -158,6 +159,6 @@ describe('daemon e2e with the echo adapter', () => {
   it('sends heartbeats', async () => {
     const { mock } = await setup();
     await waitFor(() => mock.callsTo(/daemon\/heartbeat/).length >= 2, 5000, 'heartbeats');
-    expect(mock.callsTo(/daemon\/heartbeat/)[0]?.body).toEqual({ daemonId: 'daemon-test-1', runtimeIds: ['rt-echo'] });
+    expect(mock.callsTo(/daemon\/heartbeat/)[0]?.body).toEqual({ daemonId: 'daemon-test-1', runtimeIds: ['rt-echo'], version: CLI_VERSION, protocolVersion: 2, minProtocolVersion: 1 });
   });
 });

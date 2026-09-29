@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { AGENT_COMMANDS } from '../shared/protocol.capabilities.js';
 import { capabilitiesOf } from '../agent/capabilities.js';
 import { createSettingsService } from '../system/settings.service.js';
-import { NpError } from '../shared/errors.js';
 /**
  * Batch claim for a daemon (protocol.md §4 `runs/claim`). Iteration 2 adds `agent.env` (decrypted — this payload only
  * travels on the daemon route), `agent.skills`, `issue.executionMode` and `issue.pullRequests`; iteration 3 the
@@ -21,7 +20,6 @@ import {
   isArrayValue,
   isPostgres,
   knexOf,
-  now,
   rawRows,
   str,
   unique,
@@ -43,6 +41,7 @@ import {
   type ClaimedTriggerPhase2Extras,
   type DaemonClaimRequest,
   type DaemonClaimResponse,
+  type DaemonCompatibilityResponse,
   type RunTriggerType,
 } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
@@ -63,6 +62,12 @@ import {
   type ClaimedRow,
 } from './claim.sql.js';
 import { currentChecklist } from '../workflow/checklist.js';
+import {
+  deviceNameOf,
+  evaluateDaemon,
+  markDaemonSeen,
+  storedIdentity,
+} from '../runtime/daemon-compat.js';
 import { findRun } from './run.records.js';
 import { emitRunStatus } from './run.service.js';
 import { findSession } from './sessions.js';
@@ -76,7 +81,7 @@ export interface ClaimService {
     ownerUserId: string,
     request: DaemonClaimRequest,
     serverUrl: string,
-  ): Promise<DaemonClaimResponse>;
+  ): Promise<DaemonClaimResponse & DaemonCompatibilityResponse>;
   /** One claim attempt for one runtime; exposed for the concurrency tests. */
   claimOne(runtimeId: string): Promise<{ runId: string; token: string } | null>;
 }
@@ -143,11 +148,16 @@ async function delegationTargets(
   }));
 }
 
+interface VerifiedSlots {
+  readonly runtimeIds: string[];
+  readonly rows: readonly Record<string, unknown>[];
+}
+
 async function verifySlots(
   conn: Conn,
   ownerUserId: string,
   request: DaemonClaimRequest,
-): Promise<string[]> {
+): Promise<VerifiedSlots> {
   if (
     !request ||
     typeof request.daemonId !== 'string' ||
@@ -156,10 +166,10 @@ async function verifySlots(
     throw invalid('INVALID_CLAIM', 'daemonId and slots are required.');
   }
   const runtimeIds = unique(request.slots.map((slot) => slot?.runtimeId));
-  if (runtimeIds.length === 0) return [];
+  if (runtimeIds.length === 0) return { runtimeIds: [], rows: [] };
   const rows = await conn.query
     .selectFrom('runtimes')
-    .select(['id', 'ownerUserId', 'daemonId'])
+    .select(['id', 'ownerUserId', 'daemonId', 'status', 'deviceInfo'])
     .where('id', 'in', runtimeIds)
     .execute();
   for (const runtimeId of runtimeIds) {
@@ -174,7 +184,7 @@ async function verifySlots(
       );
     }
   }
-  return runtimeIds;
+  return { runtimeIds, rows };
 }
 
 async function claimOneInTx(
@@ -254,7 +264,7 @@ async function buildClaimedRun(
   deps: ClaimDeps,
   runId: string,
   token: string,
-  serverUrl: string,
+  server: { readonly url: string; readonly protocolVersion: number },
 ): Promise<ClaimedRunV5 | null> {
   const conn = deps.tx.read();
   const run = await findRun(conn, runId);
@@ -404,7 +414,7 @@ async function buildClaimedRun(
       branchName: session?.branchName ?? null,
       repoUrl: session?.repoUrl ?? null,
     },
-    server: { url: serverUrl, protocolVersion: PROTOCOL_VERSION },
+    server,
     leaseSeconds: CLAIM_LEASE_SECONDS,
     knowledge: await deps.knowledge().claimIndex(conn, issue.projectId),
   };
@@ -417,12 +427,6 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
   return {
     claimOne,
     async claim(ownerUserId, request, serverUrl) {
-      if (request.configurationProtocol !== 1)
-        throw new NpError(
-          'upgradeRequired',
-          'CONFIGURATION_PROTOCOL_REQUIRED',
-          'Upgrade the CLI for configured agents.',
-        );
       const conn = deps.tx.read();
       if (!isPostgres(conn)) {
         throw invalid(
@@ -430,15 +434,33 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
           'Claiming runs requires PostgreSQL.',
         );
       }
-      const runtimeIds = await verifySlots(conn, ownerUserId, request);
-      if (runtimeIds.length > 0) {
-        // A claim is proof of life for the runtimes it names.
-        await conn.query
-          .updateTable('runtimes')
-          .set({ status: 'online', lastSeenAt: now(), updatedAt: now() })
-          .where('id', 'in', runtimeIds)
-          .execute();
-      }
+      const { runtimeIds, rows } = await verifySlots(
+        conn,
+        ownerUserId,
+        request,
+      );
+      if (runtimeIds.length === 0) return { runs: [] };
+      // The daemon as register recorded it, and what this claim carries (NP-125's configuration protocol).
+      const compatibility = evaluateDaemon({
+        ...storedIdentity(rows[0]?.deviceInfo),
+        claim: { configurationProtocol: request.configurationProtocol },
+      });
+      // A claim is proof of life for the runtimes it names.
+      await deps.tx.run((tx) =>
+        markDaemonSeen(tx, {
+          ownerUserId,
+          daemonId: request.daemonId,
+          deviceName: deviceNameOf(rows[0]?.deviceInfo),
+          rows: rows.map((row) => ({
+            id: str(row.id) ?? '',
+            status: str(row.status) ?? null,
+          })),
+          compatibility,
+        }),
+      );
+      // An unsupported daemon gets no work, but a normal answer: it keeps heartbeating and shows why (NP-150).
+      if (compatibility.status === 'unsupported')
+        return { runs: [], compatibility };
       const claimed: { runId: string; token: string }[] = [];
       for (const slot of request.slots) {
         const free = Math.min(
@@ -453,10 +475,14 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
       }
       const runs: ClaimedRunV5[] = [];
       for (const { runId, token } of claimed) {
-        const payload = await buildClaimedRun(deps, runId, token, serverUrl);
+        const payload = await buildClaimedRun(deps, runId, token, {
+          url: serverUrl,
+          protocolVersion:
+            compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
+        });
         if (payload) runs.push(payload);
       }
-      return { runs };
+      return { runs, compatibility };
     },
   };
 }

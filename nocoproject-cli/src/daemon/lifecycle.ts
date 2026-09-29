@@ -1,13 +1,19 @@
 /**
  * Daemon lifecycle: detect tools → register → heartbeat (15s) → wake (WS + poll) → claim →
  * run; graceful shutdown kills agents, reports them for retry and deregisters.
+ *
+ * Compatibility (NP-150): the daemon offers protocols `SUPPORTED_PROTOCOLS.min..PROTOCOL_VERSION` and the server
+ * answers with `compatibility`. When the daemon must be upgraded it keeps heartbeating (the computer shows "upgrade
+ * required" with the command), stops claiming, records the command in `daemon.state.json` and warns every 10 minutes;
+ * it never exits for it, because a service manager would only restart it into the same state. A server from before
+ * NP-150 that refuses protocol 2 is retried with protocol 1.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DaemonApi, HttpError, NetworkError } from '../api/client.js';
 import type { DaemonSettings, ResolvedConfig } from '../config.js';
-import type { AgentProvider, ClaimedRun, DaemonRegisterResponse } from '../protocol.js';
-import { PROTOCOL_VERSION } from '../protocol.js';
+import type { AgentProvider, ClaimedRun, DaemonCompatibility, DaemonRegisterResponse } from '../protocol.js';
+import { PROTOCOL_VERSION, SUPPORTED_PROTOCOLS, upgradeCommand } from '../protocol.js';
 import { backoffDelay, sleep } from '../util/backoff.js';
 import type { Logger } from '../util/log.js';
 import { distPath } from '../util/paths.js';
@@ -34,6 +40,18 @@ export interface DaemonOptions {
   readonly intervals?: DaemonIntervals;
 }
 
+/** Why and how this daemon must be upgraded (`daemon.state.json`, `nocoproject daemon status`). */
+export interface UpgradeRequired {
+  readonly reason: string;
+  readonly since: string;
+  readonly latestVersion: string | null;
+  readonly minVersion: string | null;
+  readonly command: string;
+}
+
+const UPGRADE_WARN_EVERY_MS = 10 * 60_000;
+const REGISTER_REFUSED_RETRY_MS = 60_000;
+
 export interface RuntimeInfo {
   readonly id: string;
   readonly provider: AgentProvider;
@@ -52,7 +70,15 @@ export interface DaemonSnapshot {
   readonly activeRuns: number;
   readonly maxConcurrent: number;
   readonly socket: string;
+  /** Kept for older `daemon status` readers: true while `upgradeRequired` is set. */
   readonly protocolMismatch: boolean;
+  readonly upgradeRequired: UpgradeRequired | null;
+  readonly compatibility: DaemonCompatibility | null;
+  /** The protocol agreed with the server. */
+  readonly negotiatedProtocol: number | null;
+  /** What this process runs: `process.execPath` and the CLI entry (compared by `daemon start` / `daemon status`). */
+  readonly execPath: string;
+  readonly entry: string | null;
   readonly lastHeartbeatAt: string | null;
   readonly state: 'starting' | 'running' | 'stopping' | 'stopped';
 }
@@ -66,7 +92,12 @@ export class Daemon {
   private heartbeatTimer: NodeJS.Timeout | undefined;
   private readonly shutdown = new AbortController();
   private readonly cancelHooks = new Map<string, Set<() => void>>();
-  private protocolMismatch = false;
+  private upgrade: UpgradeRequired | null = null;
+  private compatibility: DaemonCompatibility | null = null;
+  private lastUpgradeWarnAt = 0;
+  /** The protocol offered at register: lowered once when a server from before NP-150 refuses it. */
+  private offeredProtocol: number = PROTOCOL_VERSION;
+  private negotiatedProtocol: number | null = null;
   private lastHeartbeatAt: string | null = null;
   private state: DaemonSnapshot['state'] = 'starting';
   private readonly startedAt = new Date().toISOString();
@@ -88,10 +119,27 @@ export class Daemon {
     const cli = distPath('cli.js');
     if (existsSync(cli)) this.binDir = ensureCliShim(this.opts.config.home, cli);
     const registered = await this.registerWithRetry();
-    if (!registered) return;
-    this.startLoops(registered);
+    if (registered) this.startLoops(registered);
+    else if (!this.shutdown.signal.aborted) void this.registerLater();
     this.state = 'running';
     this.writeState();
+  }
+
+  /** The server refused every protocol: try again every minute (it may be upgraded meanwhile). */
+  private async registerLater(): Promise<void> {
+    while (!this.shutdown.signal.aborted) {
+      await sleep(REGISTER_REFUSED_RETRY_MS, this.shutdown.signal);
+      if (this.shutdown.signal.aborted) return;
+      const registered = await this.registerWithRetry().catch((error: unknown) => {
+        this.log.warn('register failed', { error: (error as Error).message });
+        return null;
+      });
+      if (registered) {
+        this.startLoops(registered);
+        this.writeState();
+        return;
+      }
+    }
   }
 
   private async detect(): Promise<DetectedAdapter[]> {
@@ -106,31 +154,46 @@ export class Daemon {
       daemonId: this.opts.config.daemonId,
       deviceName: this.opts.config.deviceName,
       version: CLI_VERSION,
-      protocolVersion: PROTOCOL_VERSION,
+      protocolVersion: this.offeredProtocol,
+      minProtocolVersion: SUPPORTED_PROTOCOLS.min,
       runtimes: [...this.adapters.values()].map((d) => ({
         provider: d.adapter.provider,
         version: d.version,
         capabilities: { resume: d.adapter.capabilities().resume, steering: d.adapter.capabilities().steering },
       })),
     });
-    if (res.protocolVersion !== undefined && res.protocolVersion !== PROTOCOL_VERSION) {
-      throw new HttpError(426, 'PROTOCOL_MISMATCH', `server speaks protocol ${res.protocolVersion}, daemon ${PROTOCOL_VERSION}`, 'POST', '/np/daemon/register');
-    }
+    const agreed = res.protocolVersion ?? this.offeredProtocol;
+    this.negotiatedProtocol = agreed;
     this.runtimes = res.runtimes
       .filter((r) => this.adapters.has(r.provider))
       .map((r) => ({ id: r.id, provider: r.provider, version: this.adapters.get(r.provider)?.version ?? '' }));
-    this.log.info('registered', { runtimes: this.runtimes.map((r) => `${r.provider}:${r.id}`).join(',') });
+    this.log.info('registered', { runtimes: this.runtimes.map((r) => `${r.provider}:${r.id}`).join(','), protocol: agreed });
+    if (res.compatibility) this.applyCompatibility(res.compatibility);
+    else if (agreed < SUPPORTED_PROTOCOLS.min || agreed > PROTOCOL_VERSION)
+      this.requireUpgrade({ reason: 'serverProtocol', latestVersion: null, minVersion: null }, `server speaks protocol ${agreed}`);
+    else this.clearUpgrade();
+    if (res.compatibility && res.compatibility.status !== 'unsupported' && res.compatibility.updateAvailable)
+      this.log.warn(`nocoproject-cli ${res.compatibility.latestVersion} is available (running ${CLI_VERSION}); upgrade with: ${this.commandFor(res.compatibility.latestVersion)}`);
     return res;
   }
 
-  /** Retries network/5xx failures until stopped; returns null on protocol mismatch. Throws on auth errors. */
+  /**
+   * Retries network/5xx failures with backoff until stopped, and a refused protocol with a lower one (a server from
+   * before NP-150); null when every protocol is refused. Throws on auth errors.
+   */
   private async registerWithRetry(): Promise<DaemonRegisterResponse | null> {
     for (let attempt = 0; !this.shutdown.signal.aborted; attempt++) {
       try {
         return await this.register();
       } catch (error) {
         if (error instanceof HttpError && error.status === 426) {
+          if (this.offeredProtocol > SUPPORTED_PROTOCOLS.min) {
+            this.offeredProtocol -= 1;
+            this.log.info('server refused the protocol; offering an older one', { protocol: this.offeredProtocol });
+            continue;
+          }
           this.onProtocolMismatch(error);
+          this.offeredProtocol = PROTOCOL_VERSION;
           return null;
         }
         if (error instanceof HttpError && (error.status === 401 || error.status === 403)) throw error;
@@ -143,14 +206,49 @@ export class Daemon {
     return null;
   }
 
+  /** A 426 from a server from before NP-150 (it says nothing more): claiming pauses, heartbeats go on. */
   private onProtocolMismatch(error: HttpError): void {
-    this.protocolMismatch = true;
-    this.claim?.stop();
-    this.log.error('!!! PROTOCOL MISMATCH: the server requires a different nocoproject-cli version. Claiming is stopped. Upgrade nocoproject-cli and restart the daemon.', {
-      daemonProtocol: PROTOCOL_VERSION,
-      error: error.message,
-    });
+    this.requireUpgrade({ reason: 'protocolMismatch', latestVersion: null, minVersion: null }, error.message);
+  }
+
+  private commandFor(latestVersion: string | null): string {
+    return upgradeCommand(this.opts.config.serverUrl, CLI_VERSION, latestVersion ?? undefined);
+  }
+
+  private applyCompatibility(compatibility: DaemonCompatibility): void {
+    this.compatibility = compatibility;
+    if (compatibility.negotiatedProtocol !== null) this.negotiatedProtocol = compatibility.negotiatedProtocol;
+    if (compatibility.status === 'unsupported')
+      this.requireUpgrade(compatibility, `the server requires nocoproject-cli ${compatibility.minVersion} or later (latest ${compatibility.latestVersion}; reason ${compatibility.reason})`);
+    else this.clearUpgrade();
+  }
+
+  private requireUpgrade(info: { reason: string; latestVersion: string | null; minVersion: string | null }, detail: string): void {
+    const first = this.upgrade === null;
+    this.upgrade = {
+      reason: info.reason,
+      since: this.upgrade?.since ?? new Date().toISOString(),
+      latestVersion: info.latestVersion,
+      minVersion: info.minVersion,
+      command: this.commandFor(info.latestVersion),
+    };
+    if (first || Date.now() - this.lastUpgradeWarnAt >= UPGRADE_WARN_EVERY_MS) {
+      this.lastUpgradeWarnAt = Date.now();
+      this.log.error(`!!! PROTOCOL MISMATCH: upgrade required. Claiming is paused; heartbeats continue. Upgrade with: ${this.upgrade.command}`, {
+        cli: CLI_VERSION,
+        daemonProtocol: PROTOCOL_VERSION,
+        detail,
+      });
+    }
     this.writeState();
+  }
+
+  private clearUpgrade(): void {
+    if (!this.upgrade) return;
+    this.upgrade = null;
+    this.log.info('the server accepts this daemon again; claiming resumes');
+    this.writeState();
+    this.claim?.trigger('compatible');
   }
 
   private startLoops(reg: DaemonRegisterResponse): void {
@@ -158,10 +256,11 @@ export class Daemon {
       api: this.api,
       daemonId: this.opts.config.daemonId,
       maxConcurrent: this.opts.settings.maxConcurrent,
-      runtimeIds: () => (this.protocolMismatch ? [] : this.runtimes.map((r) => r.id)),
+      runtimeIds: () => (this.upgrade ? [] : this.runtimes.map((r) => r.id)),
       execute: (run) => this.execute(run),
       logger: this.log.child('claim'),
       onProtocolMismatch: (e) => this.onProtocolMismatch(e),
+      onCompatibility: (c) => this.applyCompatibility(c),
       onUnknownRuntime: () => void this.reregister(),
     });
     const heartbeatMs = this.opts.intervals?.heartbeatMs ?? reg.heartbeatIntervalMs ?? 15_000;
@@ -179,11 +278,20 @@ export class Daemon {
     this.claim.trigger('startup');
   }
 
+  /** Runs also while an upgrade is required: the server shows the computer as "upgrade required", not offline. */
   private async heartbeat(): Promise<void> {
-    if (this.protocolMismatch || this.runtimes.length === 0) return;
+    if (this.runtimes.length === 0) return;
     try {
-      await this.api.heartbeat({ daemonId: this.opts.config.daemonId, runtimeIds: this.runtimes.map((r) => r.id) });
+      const res = await this.api.heartbeat({
+        daemonId: this.opts.config.daemonId,
+        runtimeIds: this.runtimes.map((r) => r.id),
+        version: CLI_VERSION,
+        protocolVersion: this.negotiatedProtocol ?? this.offeredProtocol,
+        minProtocolVersion: SUPPORTED_PROTOCOLS.min,
+      });
       this.lastHeartbeatAt = new Date().toISOString();
+      if (res?.compatibility) this.applyCompatibility(res.compatibility);
+      else if (this.upgrade) this.requireUpgrade(this.upgrade, 'still refused');
     } catch (error) {
       if (error instanceof HttpError && error.status === 426) this.onProtocolMismatch(error);
       else if (error instanceof HttpError && error.status === 404) await this.reregister();
@@ -255,7 +363,12 @@ export class Daemon {
       activeRuns: this.claim?.activeRuns ?? 0,
       maxConcurrent: this.opts.settings.maxConcurrent,
       socket: this.wake?.state ?? 'disabled',
-      protocolMismatch: this.protocolMismatch,
+      protocolMismatch: this.upgrade !== null,
+      upgradeRequired: this.upgrade,
+      compatibility: this.compatibility,
+      negotiatedProtocol: this.negotiatedProtocol,
+      execPath: process.execPath,
+      entry: process.argv[1] ? realpathOr(process.argv[1]) : null,
       lastHeartbeatAt: this.lastHeartbeatAt,
       state: this.state,
     };
@@ -285,5 +398,13 @@ export class Daemon {
     this.state = 'stopped';
     this.writeState();
     this.log.info('stopped');
+  }
+}
+
+function realpathOr(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
   }
 }

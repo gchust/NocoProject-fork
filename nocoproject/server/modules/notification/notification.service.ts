@@ -26,6 +26,7 @@
  * | stage_entered, stage_action_problem, approval_stale | info | owner / approvers | workflow stage actions (Phase 2, `stage-notices.ts`) |
  * | workflow_proposal   | decision | owner/admin        | an agent proposed a workflow template change (Phase 2, `workflow-notices.ts`) |
  * | workflow_decided    | info     | source issue owner | the template proposal was accepted, rejected or found stale |
+ * | runtime_upgrade_required | info | computer owner   | a daemon must be upgraded (NP-150, no issue, `runtime-notices.ts`) |
  *
  * Nobody is notified of their own action. Decision items resolve when the matching action is done (status leaves
  * in_review / blocked; every proposal on the parent decided; the approval request decided or cancelled; the PR merged
@@ -71,6 +72,7 @@ import {
   onStageActionReported,
   onStageEntered,
 } from './stage-notices.js';
+import { onRuntimeCompatibilityChanged } from './runtime-notices.js';
 import { onWorkflowDecided, onWorkflowProposed } from './workflow-notices.js';
 
 export type { NotificationDeps } from './round.js';
@@ -446,6 +448,8 @@ async function handle(round: Round, event: DomainEvent): Promise<void> {
       return onWorkflowProposed(round, event);
     case 'workflow.decided':
       return onWorkflowDecided(round, event);
+    case 'runtime.compatibilityChanged':
+      return onRuntimeCompatibilityChanged(round, event);
     default:
       return;
   }
