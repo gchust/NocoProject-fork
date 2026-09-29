@@ -429,6 +429,8 @@ const npIter2EnUS = {
     knowledge_accepted: 'Your knowledge proposal “{{doc}}” was accepted.',
     knowledge_rejected: 'Your knowledge proposal “{{doc}}” was rejected.',
     design_review: '{{actor}} submitted a design proposal for your review.',
+    runtime_upgrade_required:
+      'The daemon on this computer runs CLI {{version}} and must be upgraded to {{latest}} before it runs agents.',
     signal_suppressed:
       '{{title}}: the agent already tried {{limit}} times in a row, so it will not be woken again until the problem is resolved. Please take over.',
   },

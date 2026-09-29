@@ -184,6 +184,7 @@ export const npKeys = {
   issueAttachments: (id: string) => ['np', 'issue', id, 'attachments'] as const,
   agents: ['np', 'agents'] as const,
   runtimes: ['np', 'runtimes'] as const,
+  computers: ['np', 'computers'] as const,
   run: (id: string) => ['np', 'run', id] as const,
   members: ['np', 'members'] as const,
   /** NP-88: pending invitations; under `members`, so a members refresh refetches them. */
@@ -311,7 +312,7 @@ export const LABEL_DOT_CLASS: Readonly<Record<LabelColor, string>> = {
  * `dist/client/assets/cli/nocoproject-cli-<version>.tgz` (`scripts/pack-cli.sh`, a build hook in `cli/plugins.ts`) and
  * fails when this does not match its package.json; bump both together.
  */
-export const CLI_VERSION = '0.4.0';
+export const CLI_VERSION = '0.5.0';
 
 /** How to install the daemon/CLI on another computer: npm fetches the tarball this application serves. */
 export function cliInstallCommand(serverUrl: string): string {

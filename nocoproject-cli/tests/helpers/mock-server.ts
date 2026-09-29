@@ -7,13 +7,15 @@ import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer, type WebSocket } from 'ws';
-import type { AgentAttachmentInfo, ClaimedKnowledgeDoc, ClaimedProject, CommentForAgent, IssueForAgent, IssuePullRequestView, RunStatus } from '../../src/protocol.js';
+import type { AgentAttachmentInfo, DaemonCompatibility, ClaimedKnowledgeDoc, ClaimedProject, CommentForAgent, IssueForAgent, IssuePullRequestView, RunStatus } from '../../src/protocol.js';
 import type { ClaimedRunV1 as ClaimedRun } from '../../src/run-context.js';
 import { MockKnowledge } from './mock-knowledge.js';
 import { MockPm } from './mock-pm.js';
 import { MockWorkflow } from './mock-workflow.js';
 
 export const API_KEY = 'test-api-key-0123456789';
+/** NP-150: a computer credential the mock accepts on `/np/daemon/*` (header `x-np-computer-key`). */
+export const COMPUTER_KEY = 'npc_test-computer-key-0123456789';
 export const BASE = '/main';
 
 export interface Call {
@@ -79,6 +81,8 @@ export interface MockOptions {
   readonly startDelayMs?: number;
   readonly wsAuth?: boolean;
   readonly protocolMismatch?: boolean;
+  /** A server from before NP-150: refuses any protocol but 1 at register (426) and sends no `compatibility`. */
+  readonly legacyServer?: boolean;
 }
 
 const TRANSITIONS = [
@@ -94,6 +98,18 @@ const TRANSITIONS = [
 
 export class MockServer {
   readonly calls: Call[] = [];
+  /** NP-150: the verdict sent with register, heartbeat and claim responses (none when undefined). */
+  compatibility: DaemonCompatibility | undefined;
+  /** NP-150: answers computer-credential requests with 401 of this code (a revoked credential). */
+  computerKeyRefusal: string | undefined;
+  /** Long-poll wakeups (`/np/daemon/wakeups`) kept for computer-credential daemons. */
+  private readonly wakeupLog: unknown[] = [];
+  private readonly wakeupWaiters = new Set<() => void>();
+  latestVersion = '0.5.0';
+
+  private compat(): { compatibility?: DaemonCompatibility } {
+    return this.compatibility ? { compatibility: this.compatibility } : {};
+  }
   readonly issues = new Map<string, MockIssue>();
   readonly comments = new Map<string, CommentForAgent[]>();
   readonly runs = new Map<string, RunState>();
@@ -162,6 +178,27 @@ export class MockServer {
   publish(payload: unknown): void {
     const frame = JSON.stringify({ type: 'event', topic: 'np:daemon', payload, publishedAt: new Date().toISOString() });
     for (const ws of this.sockets) ws.send(frame);
+    this.wakeupLog.push(payload);
+    for (const wake of this.wakeupWaiters) wake();
+  }
+
+  private async wakeups(url: URL, send: (s: number, p: unknown) => void): Promise<void> {
+    const after = url.searchParams.get('after');
+    if (after === null) return send(200, { data: { cursor: this.wakeupLog.length, events: [] } });
+    const from = Number(after);
+    if (this.wakeupLog.length <= from) {
+      const timeoutMs = Math.min(Number(url.searchParams.get('timeout') ?? 25), 2) * 1000;
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          this.wakeupWaiters.delete(done);
+          resolve();
+        };
+        const timer = setTimeout(done, timeoutMs);
+        this.wakeupWaiters.add(done);
+      });
+    }
+    send(200, { data: { cursor: this.wakeupLog.length, events: this.wakeupLog.slice(from) } });
   }
 
   addIssue(partial: Partial<MockIssue> & { id: string; identifier: string }): MockIssue {
@@ -269,18 +306,29 @@ export class MockServer {
   }
 
   private async daemonRoute(method: string, path: string, body: any, req: IncomingMessage, send: (s: number, p: unknown) => void): Promise<void> {
-    if (req.headers['x-api-key'] !== API_KEY) return send(401, { code: 'UNAUTHORIZED', message: 'bad key' });
+    const computer = req.headers['x-np-computer-key'];
+    if (computer !== undefined) {
+      if (computer !== COMPUTER_KEY) return send(401, { code: 'COMPUTER_KEY_INVALID', message: 'bad credential' });
+      if (this.computerKeyRefusal) return send(401, { code: this.computerKeyRefusal, message: 'refused' });
+    } else if (req.headers['x-api-key'] !== API_KEY) return send(401, { code: 'UNAUTHORIZED', message: 'bad key' });
+    if (path === '/np/daemon/wakeups') return this.wakeups(new URL(req.url ?? '/', 'http://mock'), send);
     if (path === '/np/daemon/register') {
       if (this.opts.protocolMismatch) return send(426, { code: 'PROTOCOL_MISMATCH', message: 'upgrade' });
+      if (this.opts.legacyServer && body.protocolVersion !== 1) return send(426, { code: 'PROTOCOL_MISMATCH', message: `Server speaks protocol 1; daemon sent ${String(body.protocolVersion)}.` });
       const runtimes = (body.runtimes as { provider: string }[]).map((r) => {
         const existing = this.runtimes.get(r.provider) ?? { id: `rt-${r.provider}`, provider: r.provider };
         this.runtimes.set(r.provider, existing);
         return existing;
       });
-      return send(200, { data: { runtimes, serverTime: new Date().toISOString(), protocolVersion: 1, pollIntervalMs: 15000, heartbeatIntervalMs: 15000 } });
+      const protocolVersion = this.opts.legacyServer ? 1 : Math.min(Number(body.protocolVersion) || 1, 2);
+      return send(200, { data: { runtimes, serverTime: new Date().toISOString(), protocolVersion, pollIntervalMs: 15000, heartbeatIntervalMs: 15000, ...this.compat() } });
     }
-    if (path === '/np/daemon/heartbeat' || path === '/np/daemon/deregister') return send(200, { data: { ok: true } });
+    if (path === '/np/daemon/heartbeat') return send(200, { data: { ok: true, ...this.compat() } });
+    if (path === '/np/daemon/deregister') return send(200, { data: { ok: true } });
+    if (path === '/np/daemon/compatibility' && !this.opts.legacyServer)
+      return send(200, { data: { protocols: { min: 1, current: 2 }, latestVersion: this.latestVersion, minVersion: '0.4.0', downloadPath: `/assets/cli/nocoproject-cli-${this.latestVersion}.tgz`, downloadUrl: `${this.url}/assets/cli/nocoproject-cli-${this.latestVersion}.tgz` } });
     if (path === '/np/daemon/runs/claim') {
+      if (this.compatibility?.status === 'unsupported') return send(200, { data: { runs: [], ...this.compat() } });
       const out: ClaimedRun[] = [];
       for (const slot of body.slots as { runtimeId: string; free: number }[]) {
         for (let i = 0; i < slot.free; i++) {
@@ -293,7 +341,7 @@ export class MockServer {
           out.push(run);
         }
       }
-      return send(200, { data: { runs: out } });
+      return send(200, { data: { runs: out, ...this.compat() } });
     }
     const m = path.match(/^\/np\/daemon\/runs\/([^/]+)\/([a-z-]+)$/);
     const run = m ? this.runs.get(m[1] as string) : undefined;

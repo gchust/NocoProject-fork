@@ -3,11 +3,11 @@
  * coalescing trigger so WS wakeups, polls and freed slots never overlap claim calls.
  */
 import { HttpError } from '../api/client.js';
-import type { ClaimedRun, DaemonClaimRequest, DaemonClaimResponse } from '../protocol.js';
+import type { ClaimedRun, DaemonClaimRequest, DaemonClaimResponse, DaemonCompatibilityResponse } from '../protocol.js';
 import type { Logger } from '../util/log.js';
 
 export interface ClaimApi {
-  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse>;
+  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse & DaemonCompatibilityResponse>;
 }
 
 export interface ClaimLoopOptions {
@@ -18,7 +18,10 @@ export interface ClaimLoopOptions {
   /** Executes a claimed run; its slot is released when the promise settles. */
   readonly execute: (run: ClaimedRun) => Promise<unknown>;
   readonly logger: Logger;
+  /** A 426 (a server from before NP-150). The loop keeps going; `runtimeIds` returns none while an upgrade is required. */
   readonly onProtocolMismatch: (error: HttpError) => void;
+  /** The server's verdict on this daemon, when the claim response carries one (NP-150). */
+  readonly onCompatibility?: (compatibility: NonNullable<DaemonCompatibilityResponse['compatibility']>) => void;
   readonly onUnknownRuntime?: () => void;
 }
 
@@ -72,12 +75,12 @@ export class ClaimLoop {
   private async round(reason: string): Promise<void> {
     const slots = distributeSlots(this.freeSlots, this.opts.runtimeIds());
     if (slots.length === 0) return;
-    let response: DaemonClaimResponse;
+    let response: DaemonClaimResponse & DaemonCompatibilityResponse;
     try {
+      // `configurationProtocol` keeps protocol 1 servers (NP-125 to NP-150) handing out work.
       response = await this.opts.api.claim({ daemonId: this.opts.daemonId, slots, configurationProtocol: 1 });
     } catch (error) {
       if (error instanceof HttpError && error.status === 426) {
-        this.stop();
         this.opts.onProtocolMismatch(error);
       } else if (error instanceof HttpError && error.status === 404) {
         this.opts.onUnknownRuntime?.();
@@ -86,6 +89,7 @@ export class ClaimLoop {
       }
       return;
     }
+    if (response.compatibility) this.opts.onCompatibility?.(response.compatibility);
     const runs = response.runs ?? [];
     if (runs.length > 0) this.opts.logger.info('claimed runs', { reason, count: runs.length, ids: runs.map((r) => r.run.id).join(',') });
     for (const run of runs) this.launch(run);

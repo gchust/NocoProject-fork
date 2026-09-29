@@ -514,6 +514,7 @@ const enUS = {
         name: 'Name',
         provider: 'Provider',
         version: 'Version',
+        cli: 'CLI',
         kind: 'Kind',
         status: 'Status',
         lastSeen: 'Last seen',
@@ -523,6 +524,41 @@ const enUS = {
         personal: 'Personal',
         server: 'Server',
       },
+      personalKey: 'Personal API key',
+      personalKeyHint:
+        'This computer connects with your personal API key. Add it again with “Add a computer” to give it its own credential.',
+      upgrade: {
+        required: 'Upgrade required',
+        lastSeen: 'Last heartbeat {{time}}',
+        show: 'Show the upgrade command',
+        requiredTitle: 'Upgrade the CLI on {{device}}',
+        availableTitle: 'A newer CLI for {{device}}',
+        versions: 'Installed {{current}}, this application serves {{latest}}.',
+        hint: 'Run it on that computer. It installs the new CLI and restarts the daemon once no agent is running.',
+      },
+    },
+    computers: {
+      title: 'Computer credentials',
+      description:
+        'Each added computer’s daemon signs in with its own credential, which reaches only the daemon API.',
+      loadFailed: 'Unable to load computer credentials',
+      columns: {
+        name: 'Computer',
+        key: 'Credential',
+        state: 'State',
+        lastUsed: 'Last used',
+        actions: 'Actions',
+      },
+      state: {
+        active: 'In use',
+        unused: 'Not used yet',
+        revoked: 'Revoked',
+      },
+      revoke: 'Revoke',
+      revokeTitle: 'Revoke the credential of {{name}}?',
+      revokeDescription:
+        'Its daemon stops at its next request and its runtimes go offline. To connect it again, add the computer again.',
+      revoked: 'Credential of {{name}} revoked',
     },
   },
 };

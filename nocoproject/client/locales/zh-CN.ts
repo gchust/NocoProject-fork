@@ -494,6 +494,7 @@ const zhCN: AppResource = {
         name: '名称',
         provider: '工具',
         version: '版本',
+        cli: 'CLI',
         kind: '类型',
         status: '状态',
         lastSeen: '最近在线',
@@ -503,6 +504,41 @@ const zhCN: AppResource = {
         personal: '个人',
         server: '服务器',
       },
+      personalKey: '个人密钥',
+      personalKeyHint:
+        '这台电脑用你的个人 API 密钥连接。用“添加电脑”重新添加它，给它一个专用凭证。',
+      upgrade: {
+        required: '需要升级',
+        lastSeen: '最后心跳 {{time}}',
+        show: '查看升级命令',
+        requiredTitle: '升级 {{device}} 上的 CLI',
+        availableTitle: '{{device}} 有新版 CLI',
+        versions: '已安装 {{current}}，本应用提供 {{latest}}。',
+        hint: '在那台电脑上运行。它会安装新版 CLI，并在没有 Agent 运行时重启守护进程。',
+      },
+    },
+    computers: {
+      title: '电脑凭证',
+      description:
+        '每台添加的电脑，守护进程都用自己的凭证登录，只能调用守护进程接口。',
+      loadFailed: '无法加载电脑凭证',
+      columns: {
+        name: '电脑',
+        key: '凭证',
+        state: '状态',
+        lastUsed: '最近使用',
+        actions: '操作',
+      },
+      state: {
+        active: '使用中',
+        unused: '尚未使用',
+        revoked: '已吊销',
+      },
+      revoke: '吊销',
+      revokeTitle: '吊销 {{name}} 的凭证？',
+      revokeDescription:
+        '它的守护进程会在下一次请求时停止，运行时变为离线。要重新连接，请再添加一次这台电脑。',
+      revoked: '已吊销 {{name}} 的凭证',
     },
   },
 };

@@ -41,6 +41,8 @@ export const KNOWLEDGE_NOTE_MAX = 500;
 export const KNOWLEDGE_CONTENT_MAX = 200_000;
 /** slug: lowercase letters, digits, and hyphens, 1-64 chars, not starting with a hyphen */
 export const KNOWLEDGE_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/u;
+/** Maximum nesting depth of the document tree; a root document is depth 1 (NP-147). */
+export const KNOWLEDGE_MAX_DEPTH = 4;
 
 /** Element of `GET /np/knowledge`, `GET /np/agent/knowledge` (without the body) */
 export interface KnowledgeDocSummary {
@@ -51,6 +53,12 @@ export interface KnowledgeDocSummary {
   readonly title: string;
   readonly slug: string;
   readonly summary: string;
+  /** null = a root document; otherwise the id of its parent document in the same scope (NP-147) */
+  readonly parentId: string | null;
+  /** Position among its siblings (NP-147) */
+  readonly sortOrder: number;
+  /** Number of direct, non-archived child documents (NP-147) */
+  readonly childCount: number;
   /** Starts at 1, +1 on every update */
   readonly version: number;
   readonly updatedByType: KnowledgeAuthorType;
@@ -136,6 +144,8 @@ export interface KnowledgeDocDetail {
   readonly versions: readonly KnowledgeVersionSummary[];
   /** Pending proposals on this document (newest first) */
   readonly proposals: readonly KnowledgeProposal[];
+  /** Ancestors from the root to this document's parent (NP-147) */
+  readonly breadcrumbs: readonly { id: string; title: string; slug: string }[];
 }
 
 export interface CreateKnowledgeDocRequest {
@@ -144,6 +154,8 @@ export interface CreateKnowledgeDocRequest {
   readonly slug?: string;
   readonly summary?: string;
   readonly content: string;
+  /** The parent document's id, in the same scope; omitted/null = a root document (NP-147) */
+  readonly parentId?: string | null;
 }
 
 export interface UpdateKnowledgeDocRequest {
@@ -152,6 +164,16 @@ export interface UpdateKnowledgeDocRequest {
   readonly content?: string;
   readonly note?: string;
   readonly expectedVersion: number;
+}
+
+/**
+ * `PATCH /np/knowledge/:id` (NP-147): moves a document to a new parent/position. Distinguished from
+ * UpdateKnowledgeDocRequest by carrying `parentId` and/or `sortOrder`. Does not create a new content version.
+ */
+export interface MoveKnowledgeDocRequest {
+  readonly parentId: string | null;
+  readonly sortOrder: number;
+  readonly expectedVersion?: number;
 }
 
 export interface DecideKnowledgeProposalRequest {
@@ -170,20 +192,24 @@ export interface AgentKnowledgeProposalRequest {
   readonly summary?: string;
   readonly content: string;
   readonly reason: string;
+  /** The parent document's id or slug, in the same scope; only used when creating a new document (NP-147) */
+  readonly parentId?: string;
 }
 
-/** Element of the claim payload's `knowledge[]` (an index, without the body) */
+/** Element of the claim payload's `knowledge[]` (an index, without the body). Root documents only (NP-147). */
 export interface ClaimedKnowledgeDoc {
   readonly id: string;
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
   readonly projectId: string | null;
+  /** Number of direct, non-archived child documents (NP-147) */
+  readonly childCount: number;
 }
 
 /** Fields added to ClaimedRun in iteration 3 (the daemon reads them as optional) */
 export interface ClaimedRunPhase3Extras {
-  /** Documents of the run's own project come first, then system-wide ones; excludes archived documents */
+  /** Root documents of the run's own project come first, then system-wide ones; excludes archived documents */
   readonly knowledge: readonly ClaimedKnowledgeDoc[];
 }
 

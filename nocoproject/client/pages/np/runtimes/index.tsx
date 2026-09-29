@@ -6,7 +6,6 @@ import { AlertCircleIcon, MonitorIcon, PlusIcon } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
 import { Link, Outlet } from 'react-router';
 
-import { NpOnlineState } from '@/components/np-badges';
 import { DataTable } from '@/components/data-table';
 import { NpActorAvatar } from '@/components/np-actor-avatar';
 import { NpShortcuts } from '@/components/np-shortcuts';
@@ -35,6 +34,8 @@ import { npKeys } from '../constants.js';
 import { useNpFormatters } from '../format.js';
 import type { AgentsTopicPayload, Runtime } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
+import { ComputersSection } from './computers-section.js';
+import { RuntimeCliCell, RuntimeStatusCell } from './runtime-cli.js';
 
 function deviceText(runtime: Runtime, key: string): string | null {
   const value = runtime.deviceInfo?.[key];
@@ -56,6 +57,7 @@ export default function RuntimesPage(): ReactElement {
   useRealtimeTopic<AgentsTopicPayload>('np:agents', () => {
     void queryClient.invalidateQueries({ queryKey: npKeys.runtimes });
     void queryClient.invalidateQueries({ queryKey: npKeys.agents });
+    void queryClient.invalidateQueries({ queryKey: npKeys.computers });
   });
 
   const columns = useMemo<ColumnDef<Runtime, unknown>[]>(
@@ -99,6 +101,11 @@ export default function RuntimesPage(): ReactElement {
         },
       },
       {
+        id: 'cli',
+        header: t('np.runtimes.columns.cli'),
+        cell: ({ row }) => <RuntimeCliCell runtime={row.original} />,
+      },
+      {
         accessorKey: 'kind',
         header: t('np.runtimes.columns.kind'),
         cell: ({ row }) =>
@@ -109,9 +116,7 @@ export default function RuntimesPage(): ReactElement {
       {
         accessorKey: 'status',
         header: t('np.runtimes.columns.status'),
-        cell: ({ row }) => (
-          <NpOnlineState online={row.original.status === 'online'} />
-        ),
+        cell: ({ row }) => <RuntimeStatusCell runtime={row.original} />,
       },
       {
         accessorKey: 'lastSeenAt',
@@ -231,6 +236,7 @@ export default function RuntimesPage(): ReactElement {
       />
       <NpShortcuts />
       {content}
+      <ComputersSection />
       <Outlet />
     </PageContainer>
   );
