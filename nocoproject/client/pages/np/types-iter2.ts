@@ -288,11 +288,6 @@ export interface IntakeConfirmInput {
   readonly defaultExecutor?: ExecutorRef;
 }
 
-export interface IntakeRevertResult {
-  readonly reverted: readonly string[];
-  readonly kept: readonly string[];
-}
-
 // ---------- §I usage and settings ----------
 
 export type UsageGroupBy = 'agent' | 'issue' | 'project' | 'day' | 'model';

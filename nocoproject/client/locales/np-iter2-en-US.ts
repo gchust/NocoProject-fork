@@ -173,16 +173,6 @@ const npIter2EnUS = {
     fixProblems: 'Fix the problems shown in the table first.',
     stateChanged: 'This batch was already confirmed or cancelled.',
     notFound: 'This batch does not exist.',
-    recentTitle: 'My recent batches',
-    recentEmpty: 'No batches yet.',
-    draftCount: '{{count}} drafts',
-    open: 'Open',
-    revert: 'Revert',
-    revertTitle: 'Revert this batch?',
-    revertDescription:
-      'Issues created by this batch are removed. Issues an agent has already worked on are kept.',
-    reverted: '{{count}} issues removed',
-    revertKept: '{{count}} kept because an agent already ran on them.',
     columns: {
       title: 'Title',
       priority: 'Priority',
@@ -211,10 +201,6 @@ const npIter2EnUS = {
       confirmed: 'Created',
       cancelled: 'Discarded',
       reverted: 'Reverted',
-    },
-    source: {
-      paste: 'Pasted text',
-      issue: 'Issue breakdown',
     },
   },
   reactions: {

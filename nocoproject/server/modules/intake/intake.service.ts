@@ -1,24 +1,24 @@
 /**
  * Batch intake (docs/phase1/iteration-2-contract.md §E): paste text (or split an issue's description), review the
- * drafts, confirm them into issues, and revert a confirmed batch.
+ * drafts, and confirm them into issues or cancel the batch.
  *
- * A batch belongs to the member who entered it; only they (or an owner/admin) may edit, confirm, cancel or revert
- * it. Confirming creates parents before children (`intake.confirm.ts`); reverting soft-deletes the issues it created
- * that never had a run and keeps the others. Iteration 4: `process` on the request is written into every draft that
- * has none; confirming selects each issue's process (heuristic only, `issue/process.ts`). NP-78: `attachmentIds`
- * hands the member's own uploads to the batch (`attachment/attachment.intake.ts`); they start on the first top-level
- * draft (`fields.attachmentIds`) and are attached when the batch is confirmed.
+ * A batch belongs to the member who entered it; only they (or an owner/admin) may edit, confirm or cancel it.
+ * Confirming creates parents before children (`intake.confirm.ts`). NP-151 removed listing and reverting batches;
+ * `reverted` batches and `intake_reverted` activity from before remain readable. Iteration 4: `process` on the
+ * request is written into every draft that has none; confirming selects each issue's process (heuristic only,
+ * `issue/process.ts`). NP-78: `attachmentIds` hands the member's own uploads to the batch
+ * (`attachment/attachment.intake.ts`); they start on the first top-level draft (`fields.attachmentIds`) and are
+ * attached when the batch is confirmed.
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   canSeeProject,
-  isAdmin,
   requireVisibleIssue,
   viewerOf,
   type Viewer,
 } from '../shared/authz.js';
-import type { Conn, Tx, TxRunner } from '../shared/db.js';
-import { now, str } from '../shared/db.js';
+import type { Conn, TxRunner } from '../shared/db.js';
+import { now } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type {
@@ -32,7 +32,6 @@ import type {
   IntakeBatchDetail,
   IntakeDraft,
   IntakeDraftFieldsV4,
-  RevertIntakeResponse,
 } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import type { SettingsService } from '../system/settings.service.js';
@@ -61,7 +60,6 @@ import { refineDrafts } from './intake.refine.js';
 import {
   draftsOf,
   findBatch,
-  mapBatch,
   replaceDrafts,
   setBatchStatus,
 } from './intake.records.js';
@@ -69,7 +67,6 @@ import { validateDrafts } from './intake.validation.js';
 import type { IntakeParser } from './parser.js';
 
 const MAX_RAW_CONTENT = 200_000;
-const LIST_LIMIT = 50;
 
 /** NP-78: the batch views carry the files that travel with the batch; NP-120: and whether AI may refine it. */
 export type IntakeBatchDetailV4 = IntakeBatchDetail &
@@ -84,7 +81,6 @@ export interface IntakeService {
     actor: Actor,
     input: CreateIntakeBatchRequestV4,
   ): Promise<CreateIntakeBatchResponseV4>;
-  list(actor: Actor, mine: boolean): Promise<IntakeBatch[]>;
   get(actor: Actor, id: string): Promise<IntakeBatchDetailV4>;
   putDrafts(actor: Actor, id: string, drafts: unknown): Promise<IntakeDraft[]>;
   /** NP-120: revises the drafts by one instruction (`intake.refine.ts`). */
@@ -95,7 +91,6 @@ export interface IntakeService {
     input: ConfirmIntakeRequest,
   ): Promise<ConfirmIntakeResponse>;
   cancel(actor: Actor, id: string): Promise<IntakeBatch>;
-  revert(actor: Actor, id: string): Promise<RevertIntakeResponse>;
 }
 
 export interface IntakeDeps {
@@ -285,85 +280,9 @@ async function create(
   };
 }
 
-async function revert(
-  deps: IntakeDeps,
-  tx: Tx,
-  actor: Actor,
-  batch: IntakeBatch,
-): Promise<RevertIntakeResponse> {
-  const created = (await draftsOf(tx.conn, batch.id))
-    .map((draft) => draft.createdIssueId)
-    .filter((issueId): issueId is string => !!issueId);
-  const reverted: string[] = [];
-  const kept: string[] = [];
-  for (const issueId of created) {
-    const hasRun = await tx.conn.query
-      .selectFrom('runs')
-      .select('id')
-      .where('subjectId', '=', issueId)
-      .exists();
-    if (hasRun) {
-      kept.push(issueId);
-      continue;
-    }
-    const row = await tx.conn.query
-      .selectFrom('issues')
-      .select(['revision', 'parentIssueId', 'deletedAt'])
-      .where('id', '=', issueId)
-      .executeTakeFirst();
-    if (!row || row.deletedAt) continue;
-    const timestamp = now();
-    await tx.conn.query
-      .updateTable('issues')
-      .set({
-        deletedAt: timestamp,
-        revision: Number(row.revision) + 1,
-        updatedAt: timestamp,
-      })
-      .where('id', '=', issueId)
-      .execute();
-    await deps.activity.record(tx.conn, {
-      issueId,
-      actor,
-      action: 'intake_reverted',
-      details: { intakeBatchId: batch.id },
-    });
-    tx.emit({ type: 'issue.changed', issueId });
-    const parentId = str(row.parentIssueId);
-    if (parentId) tx.emit({ type: 'issue.changed', issueId: parentId });
-    reverted.push(issueId);
-  }
-  if (batch.sourceIssueId)
-    await deps.activity.record(tx.conn, {
-      issueId: batch.sourceIssueId,
-      actor,
-      action: 'intake_reverted',
-      details: {
-        intakeBatchId: batch.id,
-        reverted: reverted.length,
-        kept: kept.length,
-      },
-    });
-  await setBatchStatus(tx, batch.id, 'reverted');
-  return { reverted, kept };
-}
-
 export function createIntakeService(deps: IntakeDeps): IntakeService {
   return {
     create: (actor, input) => create(deps, actor, input),
-    async list(actor, mine) {
-      const conn = deps.tx.read();
-      const viewer = await viewerOf(conn, actor);
-      let query = conn.query.selectFrom('intakeBatches').selectAll();
-      if (mine || !isAdmin(viewer))
-        query = query.where('createdById', '=', viewer.userId);
-      const rows = await query
-        .orderBy('createdAt', 'desc')
-        .orderBy('id', 'desc')
-        .limit(LIST_LIMIT)
-        .execute();
-      return rows.map(mapBatch);
-    },
     async get(actor, id) {
       const conn = deps.tx.read();
       const { batch } = await ownBatch(conn, actor, id);
@@ -391,13 +310,6 @@ export function createIntakeService(deps: IntakeDeps): IntakeService {
         await setBatchStatus(tx, id, 'cancelled');
       });
       return findBatch(deps.tx.read(), id);
-    },
-    async revert(actor, id) {
-      return deps.tx.run(async (tx) => {
-        const { batch } = await ownBatch(tx.conn, actor, id);
-        requireStatus(batch, 'confirmed');
-        return revert(deps, tx, actor, batch);
-      });
     },
   };
 }
