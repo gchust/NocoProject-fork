@@ -32,7 +32,7 @@ interface ResolvedHere {
 }
 
 /**
- * "Waiting for you" on the issue page (nocosolution/NocoSolution 前端规范.md §S3). Each open decision the viewer has on this issue is a
+ * "Waiting for you" on the issue page (nocosolution/guidelines/NocoSolution 前端规范.md §S3). Each open decision the viewer has on this issue is a
  * card: what it is, one sentence, the thing being decided in full, and the actions right under it. Deciding runs
  * through `useDecisionRunner` (the inbox's code): the card shows the action in flight, then folds into a one-line
  * done state ("✓" plus the action label) that can be expanded again for the rest of the visit. Nothing renders when nothing waits.
