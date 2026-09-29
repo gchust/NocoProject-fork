@@ -138,11 +138,22 @@ export function runtimeDaemonInfo(
 export interface DaemonRow {
   readonly id: string;
   readonly status: string | null;
+  readonly deviceInfo?: unknown;
+}
+
+/** Whether a row shows its daemon had to be upgraded: its status, or the verdict register stored. */
+function wasUnsupported(row: DaemonRow): boolean {
+  if (row.status === 'upgrade_required') return true;
+  const info = fromJson<Record<string, unknown>>(row.deviceInfo);
+  const verdict = info?.compatibility as { status?: unknown } | undefined;
+  return verdict?.status === 'unsupported';
 }
 
 /**
- * Records that a daemon was seen: its runtimes become `online` or `upgrade_required` (with `deviceInfo` replaced when
- * given), and a change into or out of `upgrade_required` emits `runtime.compatibilityChanged` for the owner's inbox.
+ * Records that a daemon was seen: its runtimes (`rows`) become `online` or `upgrade_required`, with `deviceInfo`
+ * replaced when given. `others` are the daemon's runtimes it no longer registers (register only): they take the new
+ * `deviceInfo` too, and one left `upgrade_required` goes offline. A change into or out of "must upgrade" emits
+ * `runtime.compatibilityChanged` for the owner's inbox.
  */
 export async function markDaemonSeen(
   tx: Tx,
@@ -151,32 +162,46 @@ export async function markDaemonSeen(
     readonly daemonId: string;
     readonly deviceName: string | null;
     readonly rows: readonly DaemonRow[];
+    readonly others?: readonly DaemonRow[];
     readonly compatibility: DaemonCompatibility;
     readonly deviceInfo?: Record<string, unknown>;
   },
 ): Promise<void> {
   if (daemon.rows.length === 0) return;
+  const others = daemon.others ?? [];
   const status = liveStatus(daemon.compatibility);
   const timestamp = now();
+  const info = daemon.deviceInfo
+    ? { deviceInfo: toJson(daemon.deviceInfo) }
+    : {};
   await tx.conn.query
     .updateTable('runtimes')
-    .set({
-      status,
-      lastSeenAt: timestamp,
-      updatedAt: timestamp,
-      ...(daemon.deviceInfo ? { deviceInfo: toJson(daemon.deviceInfo) } : {}),
-    })
+    .set({ status, lastSeenAt: timestamp, updatedAt: timestamp, ...info })
     .where(
       'id',
       'in',
       daemon.rows.map((row) => row.id),
     )
     .execute();
-  if (daemon.rows.some((row) => row.status !== status))
+  for (const row of others) {
+    const gone = row.status === 'upgrade_required';
+    if (!gone && !daemon.deviceInfo) continue;
+    await tx.conn.query
+      .updateTable('runtimes')
+      .set({
+        ...(gone ? { status: 'offline' } : {}),
+        updatedAt: timestamp,
+        ...info,
+      })
+      .where('id', '=', row.id)
+      .execute();
+  }
+  if (
+    daemon.rows.some((row) => row.status !== status) ||
+    others.some((row) => row.status === 'upgrade_required')
+  )
     tx.emit({ type: 'agents.changed' });
-  const wasRequired = daemon.rows.some(
-    (row) => row.status === 'upgrade_required',
-  );
+  const wasRequired = [...daemon.rows, ...others].some(wasUnsupported);
   const required = status === 'upgrade_required';
   if (wasRequired !== required)
     tx.emit({

@@ -2,7 +2,7 @@
  * NP-150: the boot service (`daemon install` / `uninstall`) and `nocoproject upgrade`, with the service manager and
  * npm replaced by a recording `Exec`.
  */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -16,6 +16,7 @@ import {
   serviceKind,
   serviceLabel,
   serviceWarnings,
+  stableNodePath,
   systemdUnit,
   type Exec,
   type ServiceSpec,
@@ -31,12 +32,15 @@ const SPEC: ServiceSpec = {
   home: '/Users/me/.nocoproject',
   path: '/opt/homebrew/bin:/usr/bin:/bin',
   logFile: '/Users/me/.nocoproject/logs/daemon.log',
+  startArgs: ['--providers', 'claude,opencode'],
+  env: { NOCOPROJECT_DEVICE_NAME: 'dev-box' },
 };
 
 describe('service definitions', () => {
   it('writes a launchd agent that runs this CLI with the installing PATH', () => {
     const plist = launchdPlist(SPEC);
-    expect(plist).toContain(`<string>${SPEC.execPath}</string>\n    <string>${SPEC.entry}</string>\n    <string>daemon</string>\n    <string>start</string>\n    <string>--foreground</string>`);
+    expect(plist).toContain(`<string>${SPEC.execPath}</string>\n    <string>${SPEC.entry}</string>\n    <string>daemon</string>\n    <string>start</string>\n    <string>--foreground</string>\n    <string>--providers</string>\n    <string>claude,opencode</string>`);
+    expect(plist).toContain('<key>NOCOPROJECT_DEVICE_NAME</key>\n    <string>dev-box</string>');
     expect(plist).toContain(`<key>PATH</key>\n    <string>${SPEC.path}</string>`);
     expect(plist).toContain('<key>KeepAlive</key>\n  <true/>');
     expect(plist).toContain(`<key>StandardErrorPath</key>\n  <string>${SPEC.logFile}</string>`);
@@ -44,8 +48,9 @@ describe('service definitions', () => {
 
   it('writes a systemd user unit that restarts the daemon', () => {
     const unit = systemdUnit({ ...SPEC, kind: 'systemd', label: 'nocoproject-daemon', entry: '/home/me/.npm global/lib/node_modules/nocoproject-cli/dist/cli.js' });
-    expect(unit).toContain(`ExecStart=${SPEC.execPath} "/home/me/.npm global/lib/node_modules/nocoproject-cli/dist/cli.js" daemon start --foreground`);
+    expect(unit).toContain(`ExecStart=${SPEC.execPath} "/home/me/.npm global/lib/node_modules/nocoproject-cli/dist/cli.js" daemon start --foreground --providers claude,opencode`);
     expect(unit).toContain(`Environment=PATH=${SPEC.path}`);
+    expect(unit).toContain('Environment=NOCOPROJECT_DEVICE_NAME=dev-box');
     expect(unit).toContain('Restart=always');
     expect(unit).toContain('WantedBy=default.target');
   });
@@ -53,6 +58,13 @@ describe('service definitions', () => {
   it('names the default home plainly and any other home with a suffix', () => {
     expect(serviceLabel('launchd', '/Users/me/.nocoproject', '/Users/me/.nocoproject')).toBe('ai.nocobase.nocoproject-daemon');
     expect(serviceLabel('systemd', '/tmp/x', '/Users/me/.nocoproject')).toMatch(/^nocoproject-daemon-[0-9a-f]{8}$/);
+  });
+
+  it('prefers a node on PATH that is the same binary', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ncp-node-'));
+    symlinkSync(process.execPath, join(dir, 'node'));
+    expect(stableNodePath(process.execPath, `/nowhere:${dir}`)).toBe(join(dir, 'node'));
+    expect(stableNodePath(process.execPath, '/nowhere')).toBe(process.execPath);
   });
 
   it('shows what an overwrite changes', () => {
@@ -96,14 +108,15 @@ describe('daemon install / uninstall / upgrade', () => {
   const kind = serviceKind();
 
   it.skipIf(!kind)('installs the service for this CLI and removes it again', async () => {
-    const result = await installService({}, record, () => undefined);
+    process.env.NOCOPROJECT_DEVICE_NAME = 'dev-box';
+    const result = await installService({ providers: 'claude,opencode', maxConcurrent: '3' }, record, () => undefined);
     const label = serviceLabel(kind!, home);
     const file = serviceFile(kind!, label, userHome);
     expect(result).toMatchObject({ kind, label, file, started: true, version: CLI_VERSION });
     const content = readFileSync(file, 'utf8');
-    expect(content).toContain(process.execPath);
+    expect(content).toContain(stableNodePath(process.execPath, process.env.PATH));
     expect(content).toContain(`NOCOPROJECT_HOME`);
-    expect(readInstalledService(home)).toMatchObject({ label, file, execPath: process.execPath, version: CLI_VERSION });
+    expect(readInstalledService(home)).toMatchObject({ label, file, execPath: stableNodePath(process.execPath, process.env.PATH), version: CLI_VERSION });
     const commands = calls.map((c) => `${c.file} ${c.args.join(' ')}`);
     if (kind === 'launchd') {
       expect(commands[0]).toMatch(new RegExp(`^launchctl bootout gui/\\d+/${label}$`));
@@ -111,6 +124,11 @@ describe('daemon install / uninstall / upgrade', () => {
     } else {
       expect(commands).toEqual([`systemctl --user disable --now ${label}.service`, 'systemctl --user daemon-reload', `systemctl --user enable --now ${label}.service`]);
     }
+
+    // A later install without options (what `nocoproject upgrade` runs) keeps the options and settings.
+    delete process.env.NOCOPROJECT_DEVICE_NAME;
+    await expect(installService({}, record, () => undefined)).resolves.toMatchObject({ startArgs: ['--providers', 'claude,opencode', '--max-concurrent', '3'], env: ['NOCOPROJECT_DEVICE_NAME'] });
+    expect(readFileSync(file, 'utf8')).toContain('dev-box');
 
     calls = [];
     await expect(uninstallService(record)).resolves.toMatchObject({ removed: true });

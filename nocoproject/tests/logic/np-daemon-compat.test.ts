@@ -222,6 +222,44 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
     expect(claimed.runs[0]!.server.protocolVersion).toBe(PROTOCOL_VERSION);
   });
 
+  it('resolves the card when the upgraded daemon registers other tools after a stop', async () => {
+    const old = await register('swap', {
+      version: '0.3.2',
+      protocolVersion: 1,
+    });
+    expect(await upgradeCards()).toHaveLength(1);
+    // `daemon install` stops the old daemon (deregister), and the new one registers claude instead of echo.
+    await services.runtimes.deregister(ALICE.id!, 'swap');
+    const upgraded = await services.runtimes.register(ALICE.id!, {
+      daemonId: 'swap',
+      deviceName: 'swap-mac',
+      version: LATEST_CLI_VERSION,
+      protocolVersion: PROTOCOL_VERSION,
+      runtimes: [
+        {
+          provider: 'claude',
+          version: '2',
+          capabilities: { resume: true, steering: false },
+        },
+      ],
+    });
+    expect(upgraded.runtimes[0]!.id).not.toBe(old.runtimes[0]!.id);
+    expect((await upgradeCards())[0]!.resolvedAt).not.toBeNull();
+    const runtimes = await services.runtimes.list();
+    expect(runtimes.map((item) => [item.provider, item.status]).sort()).toEqual(
+      [
+        ['claude', 'online'],
+        ['echo', 'offline'],
+      ],
+    );
+    // Later heartbeats do not announce anything again.
+    await services.runtimes.heartbeat(ALICE.id!, {
+      daemonId: 'swap',
+      runtimeIds: [upgraded.runtimes[0]!.id],
+    });
+    expect(await upgradeCards()).toHaveLength(1);
+  });
+
   it('lets a 0.4.0 daemon keep working inside the compatibility window', async () => {
     const registered = await register('window', {
       version: '0.4.0',

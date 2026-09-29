@@ -24,7 +24,25 @@ export interface ServiceSpec {
   readonly home: string;
   readonly path: string;
   readonly logFile: string;
+  /** Extra `daemon start` options (`--providers`, `--max-concurrent`). */
+  readonly startArgs: readonly string[];
+  /** Daemon settings from the environment (`SERVICE_ENV`), kept for the service. */
+  readonly env: Readonly<Record<string, string>>;
 }
+
+/**
+ * The daemon settings a service keeps from the installing environment. Never the API key or server URL (the service
+ * reads `config.json`) and never a run's variables.
+ */
+export const SERVICE_ENV = [
+  'NOCOPROJECT_DEVICE_NAME',
+  'NOCOPROJECT_DAEMON_ID',
+  'NOCOPROJECT_PROVIDERS',
+  'NOCOPROJECT_MAX_CONCURRENT',
+  'NOCOPROJECT_POLL_INTERVAL',
+  'NOCOPROJECT_AGENT_IDLE_WATCHDOG',
+  'NOCOPROJECT_WORKSPACES_ROOT',
+] as const;
 
 /** `<home>/service.json`. */
 export interface InstalledService {
@@ -35,6 +53,9 @@ export interface InstalledService {
   readonly entry: string;
   readonly version: string;
   readonly installedAt: string;
+  /** Kept so `daemon install` (and `upgrade`) without options reinstall the same service. */
+  readonly startArgs?: readonly string[];
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export function serviceKind(platform: NodeJS.Platform = process.platform): ServiceKind | null {
@@ -57,6 +78,20 @@ export function serviceFile(kind: ServiceKind, label: string, userHome = homedir
   return kind === 'launchd' ? join(userHome, 'Library', 'LaunchAgents', `${label}.plist`) : join(userHome, '.config', 'systemd', 'user', `${label}.service`);
 }
 
+/**
+ * A `node` on PATH that is the same binary as `execPath`, so the service survives a version upgrade of the Node
+ * package (Homebrew's `.../Cellar/node@24/24.21.0/bin/node` behind `/opt/homebrew/opt/node@24/bin/node`).
+ */
+export function stableNodePath(execPath: string, path: string | undefined): string {
+  const target = realEntry(execPath);
+  for (const dir of (path ?? '').split(':')) {
+    if (!dir) continue;
+    const candidate = join(dir, 'node');
+    if (candidate !== execPath && existsSync(candidate) && realEntry(candidate) === target && !candidate.includes('/.nocoproject/')) return candidate;
+  }
+  return execPath;
+}
+
 export function realEntry(entry: string): string {
   try {
     return realpathSync(entry);
@@ -69,8 +104,16 @@ function xml(value: string): string {
   return value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;');
 }
 
+function programArgs(spec: ServiceSpec): string[] {
+  return [spec.execPath, spec.entry, 'daemon', 'start', '--foreground', ...spec.startArgs];
+}
+
+function serviceEnv(spec: ServiceSpec): [string, string][] {
+  return [['PATH', spec.path], ['NOCOPROJECT_HOME', spec.home], ...Object.entries(spec.env).sort(([a], [b]) => a.localeCompare(b))];
+}
+
 export function launchdPlist(spec: ServiceSpec): string {
-  const args = [spec.execPath, spec.entry, 'daemon', 'start', '--foreground'];
+  const args = programArgs(spec);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Written by \`nocoproject daemon install\`; run it again instead of editing this file. -->
@@ -84,10 +127,9 @@ ${args.map((arg) => `    <string>${xml(arg)}</string>`).join('\n')}
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key>
-    <string>${xml(spec.path)}</string>
-    <key>NOCOPROJECT_HOME</key>
-    <string>${xml(spec.home)}</string>
+${serviceEnv(spec)
+  .map(([key, value]) => `    <key>${xml(key)}</key>\n    <string>${xml(value)}</string>`)
+  .join('\n')}
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -109,7 +151,7 @@ function quoteSystemd(value: string): string {
 }
 
 export function systemdUnit(spec: ServiceSpec): string {
-  const args = [spec.execPath, spec.entry, 'daemon', 'start', '--foreground'];
+  const args = programArgs(spec);
   return `# Written by \`nocoproject daemon install\`; run it again instead of editing this file.
 [Unit]
 Description=NocoProject agent daemon
@@ -118,8 +160,9 @@ Wants=network-online.target
 
 [Service]
 ExecStart=${args.map(quoteSystemd).join(' ')}
-Environment=${quoteSystemd(`PATH=${spec.path}`)}
-Environment=${quoteSystemd(`NOCOPROJECT_HOME=${spec.home}`)}
+${serviceEnv(spec)
+  .map(([key, value]) => `Environment=${quoteSystemd(`${key}=${value}`)}`)
+  .join('\n')}
 Restart=always
 RestartSec=10
 KillSignal=SIGTERM
@@ -221,7 +264,7 @@ export function serviceWarnings(
   running: { readonly version?: unknown; readonly entry?: unknown } | null,
 ): string[] {
   const warnings: string[] = [];
-  if (installed && current.entry && (installed.entry !== current.entry || installed.execPath !== current.execPath))
+  if (installed && current.entry && (realEntry(installed.entry) !== realEntry(current.entry) || realEntry(installed.execPath) !== realEntry(current.execPath)))
     warnings.push(`the boot service ${installed.label} runs ${installed.execPath} ${installed.entry} (${installed.version}), not this CLI (${current.version}); run \`nocoproject daemon install\` to point it here`);
   if (running && typeof running.version === 'string' && running.version !== current.version)
     warnings.push(`the running daemon is nocoproject-cli ${running.version}, this command is ${current.version}; restart it (\`nocoproject daemon install\`, or \`nocoproject daemon stop && nocoproject daemon start\`)`);

@@ -19,6 +19,8 @@ import {
   unloadService,
   writeInstalledService,
   writeServiceFile,
+  SERVICE_ENV,
+  stableNodePath,
   type Exec,
   type ServiceSpec,
 } from '../daemon/service.js';
@@ -31,6 +33,31 @@ export interface InstallOptions {
   readonly start?: boolean;
   readonly force?: boolean;
   readonly json?: boolean;
+  readonly providers?: string;
+  readonly maxConcurrent?: string;
+}
+
+/** `daemon start` options for the service: given ones, else what the installed service had. */
+function startArgs(opts: InstallOptions, previous: readonly string[] | undefined): string[] {
+  if (opts.providers === undefined && opts.maxConcurrent === undefined) return [...(previous ?? [])];
+  const args: string[] = [];
+  if (opts.providers) args.push('--providers', opts.providers);
+  if (opts.maxConcurrent) {
+    const n = Number(opts.maxConcurrent);
+    if (!Number.isInteger(n) || n < 1) throw new CliError('--max-concurrent must be a positive integer', EXIT.validation, 'INVALID_OPTION');
+    args.push('--max-concurrent', String(n));
+  }
+  return args;
+}
+
+/** Daemon settings from this environment, else what the installed service had. */
+function serviceEnvOf(previous: Readonly<Record<string, string>> | undefined): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of SERVICE_ENV) {
+    const value = process.env[key] ?? previous?.[key];
+    if (value) env[key] = value;
+  }
+  return env;
 }
 
 /** Refuses to restart a daemon that is running agents, unless forced (they are then retried elsewhere). */
@@ -54,7 +81,18 @@ export async function installService(opts: InstallOptions, run: Exec = exec, log
   const file = serviceFile(kind, label);
   const p = paths(cfg.home);
   mkdirSync(p.logDir, { recursive: true, mode: 0o700 });
-  const spec: ServiceSpec = { kind, label, execPath: process.execPath, entry: realEntry(entry), home: cfg.home, path: process.env.PATH ?? '/usr/bin:/bin', logFile: p.log };
+  const previousRecord = readInstalledService(cfg.home);
+  const spec: ServiceSpec = {
+    kind,
+    label,
+    execPath: stableNodePath(process.execPath, process.env.PATH),
+    entry: realEntry(entry),
+    home: cfg.home,
+    path: process.env.PATH ?? '/usr/bin:/bin',
+    logFile: p.log,
+    startArgs: startArgs(opts, previousRecord?.startArgs),
+    env: serviceEnvOf(previousRecord?.env),
+  };
   const content = renderService(spec);
   const previous = existsSync(file) ? readFileSync(file, 'utf8') : null;
   if (previous !== null && previous !== content) {
@@ -66,7 +104,7 @@ export async function installService(opts: InstallOptions, run: Exec = exec, log
   const stopped = await stopRunning(cfg.home);
   if (stopped) log(`stopped the running daemon (pid ${stopped.pid})`);
   writeServiceFile(file, content);
-  writeInstalledService(cfg.home, { kind, label, file, execPath: spec.execPath, entry: spec.entry, version: CLI_VERSION, installedAt: new Date().toISOString() });
+  writeInstalledService(cfg.home, { kind, label, file, execPath: spec.execPath, entry: spec.entry, version: CLI_VERSION, installedAt: new Date().toISOString(), startArgs: spec.startArgs, env: spec.env });
   let started = false;
   if (opts.start !== false) {
     const error = await loadService(kind, label, file, run);
@@ -74,7 +112,7 @@ export async function installService(opts: InstallOptions, run: Exec = exec, log
     started = true;
   }
   if (kind === 'systemd') log('tip: `loginctl enable-linger $USER` keeps the daemon running while you are logged out');
-  return { kind, label, file, entry: spec.entry, execPath: spec.execPath, version: CLI_VERSION, started, log: p.log };
+  return { kind, label, file, entry: spec.entry, execPath: spec.execPath, version: CLI_VERSION, startArgs: spec.startArgs, env: Object.keys(spec.env), started, log: p.log };
 }
 
 export async function uninstallService(run: Exec = exec): Promise<Record<string, unknown>> {
@@ -105,6 +143,8 @@ export function registerServiceCommands(daemon: Command): void {
   daemon
     .command('install')
     .description('Install the daemon as a boot service (launchd / systemd --user) running this CLI, and (re)start it')
+    .option('--providers <list>', 'comma-separated providers the daemon registers (kept for later installs)')
+    .option('--max-concurrent <n>', 'maximum concurrent runs (kept for later installs)')
     .option('--no-start', 'write the service without starting it')
     .option('--force', 'restart even while agent runs are active (they are retried)')
     .option('--json', 'JSON output')

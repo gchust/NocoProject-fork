@@ -31,6 +31,7 @@ import {
   evaluateDaemon,
   markDaemonSeen,
   storedIdentity,
+  type DaemonRow,
 } from './daemon-compat.js';
 import { isAgentProvider, mapRuntime } from './runtime.records.js';
 
@@ -114,7 +115,7 @@ async function registerRuntimes(
       id: string;
       provider: DaemonRegisterResponse['runtimes'][number]['provider'];
     }[] = [];
-    const seen: { id: string; status: string | null }[] = [];
+    const seen: DaemonRow[] = [];
     for (const runtime of request.runtimes) {
       const timestamp = now();
       const values = {
@@ -128,7 +129,7 @@ async function registerRuntimes(
       };
       const existing = await tx.conn.query
         .selectFrom('runtimes')
-        .select(['id', 'ownerUserId', 'status'])
+        .select(['id', 'ownerUserId', 'status', 'deviceInfo'])
         .where('daemonId', '=', request.daemonId)
         .where('provider', '=', runtime.provider)
         .executeTakeFirst();
@@ -147,7 +148,11 @@ async function registerRuntimes(
           .execute();
         const id = String(existing.id);
         registered.push({ id, provider: runtime.provider });
-        seen.push({ id, status: str(existing.status) ?? null });
+        seen.push({
+          id,
+          status: str(existing.status) ?? null,
+          deviceInfo: existing.deviceInfo,
+        });
         continue;
       }
       const id = deps.ids.next();
@@ -168,11 +173,27 @@ async function registerRuntimes(
       registered.push({ id, provider: runtime.provider });
       seen.push({ id, status: 'offline' });
     }
+    // The daemon's runtimes for tools it no longer registers (for example after a reinstall).
+    const others = (
+      await tx.conn.query
+        .selectFrom('runtimes')
+        .select(['id', 'status', 'deviceInfo'])
+        .where('daemonId', '=', request.daemonId)
+        .where('ownerUserId', '=', ownerUserId)
+        .execute()
+    )
+      .filter((row) => !seen.some((item) => item.id === String(row.id)))
+      .map((row) => ({
+        id: String(row.id),
+        status: str(row.status) ?? null,
+        deviceInfo: row.deviceInfo,
+      }));
     await markDaemonSeen(tx, {
       ownerUserId,
       daemonId: request.daemonId,
       deviceName: str(request.deviceName) ?? null,
       rows: seen,
+      others,
       compatibility,
       deviceInfo,
     });
