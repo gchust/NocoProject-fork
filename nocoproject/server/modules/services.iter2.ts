@@ -58,7 +58,13 @@ export function createIteration2Services(
     secrets,
     github,
   } = input;
-  const flow = { activity, settings, workflows, issues: () => services.issues };
+  const flow = {
+    activity,
+    settings,
+    workflows,
+    issues: () => services.issues,
+    triggers: () => services.triggers,
+  };
   return {
     approvals: deps.approvalGateway
       ? deps.approvalGateway({ tx, hooks })

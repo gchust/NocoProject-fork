@@ -73,6 +73,7 @@ import {
   onStageEntered,
 } from './stage-notices.js';
 import { onRuntimeCompatibilityChanged } from './runtime-notices.js';
+import { onSignalSuppressed } from './signal-notices.js';
 import { onWorkflowDecided, onWorkflowProposed } from './workflow-notices.js';
 
 export type { NotificationDeps } from './round.js';
@@ -442,6 +443,8 @@ async function handle(round: Round, event: DomainEvent): Promise<void> {
       return onStageEntered(round, event);
     case 'issue.stageActionReported':
       return onStageActionReported(round, event);
+    case 'issue.signalSuppressed':
+      return onSignalSuppressed(round, event);
     case 'approval.stale':
       return onApprovalStale(round, event);
     case 'workflow.proposed':

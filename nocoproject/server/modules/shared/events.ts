@@ -257,6 +257,16 @@ export type DomainEvent =
       /** The skip reason or the error message. */
       readonly reason: string | null;
     }
+  // Phase 2 signals.
+  | {
+      /** A signal rule reached its limit of runs in a row: the owner takes over. */
+      readonly type: 'issue.signalSuppressed';
+      readonly issueId: string;
+      readonly kind: string;
+      readonly title: string;
+      readonly url: string | null;
+      readonly limit: number;
+    }
   | {
       /** An approved transition no longer met its entry conditions: the request was cancelled as stale. */
       readonly type: 'approval.stale';

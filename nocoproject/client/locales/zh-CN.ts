@@ -4,6 +4,7 @@ import npIter2ZhCN from './np-iter2-zh-CN.js';
 import npIter3ZhCN from './np-iter3-zh-CN.js';
 import npDesignZhCN from './np-design-zh-CN.js';
 import npIter4ZhCN from './np-iter4-zh-CN.js';
+import npSignalsZhCN from './np-signals-zh-CN.js';
 
 const zhCN: AppResource = {
   'auth.welcome': '欢迎回来',
@@ -198,6 +199,7 @@ const zhCN: AppResource = {
     ...npIter3ZhCN,
     ...npDesignZhCN,
     ...npIter4ZhCN,
+    ...npSignalsZhCN,
     common: {
       online: '在线',
       offline: '离线',
@@ -377,6 +379,9 @@ const zhCN: AppResource = {
         prMergeRequested: '请求合并（squash）',
         attachmentAdded: '添加了附件',
         attachmentRemoved: '移除了附件',
+        signalReceived: '已唤醒执行者处理',
+        signalSuppressed: '已达上限，不再唤醒执行者处理',
+        signalResolved: '确认已解决：',
         updated: '更新了任务',
       },
       run: {

@@ -5,6 +5,7 @@ import npIter2EnUS from './np-iter2-en-US.js';
 import npIter3EnUS from './np-iter3-en-US.js';
 import npDesignEnUS from './np-design-en-US.js';
 import npIter4EnUS from './np-iter4-en-US.js';
+import npSignalsEnUS from './np-signals-en-US.js';
 
 const enUS = {
   'auth.welcome': 'Welcome back',
@@ -211,6 +212,7 @@ const enUS = {
     ...npIter3EnUS,
     ...npDesignEnUS,
     ...npIter4EnUS,
+    ...npSignalsEnUS,
     common: {
       online: 'Online',
       offline: 'Offline',
@@ -393,6 +395,9 @@ const enUS = {
         prMergeRequested: 'requested a squash merge of',
         attachmentAdded: 'added attachments',
         attachmentRemoved: 'removed an attachment',
+        signalReceived: 'woke the executor for',
+        signalSuppressed: 'stopped waking the executor (limit reached) for',
+        signalResolved: 'saw resolved:',
         updated: 'updated the issue',
       },
       run: {

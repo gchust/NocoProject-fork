@@ -34,6 +34,7 @@ import {
   patchInboxCaches,
   useDecisionRunner,
 } from '../decision/use-decision.js';
+import { StaleProposalDialog } from '../decision/stale-proposal-dialog.js';
 import type { InboxItem, InboxKind, InboxTopicPayload } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
 import { InboxDetail } from './inbox-detail.js';
@@ -338,6 +339,7 @@ export default function InboxPage(): ReactElement {
               }
               onOpen={open}
             />
+            <StaleProposalDialog runner={runner} />
           </div>
         </div>
       </div>

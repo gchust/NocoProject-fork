@@ -185,6 +185,7 @@ const npCollabEnUS = {
       knowledge_decided: 'Knowledge decided',
       design_review: 'Proposal to review',
       runtime_upgrade_required: 'CLI upgrade required',
+      signal_suppressed: 'Agent stopped retrying',
     },
   },
   projects: {

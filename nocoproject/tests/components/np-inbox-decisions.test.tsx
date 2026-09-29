@@ -1,3 +1,4 @@
+import { ApiClientError } from '@nocobase/app-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -227,5 +228,58 @@ describe('inbox decisions', () => {
     expect(
       await within(pane()).findByRole('button', { name: 'Approve' }),
     ).toBeEnabled();
+  });
+
+  it('offers to accept a stale knowledge proposal anyway instead of saying it was decided (NP-152)', async () => {
+    const user = userEvent.setup();
+    const proposal = item({
+      id: 'n7',
+      type: 'knowledge_proposal',
+      title: 'Knowledge proposal on NP-7',
+      payload: { proposalId: 'kp7', docId: 'k7', docTitle: 'Pitfalls' },
+    });
+    const accepts: unknown[] = [];
+    api.request.mockImplementation(
+      (options: { path: string; method?: string; json?: unknown }) => {
+        if (options.path === 'np/knowledge/proposals/kp7/accept') {
+          accepts.push(options.json);
+          if ((options.json as { confirmStale?: boolean }).confirmStale)
+            return Promise.resolve({ data: {} });
+          return Promise.reject(
+            new ApiClientError('conflict', {
+              status: 409,
+              code: 'KNOWLEDGE_PROPOSAL_STALE',
+              method: 'POST',
+              url: '/api/np/knowledge/proposals/kp7/accept',
+              payload: { details: { currentVersion: 22, baseVersion: 21 } },
+            }),
+          );
+        }
+        if (options.path === 'np/knowledge/proposals')
+          return Promise.resolve({ data: [] });
+        return withDecisions([proposal])(options as never);
+      },
+    );
+    await renderInbox();
+    await screen.findByRole('list', { name: 'Needs my decision' });
+    await user.click(within(pane()).getByRole('button', { name: 'Accept' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('version 22');
+    expect(dialog).toHaveTextContent('version 21');
+    expect(toast.add).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error' }),
+    );
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Accept anyway' }),
+    );
+    await waitFor(() => expect(accepts).toHaveLength(2));
+    expect(accepts[1]).toMatchObject({ confirmStale: true });
+    await waitFor(() =>
+      expect(toast.add).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'success' }),
+      ),
+    );
   });
 });

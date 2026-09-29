@@ -178,6 +178,7 @@ const npCollabZhCN: NpCollabResource = {
       knowledge_decided: '知识库建议已处理',
       design_review: '方案待审',
       runtime_upgrade_required: '需要升级 CLI',
+      signal_suppressed: 'Agent 已停止重试',
     },
   },
   projects: {

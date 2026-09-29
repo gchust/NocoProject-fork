@@ -315,7 +315,7 @@ async function applyProposal(
         'conflict',
         'KNOWLEDGE_PROPOSAL_STALE',
         `The document is now at version ${currentVersion}; this proposal was based on version ${baseVersion}. Confirm to accept it anyway.`,
-        { currentVersion },
+        { currentVersion, baseVersion },
       );
     const next = {
       title: title || (str(doc.title) ?? ''),

@@ -121,6 +121,11 @@ export function ActivityRow({
       {label === 'prMergeRequested' ? (
         <MergedPullRequest details={activity.details} />
       ) : null}
+      {label === 'signalReceived' ||
+      label === 'signalSuppressed' ||
+      label === 'signalResolved' ? (
+        <SignalKind details={activity.details} />
+      ) : null}
       <time
         dateTime={activity.createdAt}
         title={format.dateTime(activity.createdAt)}
@@ -129,6 +134,32 @@ export function ActivityRow({
         {format.relative(activity.createdAt)}
       </time>
     </div>
+  );
+}
+
+/** The signal's kind, localized, linking to what it is about (Phase 2 signals). */
+function SignalKind({
+  details,
+}: {
+  readonly details: IssueActivity['details'];
+}): ReactElement | null {
+  const { t } = useTranslation();
+  const value = (details ?? {}) as { kind?: unknown; url?: unknown };
+  if (typeof value.kind !== 'string') return null;
+  const label = t(`np.signals.kinds.${value.kind}.label`, {
+    defaultValue: value.kind,
+  });
+  return typeof value.url === 'string' && value.url.startsWith('https://') ? (
+    <a
+      href={value.url}
+      target='_blank'
+      rel='noreferrer'
+      className='text-foreground underline-offset-4 hover:underline'
+    >
+      {label}
+    </a>
+  ) : (
+    <span className='text-foreground'>{label}</span>
   );
 }
 

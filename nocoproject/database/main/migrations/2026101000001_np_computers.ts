@@ -4,7 +4,7 @@
 import { defineMigration, type MigrationDefinition } from '@nocobase/db';
 
 const migration: MigrationDefinition = defineMigration({
-  name: '2026100900001_np_computers',
+  name: '2026101000001_np_computers',
   async up({ builder }) {
     await builder.createCollection('npComputers', (table) => {
       table.string('id', { length: 32 }).primary();

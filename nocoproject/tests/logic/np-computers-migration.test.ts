@@ -27,12 +27,12 @@ it.skipIf(skipped)('adds np_computers and rolls it back alone', async () => {
     directory: MIGRATIONS_DIR,
     packageName: 'nocoproject',
   });
-  await migrator.upTo('2026100700002_np_agent_configuration');
+  await migrator.upTo('2026100900001_np_pr_merge_checks');
   expect(await hasTable('np_computers')).toBe(false);
-  const applied = await migrator.upTo('2026100900001_np_computers');
-  expect(applied.executed).toEqual(['2026100900001_np_computers']);
+  const applied = await migrator.upTo('2026101000001_np_computers');
+  expect(applied.executed).toEqual(['2026101000001_np_computers']);
   expect(await hasTable('np_computers')).toBe(true);
   const rolledBack = await migrator.rollback();
-  expect(rolledBack.rolledBack).toEqual(['2026100900001_np_computers']);
+  expect(rolledBack.rolledBack).toEqual(['2026101000001_np_computers']);
   expect(await hasTable('np_computers')).toBe(false);
 });

@@ -15,7 +15,7 @@
  * - 2: NP-150. Same payloads as protocol 1 with `configurationProtocol: 1`; adds negotiation and `compatibility`.
  */
 
-import type { InboxItemTypeV6 } from './protocol.phase2-workflow-proposals.js';
+import type { InboxItemTypeV7 } from './protocol.phase2-signals.js';
 
 /** The header that carries a computer credential on `/np/daemon/*` (NP-150; personal keys use `x-api-key`). */
 export const COMPUTER_KEY_HEADER = 'x-np-computer-key';
@@ -103,7 +103,7 @@ export interface DaemonHeartbeatRequestV2 {
  * `runtime_upgrade_required`: info to a computer's owner when its daemon must be upgraded (no issue; one card per
  * computer while it stays unsupported, resolved when it registers compatibly again).
  */
-export type InboxItemTypeV7 = InboxItemTypeV6 | 'runtime_upgrade_required';
+export type InboxItemTypeV8 = InboxItemTypeV7 | 'runtime_upgrade_required';
 
 export function cliDownloadPath(version: string): string {
   return `/assets/cli/nocoproject-cli-${version}.tgz`;

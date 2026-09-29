@@ -1,7 +1,7 @@
 /**
  * NocoProject provider: binds every module service to its token, connects domain events to realtime topics and runs
- * the run sweeper every 30 seconds (which also purges old webhook delivery records and, since NP-78, attachment uploads
- * never attached to an issue within a day).
+ * the run sweeper every 30 seconds (which also purges old webhook delivery records, runs the due GitHub merge checks
+ * behind the conflict signal and, since NP-78, purges attachment uploads never attached to an issue within a day).
  *
  * Iteration 2: the secret key for stored secrets comes from the `nocoproject` configuration section
  * (`NOCOPROJECT_SECRET_KEY`), falling back to a key derived from `auth.secret` with a warning; the AI intake parser is
@@ -441,7 +441,9 @@ export default class NpProvider extends ServiceProvider<Application> {
     try {
       const now = new Date();
       await this.app.container.resolve(npSweeperServiceToken).sweep(now);
-      await this.app.container.resolve(npWebhookServiceToken).purge(now);
+      const webhooks = this.app.container.resolve(npWebhookServiceToken);
+      await webhooks.purge(now);
+      await webhooks.checkMerges(now);
       await this.app.container
         .resolve(npAttachmentServiceToken)
         .purgeOrphans(now);

@@ -288,7 +288,7 @@ const npIter4ZhCN: NpIter4Resource = {
     secret: '与 NocoProject 中保存的 Webhook 密钥相同。',
     secretNotSet: '密钥未设置',
     events:
-      '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses。',
+      '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses、Pushes（勾选 Pushes 才能发现合并冲突）。',
     stepSave:
       '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
   },
