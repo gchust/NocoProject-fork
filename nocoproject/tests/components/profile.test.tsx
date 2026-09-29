@@ -239,8 +239,11 @@ it('shows preferences, my computer and API keys sections (NP-153)', async () => 
   expect(screen.getByRole('switch', { name: 'Sound reminder' })).toBeVisible();
 
   expect(screen.getByText('My computer')).toBeVisible();
-  expect(screen.getByText(/nocoproject login --server/)).toBeVisible();
-  expect(screen.getByText('nocoproject daemon start')).toBeVisible();
+  expect(screen.getByText(/npm i -g/)).toBeVisible();
+  expect(
+    screen.getByRole('textbox', { name: 'Computer name, e.g. Studio Mac' }),
+  ).toBeVisible();
+  expect(screen.getByText('nocoproject daemon install')).toBeVisible();
 
   expect(screen.getByText('API keys')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Open API keys' })).toHaveAttribute(
