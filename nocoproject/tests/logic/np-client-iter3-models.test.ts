@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   isEditableTarget,
+  isModifierEnter,
+  isNewLineEnter,
   isSearchShortcut,
+  isSubmitEnter,
   modifierKeyLabel,
 } from '../../client/components/np-shortcut-keys.js';
 import { visibleConfigTabs } from '../../client/pages/np/config/config-model.js';
@@ -478,6 +481,39 @@ describe('knowledge rules (§B)', () => {
       kind: 'project',
       projectId: 'p1',
     });
+  });
+});
+
+describe('submit keys', () => {
+  const enter = (
+    overrides: Partial<Parameters<typeof isSubmitEnter>[0]> = {},
+  ): Parameters<typeof isSubmitEnter>[0] => ({
+    key: 'Enter',
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    isComposing: false,
+    keyCode: 13,
+    ...overrides,
+  });
+
+  it('submits a message box on Enter and ⌘/Ctrl + Enter, never on Shift + Enter or an IME confirmation', () => {
+    expect(isSubmitEnter(enter())).toBe(true);
+    expect(isSubmitEnter(enter({ metaKey: true }))).toBe(true);
+    expect(isSubmitEnter(enter({ ctrlKey: true }))).toBe(true);
+    expect(isSubmitEnter(enter({ shiftKey: true }))).toBe(false);
+    expect(isSubmitEnter(enter({ isComposing: true }))).toBe(false);
+    expect(isSubmitEnter(enter({ keyCode: 229 }))).toBe(false);
+    expect(isSubmitEnter(enter({ key: 'a' }))).toBe(false);
+    expect(isNewLineEnter(enter({ shiftKey: true }))).toBe(true);
+    expect(isNewLineEnter(enter())).toBe(false);
+  });
+
+  it('submits a long-form editor only with ⌘/Ctrl + Enter', () => {
+    expect(isModifierEnter(enter())).toBe(false);
+    expect(isModifierEnter(enter({ metaKey: true }))).toBe(true);
+    expect(isModifierEnter(enter({ ctrlKey: true, keyCode: 229 }))).toBe(false);
   });
 });
 

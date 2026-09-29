@@ -3,6 +3,7 @@ import { SparklesIcon, Undo2Icon } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { NpSectionHeading } from '@/components/np-section';
+import { isSubmitEnter } from '@/components/np-shortcut-keys';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
@@ -92,7 +93,7 @@ export function IntakeRefine({
           placeholder={t('np.intakeRefine.placeholder')}
           onChange={(event) => state.setInstruction(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            if (isSubmitEnter(event.nativeEvent)) {
               event.preventDefault();
               state.submit();
             }
