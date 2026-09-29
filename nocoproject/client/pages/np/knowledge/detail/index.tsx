@@ -1,4 +1,8 @@
-import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import {
+  ApiClientError,
+  useApiClient,
+  type ApiClient,
+} from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,12 +11,13 @@ import {
   PencilIcon,
   Undo2Icon,
 } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NpDetailLayout } from '@/components/np-detail-layout';
 import { NpMarkdown } from '@/components/np-markdown';
+import { extractMarkdownHeadings } from '@/components/np-markdown-toc';
 import { NpDetailSkeleton, NpLoadError } from '@/components/np-states';
 import { PageHeader } from '@/components/page-header';
 import { RouteChildPage } from '@/components/route-child-page';
@@ -39,18 +44,21 @@ import {
 } from '../../api-knowledge.js';
 import { fetchProjects } from '../../api.js';
 import { npKeys } from '../../constants.js';
-import type { KnowledgeDetail } from '../../types-iter3.js';
+import type { KnowledgeDetail, KnowledgeDoc } from '../../types-iter3.js';
 import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { canEditKnowledge } from '../knowledge-model.js';
+import { KnowledgeDiff } from '../knowledge-diff.js';
 import { KnowledgeProposalCard } from '../proposal-card.js';
 import { KnowledgeEditor } from './knowledge-editor.js';
 import { KnowledgeSidePanel } from './side-panel.js';
+import { KnowledgeToc } from './toc.js';
 
 /**
  * Route `/knowledge/:docId` (§B): one document as a covering page in the three-column detail frame. The main column
  * shows the Markdown (or the rich-text editor, which saves with `expectedVersion` and reports a conflict), pending
- * agent proposals for it, and — when a past version is picked in the side panel — that version read-only. The side
- * panel holds the document's details and its version history.
+ * agent proposals for it, and — when the side panel's history is used — a line diff of the two versions picked
+ * (a version against the one right before it by default, or any two by the picker below the history, NP-142). A
+ * table of contents appears once the body has 3+ headings.
  */
 export default function KnowledgeDetailPage(): ReactElement {
   const { docId = '' } = useParams();
@@ -100,6 +108,31 @@ function KnowledgeDetailView({
   return <KnowledgeLayout detail={detail.data} />;
 }
 
+/** Two versions being compared (§3): `from` may be 0, meaning "nothing before the first version" (empty content). */
+interface CompareState {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** A version's content: the current one needs no request, `0` (no earlier version) is empty, otherwise fetched. */
+function useVersionContent(
+  api: ApiClient,
+  doc: KnowledgeDoc,
+  version: number | null,
+): { readonly content: string | undefined; readonly isError: boolean } {
+  const fetchable = version !== null && version > 0 && version !== doc.version;
+  const query = useQuery({
+    queryKey: npKeys.knowledgeVersion(doc.id, version ?? 0),
+    queryFn: ({ signal }) =>
+      fetchKnowledgeVersion(api, doc.id, version ?? 0, signal),
+    enabled: fetchable,
+  });
+  if (version === null) return { content: undefined, isError: false };
+  if (version === 0) return { content: '', isError: false };
+  if (version === doc.version) return { content: doc.content, isError: false };
+  return { content: query.data?.content, isError: query.isError };
+}
+
 function KnowledgeLayout({
   detail,
 }: {
@@ -116,14 +149,14 @@ function KnowledgeLayout({
   });
   const canEdit = canEditKnowledge(doc, viewer, projects.data);
   const [editing, setEditing] = useState(false);
-  const [viewing, setViewing] = useState<number | null>(null);
+  const [compare, setCompare] = useState<CompareState | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
-  const version = useQuery({
-    queryKey: npKeys.knowledgeVersion(doc.id, viewing ?? 0),
-    queryFn: ({ signal }) =>
-      fetchKnowledgeVersion(api, doc.id, viewing ?? 0, signal),
-    enabled: viewing !== null && viewing !== doc.version,
-  });
+  const headings = useMemo(
+    () => extractMarkdownHeadings(doc.content),
+    [doc.content],
+  );
+  const compareFrom = useVersionContent(api, doc, compare?.from ?? null);
+  const compareTo = useVersionContent(api, doc, compare?.to ?? null);
   const archive = useMutation({
     mutationFn: (archived: boolean) =>
       setKnowledgeArchived(api, doc.id, archived),
@@ -143,9 +176,6 @@ function KnowledgeLayout({
     onSettled: () =>
       void queryClient.invalidateQueries({ queryKey: npKeys.knowledge }),
   });
-  const pastVersion =
-    viewing !== null && viewing !== doc.version ? viewing : null;
-
   const main = (
     <div className='space-y-6 p-6 md:p-8'>
       <Breadcrumbs />
@@ -176,7 +206,7 @@ function KnowledgeLayout({
               <Button
                 disabled={Boolean(doc.archivedAt)}
                 onClick={() => {
-                  setViewing(null);
+                  setCompare(null);
                   setEditing(true);
                 }}
               >
@@ -210,51 +240,59 @@ function KnowledgeLayout({
       ) : null}
       {editing ? (
         <KnowledgeEditor doc={doc} onDone={() => setEditing(false)} />
-      ) : pastVersion !== null ? (
+      ) : compare ? (
         <div className='space-y-3'>
           <Alert>
             <AlertDescription>
-              {t('np.knowledge.viewingVersion', { version: pastVersion })}
+              {compare.from === 0
+                ? t('np.knowledge.comparingFromNew', { to: compare.to })
+                : t('np.knowledge.comparingVersions', {
+                    from: compare.from,
+                    to: compare.to,
+                  })}
             </AlertDescription>
             <AlertAction>
               <Button
                 variant='outline'
                 size='sm'
-                onClick={() => setViewing(null)}
+                onClick={() => setCompare(null)}
               >
                 <Undo2Icon data-icon='inline-start' />
                 {t('np.knowledge.backToCurrent')}
               </Button>
             </AlertAction>
           </Alert>
+          {compareFrom.isError || compareTo.isError ? (
+            <p className='text-sm text-destructive'>
+              {t('np.common.requestFailed')}
+            </p>
+          ) : compareFrom.content === undefined ||
+            compareTo.content === undefined ? (
+            <p className='text-sm text-muted-foreground'>
+              {t('status.loading')}
+            </p>
+          ) : (
+            <KnowledgeDiff
+              before={compareFrom.content}
+              after={compareTo.content}
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          <KnowledgeToc headings={headings} className='lg:hidden' />
           <Card>
             <CardContent>
-              {version.data ? (
-                <NpMarkdown content={version.data.content} />
-              ) : version.isError ? (
-                <p className='text-sm text-destructive'>
-                  {t('np.common.requestFailed')}
-                </p>
+              {doc.content.trim() ? (
+                <NpMarkdown content={doc.content} headings={headings} />
               ) : (
                 <p className='text-sm text-muted-foreground'>
-                  {t('status.loading')}
+                  {t('np.knowledge.emptyContent')}
                 </p>
               )}
             </CardContent>
           </Card>
-        </div>
-      ) : (
-        <Card>
-          <CardContent>
-            {doc.content.trim() ? (
-              <NpMarkdown content={doc.content} />
-            ) : (
-              <p className='text-sm text-muted-foreground'>
-                {t('np.knowledge.emptyContent')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        </>
       )}
       <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
         <AlertDialogContent>
@@ -298,10 +336,19 @@ function KnowledgeLayout({
                 doc.projectId)
               : t('np.knowledge.workspace')
           }
-          viewing={viewing ?? doc.version}
-          onView={(value) => {
+          headings={editing || compare ? [] : headings}
+          highlightedVersion={compare?.to ?? doc.version}
+          onSelectVersion={(version) => {
             setEditing(false);
-            setViewing(value === doc.version ? null : value);
+            setCompare(
+              version === doc.version
+                ? null
+                : { from: version - 1, to: version },
+            );
+          }}
+          onCompareVersions={(from, to) => {
+            setEditing(false);
+            setCompare({ from, to });
           }}
         />
       }

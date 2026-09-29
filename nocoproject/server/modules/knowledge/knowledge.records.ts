@@ -243,6 +243,41 @@ export function toSummary(doc: KnowledgeDoc): KnowledgeDocSummary {
   return summary;
 }
 
+const EXCERPT_RADIUS = 60;
+
+/** Whether `needle` (already lower-cased) appears in the title, slug, summary or content of a document row. */
+export function matchesNeedle(
+  row: Record<string, unknown>,
+  needle: string,
+): boolean {
+  return ['title', 'slug', 'summary', 'content'].some((key) =>
+    (str(row[key]) ?? '').toLowerCase().includes(needle),
+  );
+}
+
+/**
+ * A short window of `content` around the first case-insensitive hit of `needle` (already lower-cased), or null when
+ * it isn't there — the match came from the title, slug or summary instead, which are shown on the row already.
+ */
+export function matchExcerpt(content: string, needle: string): string | null {
+  const index = content.toLowerCase().indexOf(needle);
+  if (index < 0) return null;
+  const start = Math.max(0, index - EXCERPT_RADIUS);
+  const end = Math.min(content.length, index + needle.length + EXCERPT_RADIUS);
+  const flatten = (text: string) => text.replace(/\s+/gu, ' ').trim();
+  return `${start > 0 ? '…' : ''}${flatten(content.slice(start, end))}${end < content.length ? '…' : ''}`;
+}
+
+/** A document summary, with `matchExcerpt` set when `needle` only matched the content. */
+export function toSearchSummary(
+  doc: KnowledgeDoc,
+  needle: string | null | undefined,
+): KnowledgeDocSummary {
+  const summary = toSummary(doc);
+  const excerpt = needle ? matchExcerpt(doc.content, needle) : null;
+  return excerpt ? { ...summary, matchExcerpt: excerpt } : summary;
+}
+
 export async function mapVersions(
   conn: Conn,
   users: UserDirectory,

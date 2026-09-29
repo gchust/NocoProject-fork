@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * Batch intake (iteration-2 contract §E; the pure parser rules are in `np-intake-parser.test.ts`): draft validation, confirm (parents
- * first, origin, agent executors enqueued after all issues exist, stage blocking), revert (runs keep issues), cancel,
+ * first, origin, agent executors enqueued after all issues exist, stage blocking), cancel,
  * splitting an issue, and the AI parser through a fake agent factory (success, failure / timeout / empty fallback,
  * the heuristic setting). Real PostgreSQL for the service parts.
  */
@@ -233,39 +233,7 @@ describe.skipIf(!db)('intake batches (PostgreSQL)', () => {
     ).rejects.toMatchObject({ code: 'INTAKE_STATE_CONFLICT' });
   });
 
-  it('reverts issues without runs and keeps the ones that ran', async () => {
-    const fixture = await registerRuntime(services, BOB);
-    const agentId = await createAgent(services, BOB, fixture.runtimeId, 'Dev');
-    const { batch } = await services.intake.create(BOB, {
-      source: 'paste',
-      rawContent: '- Ran\n- Idle',
-    });
-    const drafts = (await services.intake.get(BOB, batch.id)).drafts;
-    await services.intake.putDrafts(BOB, batch.id, [
-      {
-        ...drafts[0]!,
-        fields: {
-          ...drafts[0]!.fields,
-          executor: { type: 'agent', id: agentId },
-        },
-      },
-      drafts[1]!,
-    ]);
-    const { issues } = await services.intake.confirm(BOB, batch.id, {});
-    const result = await services.intake.revert(BOB, batch.id);
-    expect(result).toEqual({
-      reverted: [issues[1]!.id],
-      kept: [issues[0]!.id],
-    });
-    await expect(
-      services.issueQueries.detail(BOB, issues[1]!.id),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    expect(
-      (await services.issueQueries.list(BOB, {})).map((item) => item.id),
-    ).toEqual([issues[0]!.id]);
-    expect((await services.intake.get(BOB, batch.id)).batch.status).toBe(
-      'reverted',
-    );
+  it('cancels a draft batch', async () => {
     const cancelled = await services.intake.create(BOB, {
       source: 'paste',
       rawContent: '- X',
@@ -274,8 +242,8 @@ describe.skipIf(!db)('intake batches (PostgreSQL)', () => {
       'cancelled',
     );
     expect(
-      (await services.intake.list(BOB, true)).map((item) => item.status),
-    ).toEqual(['cancelled', 'reverted']);
+      (await services.intake.get(BOB, cancelled.batch.id)).batch.status,
+    ).toBe('cancelled');
   });
 
   it('splits an issue description into its sub-tasks', async () => {

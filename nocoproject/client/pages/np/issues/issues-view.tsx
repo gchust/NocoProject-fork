@@ -304,7 +304,7 @@ export function IssuesView({
     );
   }
 
-  // The view fills its page (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.6, §8): the toolbar on top, the board or the table below in a
+  // The view fills its page (nocosolution/guidelines/NocoSolution 前端规范.md §3.6, §8): the toolbar on top, the board or the table below in a
   // bounded area that scrolls inside — board columns each on their own, the table body under a sticky header.
   return (
     <div className='flex h-full min-h-0 flex-col gap-4'>

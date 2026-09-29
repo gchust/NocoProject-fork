@@ -20,7 +20,7 @@ function useMinutesSince(iso: string | null | undefined): number | null {
 }
 
 /**
- * "Who is acting now" (nocosolution/frontend/nocosolution-frontend-standard.md §5.2): the working agent's avatar breathing in the primary color,
+ * "Who is acting now" (nocosolution/guidelines/NocoSolution 前端规范.md §S5.2): the working agent's avatar breathing in the primary color,
  * its name and how long the run has been going. `queued` runs say they are waiting instead. Links to the run's
  * transcript when `to` is given.
  */
@@ -86,7 +86,7 @@ export function NpProgressRing({
   className,
 }: {
   readonly percent: number;
-  /** Pixel size; a fixed size on purpose, like an icon (nocosolution/frontend/nocobase3-frontend-best-practices.md §4). */
+  /** Pixel size; a fixed size on purpose, like an icon (nocosolution/guidelines/NocoSolution 前端规范.md §4). */
   readonly size?: number;
   readonly label?: string;
   readonly showValue?: boolean;

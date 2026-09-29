@@ -37,6 +37,8 @@ export interface KnowledgeDocSummary {
   readonly updatedAt: string;
   /** Whether the viewer may edit it (project lead, owner/admin); read when the server sends it. */
   readonly canEdit?: boolean;
+  /** A window of the content around a search hit that only came from the content (NP-142). */
+  readonly matchExcerpt?: string | null;
 }
 
 export interface KnowledgeDoc extends KnowledgeDocSummary {

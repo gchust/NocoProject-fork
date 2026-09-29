@@ -35,7 +35,7 @@ export function NpDetailLayout({
   const contentRef = useRef<HTMLDivElement>(null);
   const fits = useFitsScrollViewport(contentRef);
   return (
-    // One scroll container (nocosolution/frontend/nocobase3-frontend-best-practices.md §3.2): the covering page scrolls as a whole; neither column
+    // One scroll container (nocosolution/guidelines/NocoSolution 前端规范.md §3.2): the covering page scrolls as a whole; neither column
     // scrolls on its own, and the side column stretches to the main column's height so its background runs through.
     <div className={cn('flex min-h-full flex-col lg:flex-row', className)}>
       <div className='flex min-w-0 flex-1 flex-col'>{main}</div>

@@ -1,7 +1,6 @@
 // @vitest-environment node
 /**
- * Pure helpers behind the design pass (nocosolution/frontend/nocobase3-frontend-best-practices.md,
- * nocosolution/frontend/nocosolution-frontend-standard.md): the knowledge line diff, status tones, the inbox
+ * Pure helpers behind the design pass (nocosolution/guidelines/NocoSolution 前端规范.md): the knowledge line diff, status tones, the inbox
  * filter / order / keyboard selection, the project's key numbers and the shared inbox cache patch.
  */
 import { QueryClient } from '@tanstack/react-query';

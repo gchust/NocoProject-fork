@@ -114,6 +114,28 @@ describe('knowledge base (§B)', () => {
     );
   });
 
+  it('shows a match excerpt when a search hit only comes from the content (NP-142)', async () => {
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': {
+          data: [
+            {
+              ...DOC,
+              matchExcerpt: '…before pushing, run the release script…',
+            },
+          ],
+        },
+        'GET np/knowledge/proposals': { data: [] },
+      }),
+    );
+    await renderNp(<KnowledgePage />, { url: '/knowledge?q=release' });
+
+    expect(
+      await screen.findByText(/before pushing, run the release script/),
+    ).toBeVisible();
+  });
+
   it('warns and confirms before accepting a proposal that fell behind (NP-139)', async () => {
     const user = userEvent.setup();
     const staleProposal = { ...PROPOSAL, baseVersion: 2, currentVersion: 3 };
@@ -207,7 +229,7 @@ describe('knowledge base (§B)', () => {
     expect(within(card).getByText('Also run lint.')).toBeVisible();
   });
 
-  it('shows the document, its history and an old version on demand', async () => {
+  it('compares a past version with the one before it, and any two versions by the picker (NP-142)', async () => {
     const user = userEvent.setup();
     api.request.mockImplementation(
       answer({
@@ -231,6 +253,13 @@ describe('knowledge base (§B)', () => {
                 proposalId: 'kp0',
                 createdAt: NOW,
               },
+              {
+                version: 1,
+                title: 'Testing conventions',
+                authorType: 'user',
+                authorName: 'Zhou',
+                createdAt: NOW,
+              },
             ],
             proposals: [],
           },
@@ -243,6 +272,16 @@ describe('knowledge base (§B)', () => {
             authorType: 'agent',
             createdAt: NOW,
             content: 'Old text',
+          },
+        },
+        'GET np/knowledge/k1/versions/1': {
+          data: {
+            docId: 'k1',
+            version: 1,
+            title: 'x',
+            authorType: 'user',
+            createdAt: NOW,
+            content: 'Original text',
           },
         },
       }),
@@ -263,9 +302,29 @@ describe('knowledge base (§B)', () => {
       name: 'Document details',
     });
     expect(within(history).getByText('From proposal')).toBeVisible();
-    await user.click(within(history).getByText('v2'));
-    expect(await screen.findByText('Old text')).toBeVisible();
-    expect(screen.getByText('You are viewing version 2.')).toBeVisible();
+
+    // Clicking a past version compares it with the one right before it.
+    await user.click(within(history).getByRole('button', { name: /v2/ }));
+    expect(await screen.findByText('Comparing v1 with v2.')).toBeVisible();
+    expect(screen.getByText('Original text')).toBeVisible();
+    expect(screen.getByText('Old text')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Back to current' }));
+    expect(await screen.findByText(/Run/)).toBeVisible();
+
+    // The picker compares any two versions directly.
+    await user.selectOptions(
+      within(history).getByRole('combobox', { name: 'Compare from version' }),
+      '1',
+    );
+    await user.selectOptions(
+      within(history).getByRole('combobox', { name: 'Compare to version' }),
+      '3',
+    );
+    await user.click(within(history).getByRole('button', { name: 'Compare' }));
+    expect(await screen.findByText('Comparing v1 with v3.')).toBeVisible();
+    expect(screen.getByText('Original text')).toBeVisible();
+    expect(screen.getByText(/Run `pnpm test` before pushing\./)).toBeVisible();
   });
 
   it('keeps the draft and says so when someone saved a newer version (409)', async () => {
@@ -345,5 +404,38 @@ describe('knowledge base (§B)', () => {
     });
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+  });
+
+  it('shows a table of contents once the body has 3+ headings, and scrolls to a section (NP-142)', async () => {
+    Element.prototype.scrollIntoView ??= () => {};
+    const user = userEvent.setup();
+    const withHeadings = {
+      ...DOC,
+      content:
+        '## Setup\n\nDo this first.\n\n## Testing\n\nRun it.\n\n## Deploy\n\nShip it.',
+    };
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge/k1': {
+          data: { doc: withHeadings, versions: [], proposals: [] },
+        },
+      }),
+    );
+    await renderNp(<KnowledgeDetailPage />, {
+      url: '/knowledge/k1',
+      path: '/knowledge/:docId',
+    });
+    await screen.findByRole('heading', {
+      name: 'Testing conventions',
+      level: 1,
+    });
+    const tocs = screen.getAllByRole('navigation', { name: 'Contents' });
+    expect(tocs.length).toBeGreaterThan(0);
+    const deployLink = within(tocs[0]!).getByRole('button', {
+      name: 'Deploy',
+    });
+    await user.click(deployLink);
+    expect(document.getElementById('deploy')).not.toBeNull();
   });
 });

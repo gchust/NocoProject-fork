@@ -8,6 +8,18 @@ import type { ClaimedRunV1 as ClaimedRun } from '../../src/run-context.js';
 
 type Send = (status: number, payload: unknown) => void;
 
+/** Mirrors the server's search: title/slug/summary/content, case-insensitive; excerpt only for a content-only hit. */
+function searchSummary(doc: KnowledgeDoc, needle: string | undefined): KnowledgeDocSummary | undefined {
+  const { content, ...summary } = doc;
+  if (!needle) return summary;
+  const visible = [doc.title, doc.slug, doc.summary].some((v) => (v ?? '').toLowerCase().includes(needle));
+  const index = content.toLowerCase().indexOf(needle);
+  if (index < 0) return visible ? summary : undefined;
+  if (visible) return summary;
+  const matchExcerpt = content.slice(Math.max(0, index - 20), index + needle.length + 20);
+  return { ...summary, matchExcerpt };
+}
+
 export class MockKnowledge {
   readonly docs: KnowledgeDoc[] = [];
   readonly proposals: KnowledgeProposal[] = [];
@@ -47,9 +59,12 @@ export class MockKnowledge {
     return docs.find((d) => d.id === ref) ?? docs.find((d) => d.slug === ref && d.projectId !== null) ?? docs.find((d) => d.slug === ref);
   }
 
-  route(method: string, path: string, body: any, claimed: ClaimedRun, send: Send): void {
+  route(method: string, path: string, url: URL, body: any, claimed: ClaimedRun, send: Send): void {
     if (path === '/np/agent/knowledge' && method === 'GET') {
-      const summaries: KnowledgeDocSummary[] = this.visible(claimed).map(({ content: _content, ...rest }) => rest);
+      const needle = url.searchParams.get('q')?.trim().toLowerCase() || undefined;
+      const summaries = this.visible(claimed)
+        .map((doc) => searchSummary(doc, needle))
+        .filter((doc): doc is KnowledgeDocSummary => doc !== undefined);
       return send(200, { data: summaries });
     }
     if (path === '/np/agent/knowledge/proposals' && method === 'POST') return this.propose(body, claimed, send);

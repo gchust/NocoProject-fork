@@ -157,15 +157,6 @@ const npIter2ZhCN: NpIter2Resource = {
     fixProblems: '请先处理表格中标出的问题。',
     stateChanged: '这一批已确认或已取消。',
     notFound: '这一批不存在。',
-    recentTitle: '我最近的批次',
-    recentEmpty: '还没有批次。',
-    draftCount: '{{count}} 条草稿',
-    open: '打开',
-    revert: '撤回',
-    revertTitle: '撤回这一批？',
-    revertDescription: '本批创建的任务会被删除；Agent 已经执行过的任务会保留。',
-    reverted: '已删除 {{count}} 个任务',
-    revertKept: '{{count}} 个任务因已有运行而保留。',
     columns: {
       title: '标题',
       priority: '优先级',
@@ -194,10 +185,6 @@ const npIter2ZhCN: NpIter2Resource = {
       confirmed: '已创建',
       cancelled: '已放弃',
       reverted: '已撤回',
-    },
-    source: {
-      paste: '粘贴文本',
-      issue: '任务拆解',
     },
   },
   reactions: {

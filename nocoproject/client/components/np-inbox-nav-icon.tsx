@@ -19,7 +19,7 @@ import { useRealtimeTopic } from '@/pages/np/use-realtime';
 /**
  * The inbox navigation icon with the number of decisions waiting on the viewer (NP-107).
  *
- * The badge counts what still needs the viewer's action, not what is unread (nocobase3-frontend-best-practices.md
+ * The badge counts what still needs the viewer's action, not what is unread (nocosolution/guidelines/NocoSolution 前端规范.md
  * §2.2): a decision that was opened but not settled keeps counting until it is resolved or archived. The navigation
  * contract only takes an icon component, so the badge rides on the icon rather than on a change to the shared
  * navigation tree. It reads `GET /np/inbox/pending-count` and refreshes on the `np:inbox` user topic, the same signal
@@ -73,7 +73,7 @@ export function NpInboxNavIcon({
   }, [pending.data, chime]);
 
   // The count is a pill at the right end of the navigation row (the row is `relative`), amber because it means
-  // "needs you" (nocosolution/frontend/nocobase3-frontend-best-practices.md §2.1); in the desktop icon mode it moves to the icon's corner.
+  // "needs you" (nocosolution/guidelines/NocoSolution 前端规范.md §2.1); in the desktop icon mode it moves to the icon's corner.
   return (
     <span className='inline-flex'>
       <InboxIcon className={className} aria-hidden='true' />

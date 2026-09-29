@@ -48,6 +48,30 @@ describe('kb list / get', () => {
     expect(text.out).toContain('release-process  Release process  (system, v1)');
   });
 
+  it('searches the title, slug, summary and content with --q', async () => {
+    // "deploy" is only in release-process's content, not its title, slug or (empty) summary.
+    const r = await run(['kb', 'list', '--q', 'deploy', '--json']);
+    expect(r.code).toBe(0);
+    const list = JSON.parse(r.out);
+    expect(list.map((d: { slug: string }) => d.slug)).toEqual(['release-process']);
+    expect(list[0].matchExcerpt).toContain('deploy');
+
+    // "api conventions" matches the title, which is already visible on the row: no excerpt needed.
+    const byTitle = await run(['kb', 'list', '--q', 'api conventions', '--json']);
+    expect(JSON.parse(byTitle.out)[0].matchExcerpt).toBeUndefined();
+
+    // "code, message" is only in api-conventions's content.
+    const byContent = await run(['kb', 'list', '--q', 'code, message', '--json']);
+    const contentList = JSON.parse(byContent.out);
+    expect(contentList.map((d: { slug: string }) => d.slug)).toEqual(['api-conventions']);
+    expect(contentList[0].matchExcerpt).toContain('code, message');
+
+    const text = await run(['kb', 'list', '--q', 'deploy']);
+    expect(text.out).toContain('… ');
+
+    expect((await run(['kb', 'list', '--q', 'nonexistent', '--json'])).out.trim()).toBe('[]');
+  });
+
   it('prints the content by slug or id, and the whole document with --json', async () => {
     const bySlug = await run(['kb', 'get', 'api-conventions']);
     expect(bySlug.code).toBe(0);

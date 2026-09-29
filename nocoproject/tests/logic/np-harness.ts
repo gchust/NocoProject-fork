@@ -183,7 +183,8 @@ export async function openNpTestDatabase(
   database.collections().invalidate();
   await knex.raw(
     `CREATE TABLE "${schema}"."user" (id varchar(64) PRIMARY KEY, name varchar(255), username varchar(255), ` +
-      `email varchar(255), disabled_at timestamptz, deleted_at timestamptz)`,
+      // Millisecond precision, as the users plugin creates these columns; the repository rejects wider timestamps.
+      `email varchar(255), disabled_at timestamp(3), deleted_at timestamp(3))`,
   );
   await knex.raw(
     `INSERT INTO "${schema}"."user" (id, name, username, email) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)`,

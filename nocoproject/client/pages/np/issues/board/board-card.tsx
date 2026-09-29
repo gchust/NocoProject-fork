@@ -17,7 +17,7 @@ import { NpProcessBadge } from '../process-fields.js';
 export type IssueLink = (issue: IssueListItem) => To;
 
 /**
- * The face of a board card; also rendered in the drag overlay (nocosolution/frontend/nocobase3-frontend-best-practices.md §8): identifier, the
+ * The face of a board card; also rendered in the drag overlay (nocosolution/guidelines/NocoSolution 前端规范.md §8): identifier, the
  * design-first marker (iteration 4 §B) and priority icon, the title, dependency and sub-issue counts, labels, then owner and executor avatars with the due
  * date or last update. A card whose agent is working carries a primary bar on its left edge and a "working" pulse.
  */
@@ -130,7 +130,10 @@ export function BoardCardFace({
   );
 }
 
-/** A draggable card. The title link opens the issue; dragging starts after a few pixels so a click stays a click. */
+/**
+ * A draggable card. The title link opens the issue; dragging starts after a few pixels so a click stays a click, and
+ * on a touch screen after a press-and-hold, so the page keeps native touch scrolling (`touch-manipulation`).
+ */
 export function BoardCard({
   issue,
   issueLink,
@@ -153,7 +156,7 @@ export function BoardCard({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
-        'cursor-grab touch-none rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing',
+        'cursor-grab touch-manipulation rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing',
         isDragging && 'opacity-40',
       )}
       {...attributes}
