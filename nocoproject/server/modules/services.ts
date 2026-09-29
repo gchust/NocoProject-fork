@@ -347,7 +347,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       activity,
       triggers: () => services.triggers,
     }),
-    agents: createAgentService({ tx, ids, users }),
+    agents: createAgentService({ tx, ids, users, activity }),
     runtimes: createRuntimeService({ tx, ids, users }),
     triggers: createTriggerService({
       runs: () => services.runs,
