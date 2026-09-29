@@ -310,7 +310,7 @@ const npIter4EnUS = {
     secret: 'The webhook secret saved in NocoProject.',
     secretNotSet: 'Secret not set',
     events:
-      'Let me select individual events: Pull requests, Check suites, Statuses.',
+      'Let me select individual events: Pull requests, Check suites, Statuses, Pushes (Pushes lets NocoProject notice merge conflicts).',
     stepSave:
       'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
   },

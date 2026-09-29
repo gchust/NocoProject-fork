@@ -30,7 +30,8 @@ import type {
   IssueProcess,
   IssueChecklist,
   ReasoningEffort,
-  RunTriggerTypeV5,
+  RunTriggerTypeV6,
+  SignalPayload,
   StageEnteredPayload,
 } from './protocol.js';
 import { REASONING_EFFORTS, RUN_ENV_PHASE1 } from './protocol.js';
@@ -38,7 +39,7 @@ import { REASONING_EFFORTS, RUN_ENV_PHASE1 } from './protocol.js';
 /**
  * A claimed run as the Phase 1 server sends it: the Phase 0 payload plus the iteration-1,
  * iteration-2, iteration-3 (`knowledge`) and iteration-4 (agent kind / reasoning effort, issue process)
- * extras, and the Phase 2 workflow ones (`issue.checklist`, `triggers[].stage`). Every extra is optional
+ * extras, the Phase 2 workflow ones (`issue.checklist`, `triggers[].stage`) and signals (`triggers[].signal`). Every extra is optional
  * so an older server (or mock) still type-checks and works.
  */
 export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'triggers'> & {
@@ -56,9 +57,10 @@ export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'tri
     Partial<ClaimedRunPhase4Extras['agent']>;
   readonly session: ClaimedRun['session'] & Partial<ClaimedRunPhase1Extras['session']>;
   readonly triggers: readonly {
-    readonly type: RunTriggerTypeV5;
+    readonly type: RunTriggerTypeV6;
     readonly comment?: ClaimedTriggerComment;
     readonly stage?: StageEnteredPayload;
+    readonly signal?: SignalPayload;
   }[];
 };
 

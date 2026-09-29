@@ -184,6 +184,7 @@ const npCollabEnUS = {
       knowledge_proposal: 'Knowledge proposal',
       knowledge_decided: 'Knowledge decided',
       design_review: 'Proposal to review',
+      signal_suppressed: 'Agent stopped retrying',
     },
   },
   projects: {

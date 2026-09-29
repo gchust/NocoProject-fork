@@ -18,6 +18,7 @@
  * | A new `blockedBy` dependency leaves the issue blocked               | its queued / deferred runs are withdrawn (cancelled, `blocked`); activity `run_deferred_blocked` |
  * | Design approved; issue enters done (iteration 4)                    | `designApproved` / `retrospective` (`trigger/retrospective.ts`) |
  * | Any status write enters a status with stage actions (Phase 2)       | `stageEntered` and the other effects (`workflow/stage-actions.ts`) |
+ * | A source reports a signal and its rule is on (Phase 2 signals)      | `signal` for the executor, on behalf of the owner (`trigger/signal.ts`) |
  *
  * Owner changes withdraw queued/deferred work of an executor the new owner cannot invoke; dispatched/running work finishes.
  * Implicit invocations check the invoking user's agent access; unauthorized triggers leave the comment intact.
@@ -59,6 +60,12 @@ import type { UserDirectory } from '../shared/users.js';
 import { onStageEntered } from '../workflow/stage-actions.js';
 import { onTerminalEntered, releaseIfUnblocked } from './release.js';
 import { designApprovedRun, retrospectiveRun } from './retrospective.js';
+import {
+  onSignal,
+  onSignalResolved,
+  type SignalReport,
+  type SignalResolution,
+} from './signal.js';
 
 export interface IssueChange {
   readonly before: IssueV1 | null;
@@ -116,6 +123,10 @@ export interface TriggerService {
     actor: Actor,
     commentId: string | null,
   ): Promise<TriggeredRun[]>;
+  /** Phase 2 signals: a source reports that the issue's linked object needs its executor (`trigger/signal.ts`). */
+  onSignal(tx: Tx, report: SignalReport): Promise<TriggeredRun | null>;
+  /** ...and that the problem is gone: the streak of that kind ends. */
+  onSignalResolved(tx: Tx, resolution: SignalResolution): Promise<void>;
 }
 
 export interface TriggerDeps {
@@ -416,5 +427,8 @@ export function createTriggerService(deps: TriggerDeps): TriggerService {
     onBlockingAdded: (tx, issue) => onBlockingAdded(deps, tx, issue),
     onDesignApproved: (tx, issue, actor, commentId) =>
       designApprovedRun({ ...deps, enqueue }, tx, issue, actor, commentId),
+    onSignal: (tx, report) => onSignal({ ...deps, enqueue }, tx, report),
+    onSignalResolved: (tx, resolution) =>
+      onSignalResolved(deps, tx, resolution),
   };
 }

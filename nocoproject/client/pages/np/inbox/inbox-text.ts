@@ -65,6 +65,13 @@ export function inboxBodyText(
       const identifier = text(payload.releasedByIdentifier);
       return identifier ? key('dependency_released', { identifier }) : null;
     }
+    case 'signal_suppressed': {
+      const limit = count(payload.limit);
+      const title = text(payload.title);
+      return limit !== null && title
+        ? key('signal_suppressed', { limit, title })
+        : null;
+    }
     case 'commented':
       return key('commented');
     case 'mentioned':

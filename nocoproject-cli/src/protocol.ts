@@ -1163,6 +1163,10 @@ export * from './protocol.phase2-workflow.js';
 
 export * from './protocol.phase2-workflow-proposals.js';
 
+// ---------- Phase 2 signals ----------
+
+export * from './protocol.phase2-signals.js';
+
 // ---------- Email invitations (NP-88) ----------
 
 // Server- and browser-only (the CLI's sync-protocol drops this line)

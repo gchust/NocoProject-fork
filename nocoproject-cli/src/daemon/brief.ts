@@ -9,6 +9,7 @@ import { repositoriesSection, skillsSection, projectSection, workflowSection, co
 import { knowledgeSection, captureLearningsSection } from './brief-knowledge.js';
 import { approvedProposalLines, DESIGN_APPROVED_OPENING, designFirstSection, hasTrigger } from './brief-iter4.js';
 import { stageEnteredLines, stageChecklistSection, workflowTemplatesSection } from './brief-workflow.js';
+import { signalLines } from './brief-signal.js';
 import { AGENT_COMMANDS, type AgentCapability } from '../protocol.js';
 
 export const BRIEF_BEGIN = '<!-- BEGIN NOCOPROJECT-RUNTIME (auto-managed; do not edit) -->';
@@ -136,6 +137,8 @@ export function buildTurnPrompt(input: PromptInput, opts: { readonly resumed: bo
       lines.push(quote(trigger.comment.content));
     } else if (trigger.type === 'stageEntered') {
       lines.push(...stageEnteredLines(trigger, quote));
+    } else if (trigger.type === 'signal') {
+      lines.push(...signalLines(trigger, quote));
     } else {
       const note = TRIGGER_NOTES[trigger.type];
       if (note) lines.push(note(key));

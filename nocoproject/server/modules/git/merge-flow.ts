@@ -9,6 +9,7 @@
  *
  * Merged and closed run on the stored state's change, whoever sees it first: the webhook, or a REST read (link,
  * refresh, merge check) when the repository has no webhook or a delivery was lost (`storeSnapshot`, NP-122).
+ * Every stored snapshot also reports its signals (CI failed, conflicts) to the linked issues (`pr-signals.ts`).
  */
 import type { ActivityRecorder } from '../shared/activity.js';
 import { SYSTEM_ACTOR } from '../shared/activity.js';
@@ -23,9 +24,11 @@ import type {
 import type { SettingsService } from '../system/settings.service.js';
 import type { WorkflowService } from '../workflow/workflow.service.js';
 import type { IssueService } from '../issue/issue.service.js';
+import type { TriggerService } from '../trigger/trigger.service.js';
 import { findIssue, issuesByIds } from '../issue/issue.records.js';
 import type { IdSource } from '../shared/ids.js';
 import type { PullRequestSnapshot } from './github-client.js';
+import { reportPullRequestSignals } from './pr-signals.js';
 import {
   linksOfPullRequest,
   mapPullRequest,
@@ -37,6 +40,8 @@ export interface GitFlowDeps {
   readonly settings: SettingsService;
   readonly workflows: WorkflowService;
   readonly issues: () => IssueService;
+  /** Signals from a stored snapshot (`pr-signals.ts`). */
+  readonly triggers: () => TriggerService;
 }
 
 /**
@@ -193,6 +198,7 @@ export async function storeSnapshot(
     connectionId,
   );
   await onPullRequestStateChanged(deps, tx, pr, previous);
+  await reportPullRequestSignals(deps, tx, pr);
   return pr;
 }
 
