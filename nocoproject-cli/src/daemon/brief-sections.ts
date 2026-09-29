@@ -56,7 +56,7 @@ export function repositoriesSection(input: Phase1BriefInput): string[] {
   }
   lines.push('Project repositories (only these can be checked out):', '');
   for (const r of resources) lines.push(`- \`${r.url}\`${r.defaultRef ? ` (default ref \`${r.defaultRef}\`)` : ''}`);
-  const branch = input.session.branchName ?? branchNameFor(input.agent.name, key);
+  const branch = input.session.branchName ?? branchNameFor(key);
   lines.push(
     '',
     `Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git worktree at \`$NOCOPROJECT_WORKDIR/<repo name>/\` on the branch \`${branch}\` and prints its path; later runs of ${key} resume the same branch. \`--ref <ref>\` picks another base, \`--fresh\` discards this checkout and restarts the branch from the base.`,

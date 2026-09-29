@@ -19,6 +19,10 @@ describe('link rules and URLs (pure)', () => {
     matchIssueIdentifiers({ headRef, title, body, prefix: 'NP' });
 
   it('takes the issue from an agent branch first', () => {
+    expect(rule('agent/np-145', 'Fixes NP-3')).toEqual({
+      rule: 'branch',
+      identifiers: ['NP-145'],
+    });
     expect(rule('agent/echo/np-12', 'Fixes NP-3')).toEqual({
       rule: 'branch',
       identifiers: ['NP-12'],
@@ -26,6 +30,10 @@ describe('link rules and URLs (pure)', () => {
     expect(rule('agent/claude-code/NP-7')).toEqual({
       rule: 'branch',
       identifiers: ['NP-7'],
+    });
+    expect(rule('agent/a/b/np-7', 'NP-3')).toEqual({
+      rule: 'mention',
+      identifiers: ['NP-3', 'NP-7'],
     });
   });
 
