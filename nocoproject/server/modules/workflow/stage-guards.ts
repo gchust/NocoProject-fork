@@ -1,5 +1,5 @@
 /**
- * Entry conditions of a transition (NP-77 方案 §1, §2), checked inside the transaction before the approval gate and
+ * Entry conditions of a transition (NP-77 proposal §1, §2), checked inside the transaction before the approval gate and
  * before anything is written:
  *
  * - `requirePrMerged` on the target status: at least `minCount` (default 1) pull requests linked to the issue are

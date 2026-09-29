@@ -1,5 +1,5 @@
 /**
- * Stage instruction templates (NP-77 方案 §1): `{{issue.identifier}}`, `{{issue.title}}`, `{{from}}`, `{{to}}` and
+ * Stage instruction templates (NP-77 proposal §1): `{{issue.identifier}}`, `{{issue.title}}`, `{{from}}`, `{{to}}` and
  * `{{owner.name}}`, with optional whitespace inside the braces. Validation (`workflow.validate.ts`) refuses any other
  * variable; rendering leaves an unknown one as written.
  */

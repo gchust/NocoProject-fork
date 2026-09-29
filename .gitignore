@@ -1,5 +1,5 @@
 .DS_Store
 node_modules/
-# 网页由 scripts/build-doc.mjs 从 Markdown 生成，网页与发布片段都不入库（总纲 14.4）
+# Web pages are generated from Markdown by scripts/build-doc.mjs; neither the pages nor the publish fragments are committed (series guideline 14.4)
 /*.html
 /dist/

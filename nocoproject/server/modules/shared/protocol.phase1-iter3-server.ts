@@ -1,7 +1,9 @@
 /**
- * NocoProject 协议类型：Phase 1 迭代 3 的服务端补充形状（docs/phase1/protocol-iteration-3.md）。
+ * NocoProject protocol types: Phase 1 iteration 3 server-only additional shapes
+ * (docs/phase1/protocol-iteration-3.md).
  *
- * 组合了 protocol.phase1-iter2-server.ts 的服务端类型，CLI 不复制。契约类型在 protocol.phase1-iter3.ts。
+ * Composes the server-only types from protocol.phase1-iter2-server.ts; not copied by the CLI. The
+ * contract types are in protocol.phase1-iter3.ts.
  */
 import type {
   IssueDetailV2,
@@ -15,13 +17,13 @@ import type {
   IssueListPage,
 } from './protocol.phase1-iter3.js';
 
-/** `GET /np/issues/:id`：活动只含最新 50 条，评论超过 200 条时只含最新 200 条 */
+/** `GET /np/issues/:id`: activities include only the latest 50; comments include only the latest 200 when there are more than 200 */
 export type IssueDetailV3 = IssueDetailV2 & IssueDetailPaging;
 
 export type IssueListPageV3 = IssueListPage<IssueListItemV2>;
 export type BoardGroupV3Server = BoardGroupV3<IssueListItemV2>;
 
-/** 交付接口的 data（完整任务行） */
+/** The data of the delivery endpoint (full issue row) */
 export interface DeliveryResultV3 {
   readonly issue: IssueV2;
   readonly pendingApproval: ApprovalRequest | null;

@@ -64,7 +64,7 @@ export interface IssueChange {
   readonly before: IssueV1 | null;
   readonly after: IssueV1;
   readonly actor: Actor;
-  /** false = 暂不开始: the change must not enqueue `assign` / `statusChange` (default true). */
+  /** false = do not start yet: the change must not enqueue `assign` / `statusChange` (default true). */
   readonly start?: boolean;
   /** The trigger type an executor change records (default `assign`). */
   readonly assignTriggerType?: 'assign' | 'proposalAccepted';

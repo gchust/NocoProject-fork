@@ -1,4 +1,4 @@
-// @temporary(nocobase-official): 待替换为 NocoBase 官方 工作流审批
+// @temporary(nocobase-official): to be replaced by the official NocoBase workflow approval
 import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Hono } from 'hono';
 

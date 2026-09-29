@@ -1,6 +1,6 @@
 import { requireCapability } from '../agent/capabilities.js';
 /**
- * Workflow template proposals (NP-77 方案 §4–§6, stage 2): agents read templates and propose a whole new definition
+ * Workflow template proposals (NP-77 proposal §4–§6, stage 2): agents read templates and propose a whole new definition
  * for an existing template (`templateId`) or for a copy of one (`copyFrom`); an owner/admin accepts or rejects it.
  * Structure follows `knowledge/knowledge.proposals.ts`.
  *

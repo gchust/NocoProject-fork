@@ -3,14 +3,17 @@ import type {
   AgentEntryBindings,
 } from './protocol.capabilities.js';
 /**
- * NocoProject 协议类型：Phase 1 迭代 4 追加（docs/phase1/iteration-4-contract.md，实现见
- * docs/phase1/protocol-iteration-4.md）。
+ * NocoProject protocol types: Phase 1 iteration 4 additions (docs/phase1/iteration-4-contract.md;
+ * implementation in docs/phase1/protocol-iteration-4.md).
  *
- * 服务端正本；CLI 用 `pnpm sync-protocol` 复制本文件。本文件只从 protocol.ts、protocol.phase1-iter2.ts 与
- * protocol.phase1-iter3.ts 引用类型；依赖服务端补充形状（IssueV2、IssueDetailV3 等）的组合类型在
- * protocol.phase1-iter4-server.ts（CLI 不复制）。
- * 只增不改：原联合类型保持不动，追加的枚举值写成单独的类型（InboxItemTypePhase1Iter4 等）再合并。唯一例外是
- * protocol.phase1-iter2.ts 的 `IssueOriginType` 追加了 `'pm'`（契约 §C "originType 增加 pm"）。
+ * Server source of truth; the CLI copies this file with `pnpm sync-protocol`. This file only imports
+ * types from protocol.ts, protocol.phase1-iter2.ts, and protocol.phase1-iter3.ts; composite types that
+ * depend on server-only additional shapes (IssueV2, IssueDetailV3, etc.) live in
+ * protocol.phase1-iter4-server.ts (not copied by the CLI).
+ * Additive only: the original union types stay unchanged, and added enum values are written as
+ * separate types (InboxItemTypePhase1Iter4, etc.) and then merged in. The one exception is
+ * protocol.phase1-iter2.ts's `IssueOriginType`, which gained `'pm'` directly (contract §C: "originType
+ * gains pm").
  */
 import type {
   Activity,
@@ -40,7 +43,7 @@ import type {
   WorkspaceSettingsViewV3,
 } from './protocol.phase1-iter3.js';
 
-// ---------- 设计先行（§B） ----------
+// ---------- Design-first (§B) ----------
 
 /** `issues.process` */
 export type IssueProcess = 'direct' | 'design_first';
@@ -48,53 +51,53 @@ export const ISSUE_PROCESSES: readonly IssueProcess[] = [
   'direct',
   'design_first',
 ];
-/** 建任务 / 批量录入的 `process`，也是 `settings.defaultProcess`：`auto` = 服务端分类 */
+/** `process` for issue creation / bulk intake, also `settings.defaultProcess`: `auto` = server classifies it */
 export type DefaultProcess = 'auto' | IssueProcess;
 export const DEFAULT_PROCESSES: readonly DefaultProcess[] = [
   'auto',
   'direct',
   'design_first',
 ];
-/** `process_selected` 活动的 `details.by` */
+/** `details.by` of a `process_selected` activity */
 export type ProcessSelectedBy = 'user' | 'heuristic' | 'ai';
 
-/** 设计先行的两个内置状态（category started，依次在 todo 之后） */
+/** The two built-in design-first statuses (category started, ordered right after todo) */
 export const STATUS_ANALYSIS = 'analysis';
 export const STATUS_PROPOSAL_REVIEW = 'proposal_review';
-/** `PATCH /np/issues/:id { process }` 只在这些状态下允许（否则 409 PROCESS_LOCKED） */
+/** `PATCH /np/issues/:id { process }` is only allowed in these statuses (otherwise 409 PROCESS_LOCKED) */
 export const PROCESS_EDITABLE_STATUSES: readonly string[] = ['backlog', 'todo'];
 
-/** 迭代 4 给任务追加的列 */
+/** Columns added to issues in iteration 4 */
 export interface IssuePhase4Fields {
   readonly process: IssueProcess;
   readonly designApprovedAt: string | null;
   readonly designApprovedById: string | null;
 }
 
-/** `POST /np/issues`、`PATCH /np/issues/:id` 追加（PATCH 不接受 `auto`） */
+/** Addition to `POST /np/issues`, `PATCH /np/issues/:id` (PATCH does not accept `auto`) */
 export interface IssuePhase4Input {
   readonly process?: DefaultProcess;
 }
 
-/** `comments.kind` 追加的值：设计方案 */
+/** Value added to `comments.kind`: a design proposal */
 export type CommentKindPhase1Iter4 = 'proposal';
 export type CommentKindV4 = CommentKind | CommentKindPhase1Iter4;
 
-/** `POST /np/agent/issues/:id/design-proposal`；响应 201 `{ data: CommentV2 }`（kind = 'proposal' 的顶层评论） */
+/** `POST /np/agent/issues/:id/design-proposal`; responds 201 `{ data: CommentV2 }` (a top-level comment with kind = 'proposal') */
 export interface AgentDesignProposalRequest {
   readonly content: string;
 }
 export const DESIGN_PROPOSAL_MAX = 200_000;
 
-/** 最新的设计方案（kind = 'proposal' 的最新评论）：认领载荷 `issue.designProposal`、任务详情 `issue.designProposal` */
+/** The latest design proposal (the latest comment with kind = 'proposal'): claim payload's `issue.designProposal`, issue detail's `issue.designProposal` */
 export interface DesignProposal {
   readonly commentId: string;
-  /** Markdown：需求理解 / 方案 / 影响范围 / 风险与待定 / 验证计划 */
+  /** Markdown: understanding of the requirement / proposal / impact scope / risks and open questions / verification plan */
   readonly content: string;
   readonly createdAt: string;
 }
 
-/** `POST /np/issues/:id/design/approve`（body 可省略） */
+/** `POST /np/issues/:id/design/approve` (body may be omitted) */
 export interface DesignApproveRequest {
   readonly comment?: string;
 }
@@ -104,23 +107,23 @@ export interface DesignRequestChangesRequest {
   readonly comment: string;
 }
 
-/** 两个设计决定接口的 data；`issue` 是完整任务行（服务端 IssueV4），这里只列 CLI 读取的字段 */
+/** The data of the two design-decision endpoints; `issue` is the full issue row (the server's IssueV4); only the fields the CLI reads are listed here */
 export interface DesignDecisionResult<TIssue = IssueStatusSnapshot> {
   readonly issue: TIssue & IssuePhase4Fields;
   readonly comment: CommentV2 | null;
   readonly triggered: readonly TriggeredRun[];
 }
 
-/** `design_review` 决定项的 payload（另有 identifier、issueTitle、actions） */
+/** The payload of a `design_review` decision item (also has identifier, issueTitle, actions) */
 export interface DesignReviewPayload {
   readonly proposalCommentId: string | null;
-  /** 方案正文前 300 字 */
+  /** First 300 characters of the proposal body */
   readonly summary: string;
   readonly from: string | null;
 }
 export const DESIGN_REVIEW_SUMMARY_LENGTH = 300;
 
-// ---------- Agent 类型与推理强度（§C） ----------
+// ---------- Agent kind and reasoning effort (§C) ----------
 
 export type AgentKind = 'coder' | 'manager';
 export const AGENT_KINDS: readonly AgentKind[] = ['coder', 'manager'];
@@ -133,27 +136,27 @@ export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
   'max',
 ];
 
-/** 迭代 4 给 Agent 追加的列（`GET /np/agents` 的行） */
+/** Columns added to agents in iteration 4 (the row of `GET /np/agents`) */
 export interface AgentPhase4Fields extends AgentConfiguration {
   readonly kind: AgentKind;
   readonly reasoningEffort: ReasoningEffort | null;
 }
 
-/** `POST /np/agents`、`PATCH /np/agents/:id` 追加 */
+/** Addition to `POST /np/agents`, `PATCH /np/agents/:id` */
 export interface AgentPhase4Input extends AgentConfiguration {
   readonly kind?: AgentKind;
   readonly reasoningEffort?: ReasoningEffort | null;
 }
 
-// ---------- 运行触发与认领载荷（§B、§C） ----------
+// ---------- Run triggers and claim payload (§B, §C) ----------
 
-/** 迭代 4 新增的触发类型：方案批准后的实现运行、任务完成后的总结运行 */
+/** Trigger types added in iteration 4: the implementation run after a proposal is approved, the retrospective run after an issue is done */
 export type RunTriggerTypePhase1Iter4 = 'designApproved' | 'retrospective';
 export type RunTriggerTypeV4 = Phase1RunTriggerType | RunTriggerTypePhase1Iter4;
-/** 总结运行的 threadScope */
+/** threadScope of a retrospective run */
 export const RETROSPECTIVE_THREAD_SCOPE = 'retro';
 
-/** ClaimedRun 在迭代 4 追加的字段（守护进程按可选读取） */
+/** Fields added to ClaimedRun in iteration 4 (the daemon reads them as optional) */
 export interface ClaimedRunPhase4Extras {
   readonly agent: AgentConfiguration & {
     readonly taskInstructions?: string;
@@ -164,38 +167,38 @@ export interface ClaimedRunPhase4Extras {
   readonly issue: {
     readonly process: IssueProcess;
     readonly designApprovedAt: string | null;
-    /** 最新方案；没有方案时为 null */
+    /** The latest proposal; null when there is none */
     readonly designProposal: DesignProposal | null;
-    /** `'pm'` = 项目经理对话任务 */
+    /** `'pm'` = a project manager conversation issue */
     readonly originType: string;
   };
 }
 
-/** Agent 任务视图（`GET /np/agent/issues/:id`、`/context`）追加 */
+/** Addition to the agent issue view (`GET /np/agent/issues/:id`, `/context`) */
 export interface IssueForAgentPhase4Fields {
   readonly process: IssueProcess;
   readonly designApprovedAt: string | null;
 }
 
-// ---------- 项目经理（§C） ----------
+// ---------- Project manager (§C) ----------
 
-/** `GET/POST /np/pm/conversation` 的 data */
+/** The data of `GET/POST /np/pm/conversation` */
 export interface PmConversationResponse {
   readonly issueId: string;
   readonly identifier: string;
-  /** 当前执行者（= settings.pmAgentId） */
+  /** The current executor (= settings.pmAgentId) */
   readonly agentId: string | null;
 }
 
-/** `GET /np/agent/pm/issues` 的查询参数 */
+/** Query parameters of `GET /np/agent/pm/issues` */
 export interface PmIssueListQuery {
   readonly projectId?: string;
   readonly statusKey?: string;
-  /** 用户 id；`me` = 运行的 actorUserId（提问者） */
+  /** A user id; `me` = the run's actorUserId (the asking member) */
   readonly ownerUserId?: string;
   readonly executorId?: string;
   readonly q?: string;
-  /** ISO 时间，或相对时长 `7d` / `24h` / `30m` */
+  /** ISO timestamp, or a relative duration like `7d` / `24h` / `30m` */
   readonly updatedSince?: string;
   readonly limit?: number;
   readonly cursor?: string;
@@ -203,33 +206,33 @@ export interface PmIssueListQuery {
 
 export type PmIssueRow = IssueListRow & IssuePhase4Fields;
 
-/** `GET /np/agent/pm/issues` 的完整响应体（`nextCursor` 与 `data` 同级） */
+/** Full response body of `GET /np/agent/pm/issues` (`nextCursor` is a sibling of `data`) */
 export interface PmIssueListPage<T = PmIssueRow> {
   readonly data: readonly T[];
   readonly nextCursor: string | null;
 }
 
-/** `GET /np/agent/pm/issues/:idOrIdentifier` 的 data */
+/** The data of `GET /np/agent/pm/issues/:idOrIdentifier` */
 export interface PmIssueDetail<T = PmIssueRow> {
   readonly issue: T & { readonly designProposal: DesignProposal | null };
-  /** 最近 50 条（升序） */
+  /** The most recent 50 (ascending) */
   readonly comments: readonly CommentV2[];
-  /** 最近 50 条（升序） */
+  /** The most recent 50 (ascending) */
   readonly activities: readonly Activity[];
   readonly runs: readonly RunSummary[];
   readonly pullRequests: readonly IssuePullRequestView[];
   readonly subtasks: readonly SubtaskSummary[];
-  /** 该任务所有运行的用量合计 */
+  /** Total usage across all of this issue's runs */
   readonly usage: UsageRow;
 }
 
-/** `GET /np/agent/pm/projects` 的 data */
+/** The data of `GET /np/agent/pm/projects` */
 export type PmProjectList = readonly ProjectListItem[];
 
-/** PM 详情里评论 / 活动的条数 */
+/** Number of comments / activities in the PM detail view */
 export const PM_DETAIL_TAIL = 50;
 
-// ---------- 设置（§A） ----------
+// ---------- Settings (§A) ----------
 
 export interface WorkspaceSettingsPhase4Fields {
   readonly defaultProcess: DefaultProcess;
@@ -244,29 +247,30 @@ export type WorkspaceSettingsViewV4 = WorkspaceSettingsViewV3 &
 export type UpdateWorkspaceSettingsRequestV4 =
   UpdateWorkspaceSettingsRequestV3 & Partial<WorkspaceSettingsPhase4Fields>;
 
-// ---------- 批量录入（§D） ----------
+// ---------- Bulk intake (§D) ----------
 
-/** 草稿字段追加 `process`（缺省 = settings.defaultProcess；auto 在确认时用启发式分类） */
+/** Draft fields add `process` (defaults to settings.defaultProcess; auto uses the heuristic classifier on confirm) */
 export type IntakeDraftFieldsV4 = IntakeDraftFields & {
   readonly process?: DefaultProcess;
-  /** NP-78：确认时挂到这条草稿建出的任务的批次附件 */
+  /** NP-78: batch attachments attached, on confirm, to the issue this draft creates */
   readonly attachmentIds?: readonly string[];
 };
 
-/** `POST /np/intake/batches` 追加 `process`：写进每条没有 `process` 的草稿 */
+/** `POST /np/intake/batches` adds `process`: written into every draft that has no `process` */
 export type CreateIntakeBatchRequestV4 = CreateIntakeBatchRequest & {
   readonly process?: DefaultProcess;
-  /** NP-78：见 `IntakeBatchAttachment` */
+  /** NP-78: see `IntakeBatchAttachment` */
   readonly attachmentIds?: readonly string[];
 };
 
-// ---------- 在任务页与收件箱合并 PR（NP-85） ----------
+// ---------- Merging a PR from the issue page and inbox (NP-85) ----------
 
 /**
- * 不能合并的原因。`closed` / `merged` / `draft`：PR 状态；`conflicts`：GitHub `mergeable === false` 或
- * `mergeable_state = dirty`；`computing`：`mergeable === null`（GitHub 还在计算）；`ciPending` / `ciFailed` /
- * `ciMissing`：提交的检查运行中 / 失败 / 一个都没有；`notConfigured`：没有保存 GitHub 令牌；`protected`：GitHub
- * 拒绝合并（分支保护要求评审或分支最新，只在合并时出现）。
+ * Reasons a PR cannot be merged. `closed` / `merged` / `draft`: the PR's state; `conflicts`: GitHub's
+ * `mergeable === false` or `mergeable_state = dirty`; `computing`: `mergeable === null` (GitHub is still
+ * computing it); `ciPending` / `ciFailed` / `ciMissing`: the head commit's checks are running / failed
+ * / there are none; `notConfigured`: no GitHub token saved; `protected`: GitHub refused the merge
+ * (branch protection requiring a review or an up-to-date branch, only seen at merge time).
  */
 export type PullRequestMergeBlocker =
   | 'closed'
@@ -280,31 +284,31 @@ export type PullRequestMergeBlocker =
   | 'notConfigured'
   | 'protected';
 
-/** 合并后任务为什么不变：设置为不改 / 还有未合并的 PR / 本 PR 关闭了自动完成 / 任务已是终态 */
+/** Why the issue stays unchanged after the merge: the setting says not to / other PRs are still unmerged / this PR opted out of auto-complete / the issue is already terminal */
 export type PullRequestMergeKeepReason =
   'setting' | 'otherPrs' | 'optedOut' | 'terminal';
 
-/** 合并后任务会怎样：`statusKey` 非空时改为该状态，否则按 `keepReason` 不变 */
+/** What happens to the issue after the merge: changes to `statusKey` when it is non-null, otherwise stays unchanged per `keepReason` */
 export interface PullRequestMergeOutcome {
   readonly statusKey: string | null;
   readonly statusName: string | null;
   readonly keepReason: PullRequestMergeKeepReason | null;
 }
 
-/** `GET /np/issues/:id/pull-requests/:prId/merge` 的 data（取自 GitHub 最新状态） */
+/** The data of `GET /np/issues/:id/pull-requests/:prId/merge` (taken from GitHub's latest state) */
 export interface PullRequestMergePreflight {
   readonly blocker: PullRequestMergeBlocker | null;
   readonly method: 'squash';
   readonly headSha: string;
   readonly baseRef: string;
-  /** `<PR 标题> (#<编号>)` */
+  /** `<PR title> (#<number>)` */
   readonly commitTitle: string;
   readonly statusAfter: PullRequestMergeOutcome;
 }
 
 /** `POST /np/issues/:id/pull-requests/:prId/merge` */
 export interface MergePullRequestRequest {
-  /** 确认框里看到的 head；与 GitHub 最新 head 不一致时 409 PR_CHANGED */
+  /** The head shown in the confirmation dialog; 409 PR_CHANGED when it no longer matches GitHub's latest head */
   readonly expectedHeadSha: string;
 }
 
@@ -313,31 +317,33 @@ export interface MergePullRequestResponse {
   readonly sha: string;
 }
 
-/** PR 列表 / 任务详情 `pullRequests[]` 每项追加的字段 */
+/** Fields added to each item of the PR list / issue detail's `pullRequests[]` */
 export interface IssuePullRequestPhase4Fields {
-  /** 当前用户能否合并（任务负责人、项目负责人、owner/admin） */
+  /** Whether the current user can merge it (the issue owner, project lead, owner/admin) */
   readonly viewerCanMerge: boolean;
-  /** head 提交最新一次 GitHub Actions 运行 */
+  /** The head commit's latest GitHub Actions run */
   readonly ciRunUrl: string | null;
-  /** 该运行的 `screenshots` artifact（网页地址，登录 GitHub 后下载） */
+  /** That run's `screenshots` artifact (a web URL, downloaded after signing in to GitHub) */
   readonly screenshotsUrl: string | null;
 }
 
 export type IssuePullRequestViewV4 = IssuePullRequestView &
   IssuePullRequestPhase4Fields;
 
-/** 收件箱动作追加：`confirm` = 先打开确认框（`prMerge`：合并确认框），`disabledReason` = 置灰并说明原因 */
+/** Addition to inbox actions: `confirm` = open a confirmation dialog first (`prMerge`: the merge confirmation dialog), `disabledReason` = greyed out with the reason */
 export type InboxActionV4 = InboxAction & {
   readonly confirm?: 'prMerge';
   readonly disabledReason?: PullRequestMergeBlocker;
-  /** `confirm: 'prMerge'` 时：要合并的 PR */
+  /** The PR to merge, when `confirm: 'prMerge'` */
   readonly pullRequestId?: string;
 };
-// ---------- 任务附件（NP-78） ----------
+// ---------- Issue attachments (NP-78) ----------
 
 /**
- * `GET /np/issues/:id/attachments` 的一项。文件本身由 `POST /api/npFiles:uploadOne`（multipart，字段名 `file`，每次一个）上传，
- * 上传后未挂任务，只有上传者可见；`contentUrl`（`/uploads/np/<uuid>.<ext>`，含应用前缀）按所属任务的可见性鉴权。
+ * An item of `GET /np/issues/:id/attachments`. The file itself is uploaded via
+ * `POST /api/npFiles:uploadOne` (multipart, field name `file`, one at a time); after upload it is not
+ * yet attached to an issue and is visible only to the uploader; `contentUrl`
+ * (`/uploads/np/<uuid>.<ext>`, including the app prefix) is authorized by its issue's visibility.
  */
 export interface IssueAttachment {
   readonly id: string;
@@ -350,23 +356,24 @@ export interface IssueAttachment {
   readonly uploadedByName: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
-  /** 调用者可以移除（上传者、任务负责人、项目负责人、owner/admin） */
+  /** Whether the caller can remove it (the uploader, issue owner, project lead, owner/admin) */
   readonly canDelete: boolean;
 }
 
-/** `POST /np/issues/:id/attachments`：只能挂调用者自己上传、尚未挂任务的文件 */
+/** `POST /np/issues/:id/attachments`: can only attach files the caller uploaded themself that are not yet attached to an issue */
 export interface AttachFilesRequest {
   readonly fileIds: readonly string[];
 }
 
-/** `POST /np/issues` 追加：建任务时一并挂上的文件（同上规则） */
+/** Addition to `POST /np/issues`: files attached at the same time as issue creation (same rule as above) */
 export interface CreateIssueAttachmentFields {
   readonly attachmentIds?: readonly string[];
 }
 
 /**
- * Agent 读任务时看到的附件元数据。NP-111：带 `id`，内容用运行令牌下载：
- * `GET /np/agent/issues/:id/attachments/:fileId/content`（与读任务同一可见范围，其它一律 404）。
+ * The attachment metadata an agent sees when reading an issue. NP-111: includes `id`; the content is
+ * downloaded with a run token: `GET /np/agent/issues/:id/attachments/:fileId/content` (the same
+ * visibility scope as reading the issue; anything else returns 404).
  */
 export interface AgentAttachmentInfo {
   readonly id: string;
@@ -377,17 +384,21 @@ export interface AgentAttachmentInfo {
 export interface IssueForAgentAttachmentFields {
   readonly attachments: readonly AgentAttachmentInfo[];
 }
-/** NP-111：claim 载荷的任务也带附件，轮次提示据此列出文件并提示下载 */
+/** NP-111: the issue in the claim payload also carries attachments, so the round prompt lists the files and prompts a download */
 export interface ClaimedRunAttachmentExtras {
   readonly issue: IssueForAgentAttachmentFields;
 }
 
 /**
- * AI 整理（批量录入）带附件：`POST /np/intake/batches` 追加 `attachmentIds`（调用者自己上传、未挂任务、未进其它批次），
- * 文件跟着批次走；解析出的第一条顶层草稿的 `fields.attachmentIds` 先拿到全部文件，可以在草稿之间移动。确认时每个文件挂到
- * 它所在草稿建出的任务；不在任何草稿里的文件挂到第一个建出的任务。
+ * AI intake (bulk intake) with attachments: `POST /np/intake/batches` adds `attachmentIds` (files the
+ * caller uploaded themself, not yet attached to an issue, not yet in another batch); the files travel
+ * with the batch. The first top-level draft parsed out gets all the files in
+ * `fields.attachmentIds` initially, and they can be moved between drafts. On confirm, each file is
+ * attached to the issue created by the draft it ended up in; files not in any draft are attached to
+ * the first issue created.
  *
- * 批次详情（`GET /np/intake/batches/:id`、创建的响应）追加 `attachments`，每项如下。
+ * The batch detail (`GET /np/intake/batches/:id`, the create response) adds `attachments`, each item as
+ * follows.
  */
 export interface IntakeBatchAttachment {
   readonly id: string;
@@ -396,16 +407,17 @@ export interface IntakeBatchAttachment {
   readonly mimeType: string;
   readonly size: number;
   readonly contentUrl: string;
-  /** 已挂到的任务（批次确认后） */
+  /** The issue it is attached to (after the batch is confirmed) */
   readonly issueId: string | null;
-  /** AI 整理读取这个文件的结果（批次创建时写入；旧批次为 null） */
+  /** The result of AI intake reading this file (written at batch creation; null for older batches) */
   readonly readStatus: IntakeAttachmentReadStatus | null;
 }
 
 /**
- * AI 整理读附件的结果：`read` 已读、`truncated` 已读但截断、`empty` 没读到文字（如扫描版 PDF）、`unsupported`
- * 不支持的格式（图片等，只把文件名给模型）、`legacy` 老 Office 格式（doc / xls / ppt）、`failed` 读取失败、
- * `skipped` 合计字数已满未读。
+ * The result of AI intake reading an attachment: `read` read successfully, `truncated` read but
+ * truncated, `empty` no text found (e.g. a scanned PDF), `unsupported` an unsupported format (images,
+ * etc. — only the filename is given to the model), `legacy` an old Office format (doc / xls / ppt),
+ * `failed` reading failed, `skipped` not read because the total character budget was already used up.
  */
 export type AttachmentReadState =
   | 'read'
@@ -417,7 +429,7 @@ export type AttachmentReadState =
   | 'skipped';
 export interface IntakeAttachmentReadStatus {
   readonly state: AttachmentReadState;
-  /** 交给模型的字数 */
+  /** Character count handed to the model */
   readonly chars: number;
 }
 export interface IntakeBatchAttachmentsField {
@@ -425,32 +437,35 @@ export interface IntakeBatchAttachmentsField {
 }
 
 /**
- * NP-120：草稿编辑时让 AI 按一句话修改草稿。`POST /np/intake/batches/:id/refine` 以当前表格（含未保存的手工修改）
- * 为底稿，AI 改完后整份替换并校验，返回与 `PUT .../drafts` 相同的 `{ drafts }`。AI 保留或改写的草稿继承原草稿的
- * `executor`、`ownerUserId`、`process`、`attachmentIds`。只允许 `draft` 批次；AI 不可用 409 `AI_UNAVAILABLE`，
- * 超时 504 `AI_TIMEOUT`，回复无法解析或为空 502 `AI_REFINE_FAILED`，失败时草稿不变。
+ * NP-120: while editing drafts, have AI modify the drafts by one instruction sentence.
+ * `POST /np/intake/batches/:id/refine` uses the current table (including unsaved manual edits) as the
+ * source, and AI replaces the whole thing and validates it after editing, returning the same
+ * `{ drafts }` shape as `PUT .../drafts`. Drafts AI kept or rewrote inherit the original draft's
+ * `executor`, `ownerUserId`, `process`, `attachmentIds`. Only allowed for `draft` batches; 409
+ * `AI_UNAVAILABLE` when AI is unavailable, 504 `AI_TIMEOUT` on timeout, 502 `AI_REFINE_FAILED` when the
+ * reply cannot be parsed or is empty — the drafts stay unchanged on failure.
  */
 export interface RefineIntakeDraftsRequest {
-  /** 1–2000 字 */
+  /** 1-2000 characters */
   readonly instruction: string;
   readonly drafts: readonly IntakeDraftInput[];
 }
 export interface RefineIntakeDraftsResponse {
   readonly drafts: readonly IntakeDraft[];
 }
-/** 批次详情与创建的响应追加：当前能否让 AI 修改（配置了 LLM 且设置为 auto） */
+/** Addition to the batch detail and create response: whether AI refine is currently available (an LLM is configured and set to auto) */
 export interface IntakeBatchAiRefineField {
   readonly aiRefine: boolean;
 }
 export const MAX_REFINE_INSTRUCTION = 2000;
 
-/** 单次最多挂的文件数 */
+/** Max files attached per request */
 export const MAX_ATTACHMENTS_PER_REQUEST = 10;
 
-// ---------- 追加的枚举值 ----------
+// ---------- Added enum values ----------
 
 export type InboxItemTypePhase1Iter4 = 'design_review';
-/** 迭代 1–4 的全部收件箱类型 */
+/** All inbox types across iterations 1-4 */
 export type InboxItemTypeV4 = InboxItemTypeV3 | InboxItemTypePhase1Iter4;
 export type InboxItemV4 = Omit<InboxItemV3, 'type'> & {
   readonly type: InboxItemTypeV4;
@@ -466,7 +481,7 @@ export type ActivityActionPhase1Iter4 =
   | 'attachment_added'
   | 'attachment_removed';
 
-// ---------- 错误码 ----------
+// ---------- Error codes ----------
 
 export const ERROR_PROCESS_LOCKED = 'PROCESS_LOCKED';
 export const ERROR_DESIGN_NOT_APPROVED = 'DESIGN_NOT_APPROVED';
@@ -476,14 +491,14 @@ export const ERROR_DESIGN_ALREADY_APPROVED = 'DESIGN_ALREADY_APPROVED';
 export const ERROR_MANAGER_NOT_EXECUTOR = 'MANAGER_NOT_EXECUTOR';
 export const ERROR_MANAGER_ONLY = 'MANAGER_ONLY';
 export const ERROR_PM_NOT_CONFIGURED = 'PM_NOT_CONFIGURED';
-/** 409：PR 当前不能合并（`details.blocker`） */
+/** 409: the PR cannot currently be merged (`details.blocker`) */
 export const ERROR_PR_NOT_MERGEABLE = 'PR_NOT_MERGEABLE';
-/** 409：确认之后 PR 有了新提交 */
+/** 409: the PR got a new commit after confirmation */
 export const ERROR_PR_CHANGED = 'PR_CHANGED';
-/** 409：令牌缺少 Contents 与 Pull requests 的写权限 */
+/** 409: the token is missing write access to Contents and Pull requests */
 export const ERROR_GITHUB_MERGE_FORBIDDEN = 'GITHUB_MERGE_FORBIDDEN';
 export const ERROR_INVALID_ATTACHMENT = 'INVALID_ATTACHMENT';
-/** NP-120：409 AI 未配置或设置为仅规则；504 AI 超时；502 AI 回复不可用 */
+/** NP-120: 409 AI not configured or set to rules-only; 504 AI timeout; 502 AI reply unusable */
 export const ERROR_AI_UNAVAILABLE = 'AI_UNAVAILABLE';
 export const ERROR_AI_TIMEOUT = 'AI_TIMEOUT';
 export const ERROR_AI_REFINE_FAILED = 'AI_REFINE_FAILED';

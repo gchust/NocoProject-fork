@@ -1,7 +1,9 @@
 /**
- * NocoProject 协议类型：Phase 1 迭代 4 的服务端补充形状（docs/phase1/protocol-iteration-4.md）。
+ * NocoProject protocol types: Phase 1 iteration 4 server-only additional shapes
+ * (docs/phase1/protocol-iteration-4.md).
  *
- * 组合了迭代 2 / 3 的服务端类型，CLI 不复制。契约类型在 protocol.phase1-iter4.ts。
+ * Composes the server-only types from iterations 2 / 3; not copied by the CLI. The contract types are
+ * in protocol.phase1-iter4.ts.
  */
 import type {
   AgentListItemV2,
@@ -31,7 +33,7 @@ import type {
 export type IssueV4 = IssueV2 & IssuePhase4Fields;
 export type IssueListItemV4 = IssueListItemV2 & IssuePhase4Fields;
 
-/** `GET /np/issues/:id`：`issue` 追加最新方案 */
+/** `GET /np/issues/:id`: `issue` adds the latest proposal */
 export interface IssueDetailV4 extends Omit<IssueDetailV2, 'issue'> {
   readonly issue: IssueListItemV4 & {
     readonly designProposal: DesignProposal | null;
