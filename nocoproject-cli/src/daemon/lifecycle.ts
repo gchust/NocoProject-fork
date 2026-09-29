@@ -238,7 +238,7 @@ export class Daemon {
     this.credentialProblem = {
       code: error.code,
       since: this.credentialProblem?.since ?? new Date().toISOString(),
-      command: `nocoproject login --server ${this.opts.config.serverUrl} --computer-key-stdin`,
+      command: `nocoproject login --server ${this.opts.config.serverUrl} --computer-key-stdin && nocoproject daemon install`,
     };
     if (first || Date.now() - this.lastUpgradeWarnAt >= UPGRADE_WARN_EVERY_MS) {
       this.lastUpgradeWarnAt = Date.now();

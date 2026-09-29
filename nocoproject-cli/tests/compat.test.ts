@@ -108,7 +108,7 @@ describe('computer credential (NP-150)', () => {
     await waitFor(() => harness!.daemon.snapshot().credentialProblem, 5000, 'refusal noticed');
     expect(harness.daemon.snapshot().credentialProblem).toMatchObject({
       code: 'COMPUTER_REVOKED',
-      command: `nocoproject login --server ${mock.url} --computer-key-stdin`,
+      command: `nocoproject login --server ${mock.url} --computer-key-stdin && nocoproject daemon install`,
     });
     expect(harness.logs.join('\n')).toContain('COMPUTER CREDENTIAL REFUSED');
     const claims = claimsWithSlots(mock).length;
