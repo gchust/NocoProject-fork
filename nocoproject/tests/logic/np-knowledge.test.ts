@@ -309,4 +309,191 @@ describe.skipIf(!db)('knowledge documents (PostgreSQL)', () => {
       'keys',
     ]);
   });
+
+  it('nests documents into a tree, with breadcrumbs, childCount and depth/scope limits (NP-147)', async () => {
+    const root = await createDoc(bob, {
+      projectId,
+      title: 'Manual',
+      content: 'root',
+    });
+    expect(root.doc).toMatchObject({
+      parentId: null,
+      sortOrder: 0,
+      childCount: 0,
+    });
+    expect(root.breadcrumbs).toEqual([]);
+
+    const child = await createDoc(bob, {
+      projectId,
+      title: 'Chapter 1',
+      content: 'c1',
+      parentId: root.doc.id,
+    });
+    expect(child.doc).toMatchObject({ parentId: root.doc.id, sortOrder: 0 });
+    expect(child.breadcrumbs).toEqual([
+      { id: root.doc.id, title: 'Manual', slug: 'manual' },
+    ]);
+    const rootAfter = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${root.doc.id}`,
+    );
+    expect(rootAfter.body.data.doc.childCount).toBe(1);
+
+    const grandchild = await createDoc(bob, {
+      projectId,
+      title: 'Section 1.1',
+      content: 's1',
+      parentId: child.doc.id,
+    });
+    expect(grandchild.breadcrumbs).toEqual([
+      { id: root.doc.id, title: 'Manual', slug: 'manual' },
+      { id: child.doc.id, title: 'Chapter 1', slug: 'chapter-1' },
+    ]);
+
+    // A parent must exist in the same scope.
+    expect(
+      (
+        await bob('POST', '/np/knowledge', {
+          projectId,
+          title: 'x',
+          content: '',
+          parentId: 'missing',
+        })
+      ).body.code,
+    ).toBe('INVALID_PARENT');
+    const system = await createDoc(alice, { title: 'Glossary', content: '' });
+    expect(
+      (
+        await bob('POST', '/np/knowledge', {
+          projectId,
+          title: 'x',
+          content: '',
+          parentId: system.doc.id,
+        })
+      ).body.code,
+    ).toBe('INVALID_PARENT');
+
+    // Depth limit: root(1) -> child(2) -> grandchild(3) -> great-grandchild(4) is fine, one more is not.
+    const greatGrandchild = await createDoc(bob, {
+      projectId,
+      title: 'Step 1.1.1',
+      content: 'g',
+      parentId: grandchild.doc.id,
+    });
+    expect(
+      (
+        await bob('POST', '/np/knowledge', {
+          projectId,
+          title: 'Too deep',
+          content: '',
+          parentId: greatGrandchild.doc.id,
+        })
+      ).body.code,
+    ).toBe('KNOWLEDGE_DEPTH_EXCEEDED');
+
+    // An unrelated depth-2 branch, used below to exercise the depth check on moves without also tripping the
+    // descendant guard (moving `child` under its own descendant `grandchild` would be KNOWLEDGE_INVALID_MOVE, not a
+    // depth error).
+    const other = await createDoc(bob, {
+      projectId,
+      title: 'Other',
+      content: '',
+    });
+    const otherChild = await createDoc(bob, {
+      projectId,
+      title: 'Other child',
+      content: '',
+      parentId: other.doc.id,
+    });
+
+    // Move: same scope, permission, descendant guard, depth limit against the whole subtree.
+    expect(
+      (
+        await carol('PATCH', `/np/knowledge/${grandchild.doc.id}`, {
+          parentId: null,
+          sortOrder: 0,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await bob('PATCH', `/np/knowledge/${root.doc.id}`, {
+          parentId: child.doc.id,
+          sortOrder: 0,
+        })
+      ).body.code,
+    ).toBe('KNOWLEDGE_INVALID_MOVE');
+    expect(
+      (
+        await bob('PATCH', `/np/knowledge/${root.doc.id}`, {
+          parentId: root.doc.id,
+          sortOrder: 0,
+        })
+      ).body.code,
+    ).toBe('KNOWLEDGE_INVALID_MOVE');
+    expect(
+      (
+        await bob('PATCH', `/np/knowledge/${child.doc.id}`, {
+          parentId: system.doc.id,
+          sortOrder: 0,
+        })
+      ).body.code,
+    ).toBe('INVALID_PARENT');
+    // Moving `child` (whose subtree is still 3 levels tall) under the unrelated `otherChild` (depth 2) would push
+    // its great-grandchild past the depth limit.
+    expect(
+      (
+        await bob('PATCH', `/np/knowledge/${child.doc.id}`, {
+          parentId: otherChild.doc.id,
+          sortOrder: 0,
+        })
+      ).body.code,
+    ).toBe('KNOWLEDGE_DEPTH_EXCEEDED');
+    const stale = await bob('PATCH', `/np/knowledge/${grandchild.doc.id}`, {
+      parentId: null,
+      sortOrder: 0,
+      expectedVersion: 99,
+    });
+    expect(stale).toMatchObject({
+      status: 409,
+      body: { code: 'KNOWLEDGE_VERSION_CONFLICT' },
+    });
+    const moved = await bob<Data<KnowledgeDocDetail>>(
+      'PATCH',
+      `/np/knowledge/${grandchild.doc.id}`,
+      { parentId: null, sortOrder: 5 },
+    );
+    expect(moved.status).toBe(200);
+    expect(moved.body.data.doc).toMatchObject({
+      parentId: null,
+      sortOrder: 5,
+      version: 1, // A move never bumps the content version.
+      updatedByType: 'user',
+      updatedById: BOB.id,
+    });
+    expect(moved.body.data.breadcrumbs).toEqual([]);
+    // Grandchild left `child`'s subtree, taking the great-grandchild with it; `child` is now childless and `root`
+    // has only `child` left.
+    const childAfterMove = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${child.doc.id}`,
+    );
+    expect(childAfterMove.body.data.doc.childCount).toBe(0);
+    const rootAfterMove = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${root.doc.id}`,
+    );
+    expect(rootAfterMove.body.data.doc.childCount).toBe(1);
+
+    // Archive: rejected while un-archived children exist, succeeds once they are moved out.
+    expect(
+      (await bob('POST', `/np/knowledge/${root.doc.id}/archive`)).body.code,
+    ).toBe('KNOWLEDGE_HAS_CHILDREN');
+    await bob('PATCH', `/np/knowledge/${child.doc.id}`, {
+      parentId: null,
+      sortOrder: 0,
+    });
+    const archived = await bob('POST', `/np/knowledge/${root.doc.id}/archive`);
+    expect(archived.status).toBe(200);
+  });
 });

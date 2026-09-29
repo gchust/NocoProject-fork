@@ -56,6 +56,17 @@ export type DomainEvent =
     }
   | { readonly type: 'agents.changed' }
   | {
+      /** NP-150: a daemon's runtimes entered or left `upgrade_required` (the owner's inbox). */
+      readonly type: 'runtime.compatibilityChanged';
+      readonly ownerUserId: string;
+      readonly daemonId: string;
+      readonly deviceName: string | null;
+      readonly upgradeRequired: boolean;
+      readonly daemonVersion: string | null;
+      readonly latestVersion: string;
+      readonly reason: string;
+    }
+  | {
       readonly type: 'daemon.workAvailable';
       readonly userId: string;
       readonly runtimeId: string;

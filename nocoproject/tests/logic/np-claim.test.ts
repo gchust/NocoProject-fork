@@ -12,6 +12,7 @@ import {
   claimLockKey,
 } from '../../server/modules/run/claim.sql.ts';
 import type { NpServices } from '../../server/modules/services.ts';
+import { PROTOCOL_VERSION } from '../../server/modules/shared/protocol.ts';
 import {
   ALICE,
   BOB,
@@ -123,7 +124,7 @@ describe.skipIf(!db)('claim concurrency (PostgreSQL)', () => {
       });
       expect(run.server).toEqual({
         url: 'http://test/main',
-        protocolVersion: 1,
+        protocolVersion: PROTOCOL_VERSION,
       });
     }
     expect(await runRows(db!, "status = 'dispatched'")).toHaveLength(5);
@@ -365,7 +366,7 @@ describe.skipIf(!db)('claim authorization (PostgreSQL)', () => {
         daemonId,
         runtimeIds: [runtimeId],
       }),
-    ).toBe(1);
+    ).toMatchObject({ count: 1, compatibility: { status: 'ok' } });
   });
 
   it('skips archived agents', async () => {

@@ -131,6 +131,7 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
         title: 'Deploy',
         summary: 'How to deploy',
         projectId,
+        childCount: 0,
       },
       {
         id: system.doc.id,
@@ -138,6 +139,7 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
         title: 'Glossary',
         summary: '',
         projectId: null,
+        childCount: 0,
       },
     ]);
     const listed = await agent<Data<KnowledgeDocSummary[]>>(
@@ -164,6 +166,42 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
     expect((await agent('GET', '/knowledge/old')).status).toBe(404);
     const anonymous = agentKnowledgeApi(services, `npr_${'0'.repeat(40)}`);
     expect((await anonymous('GET', '/knowledge')).status).toBe(401);
+  });
+
+  it('excludes non-root documents from the claim index, with childCount (NP-147)', async () => {
+    const { doc, run } = await setup();
+    const child = await createDoc(bob, {
+      projectId,
+      title: 'Deploy: staging',
+      content: 'staging steps',
+      parentId: doc.doc.id,
+    });
+    const freshIssue = await services.issues.create(ALICE, {
+      title: 'Ship it again',
+      projectId,
+    });
+    const freshRun = await claimedRun(services, ALICE, freshIssue.id, {
+      fixture: run.fixture,
+      agentId: run.agentId,
+    });
+    expect(freshRun.knowledge.map((item) => item.slug)).not.toContain(
+      'deploy-staging',
+    );
+    const deployEntry = freshRun.knowledge.find(
+      (item) => item.slug === 'deploy',
+    ) as { childCount?: number } | undefined;
+    expect(deployEntry?.childCount).toBe(1);
+    // Unlike the claim index, the flat agent list still includes non-root documents.
+    const agentApi = agentKnowledgeApi(services, freshRun.token);
+    const listed = await agentApi<Data<KnowledgeDocSummary[]>>(
+      'GET',
+      '/knowledge',
+    );
+    const childEntry = listed.body.data.find(
+      (item) => item.slug === 'deploy-staging',
+    );
+    expect(childEntry?.parentId).toBe(doc.doc.id);
+    expect(childEntry?.id).toBe(child.doc.id);
   });
 
   it('searches with the same q as the browser list (NP-142)', async () => {
@@ -514,5 +552,77 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
       version: 3,
       content: 'v2 steps',
     });
+  });
+
+  it('proposes a new document under a parent (by slug), filing it at the root if the parent falls away (NP-147)', async () => {
+    const { doc, agent } = await setup();
+
+    const proposed = await agent<Data<KnowledgeProposal>>(
+      'POST',
+      '/knowledge/proposals',
+      {
+        title: 'Deploy: rollback',
+        content: 'rollback steps',
+        reason: 'Document the rollback path.',
+        parentId: 'deploy',
+      },
+    );
+    expect(proposed.status).toBe(201);
+    const accepted = await bob<Data<KnowledgeProposal>>(
+      'POST',
+      `/np/knowledge/proposals/${proposed.body.data.id}/accept`,
+    );
+    expect(accepted.body.data.status).toBe('accepted');
+    const created = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${accepted.body.data.docId}`,
+    );
+    expect(created.body.data.doc.parentId).toBe(doc.doc.id);
+    expect(created.body.data.breadcrumbs).toEqual([
+      { id: doc.doc.id, title: 'Deploy', slug: 'deploy' },
+    ]);
+
+    // An unknown parent is rejected at propose time.
+    expect(
+      (
+        await agent('POST', '/knowledge/proposals', {
+          title: 'x',
+          content: 'y',
+          reason: 'z',
+          parentId: 'no-such-parent',
+        })
+      ).status,
+    ).toBe(404);
+
+    // A parent that is archived before the proposal is accepted falls back to the root, noted on the decision.
+    const scratch = await createDoc(bob, {
+      projectId,
+      title: 'Scratch',
+      content: '',
+    });
+    const secondProposal = await agent<Data<KnowledgeProposal>>(
+      'POST',
+      '/knowledge/proposals',
+      {
+        title: 'Deploy: canary',
+        content: 'canary steps',
+        reason: 'Document canary releases.',
+        parentId: scratch.doc.id,
+      },
+    );
+    await bob('POST', `/np/knowledge/${scratch.doc.id}/archive`);
+    const acceptedAfterArchive = await bob<Data<KnowledgeProposal>>(
+      'POST',
+      `/np/knowledge/proposals/${secondProposal.body.data.id}/accept`,
+    );
+    expect(acceptedAfterArchive.body.data.status).toBe('accepted');
+    expect(acceptedAfterArchive.body.data.comment).toContain(
+      'filed at the root',
+    );
+    const createdAfterArchive = await bob<Data<KnowledgeDocDetail>>(
+      'GET',
+      `/np/knowledge/${acceptedAfterArchive.body.data.docId}`,
+    );
+    expect(createdAfterArchive.body.data.doc.parentId).toBeNull();
   });
 });

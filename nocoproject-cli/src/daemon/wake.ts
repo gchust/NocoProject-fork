@@ -3,6 +3,9 @@
  * protocol, authenticated with the `x-api-key` header on the upgrade request), plus a
  * poll timer that fires every `pollIntervalMs` regardless.
  *
+ * A daemon with a computer credential (NP-150) has no session for the socket; it long-polls
+ * `GET /np/daemon/wakeups` instead (`longPoll`), with the same poll timer as the safety net.
+ *
  * Realtime frames (JSON text):
  *   → {type:'subscribe', id, topic}   ← {type:'subscribed', id, topic, subscriptionId}
  *   → {type:'ping', id}               ← {type:'pong', id}
@@ -35,9 +38,13 @@ export function realtimeUrl(serverUrl: string): string {
   return url.toString();
 }
 
+export type LongPoll = (after: number | null, timeoutS: number, signal: AbortSignal) => Promise<{ cursor: number; events: unknown[] }>;
+
 export interface WakeOptions {
   readonly serverUrl: string;
-  readonly apiKey: string;
+  /** The personal API key for the socket; absent with a computer credential, which uses `longPoll`. */
+  readonly apiKey?: string;
+  readonly longPoll?: LongPoll;
   readonly pollIntervalMs: number;
   readonly logger: Logger;
   readonly onWork: (reason: string, runtimeId?: string) => void;
@@ -47,7 +54,10 @@ export interface WakeOptions {
   readonly disableSocket?: boolean;
 }
 
-export type SocketState = 'disabled' | 'connecting' | 'subscribed' | 'reconnecting' | 'authUnsupported';
+export type SocketState = 'disabled' | 'connecting' | 'subscribed' | 'reconnecting' | 'authUnsupported' | 'longPoll';
+
+const LONG_POLL_SECONDS = 25;
+const LONG_POLL_RETRY_MS = 60_000;
 
 /** How long to wait before retrying after the server refused WS authentication. */
 const AUTH_RETRY_MS = 10 * 60_000;
@@ -60,6 +70,7 @@ export class Wake {
   private attempts = 0;
   private awaitingPong = false;
   private stopped = false;
+  private readonly polling = new AbortController();
   state: SocketState = 'connecting';
 
   constructor(private readonly opts: WakeOptions) {}
@@ -67,11 +78,37 @@ export class Wake {
   start(): void {
     this.pollTimer = setInterval(() => this.opts.onWork('poll'), this.opts.pollIntervalMs);
     if (this.opts.disableSocket) this.state = 'disabled';
+    else if (!this.opts.apiKey && this.opts.longPoll) void this.longPollLoop(this.opts.longPoll);
     else this.connect();
+  }
+
+  private async longPollLoop(poll: LongPoll): Promise<void> {
+    this.state = 'longPoll';
+    let cursor: number | null = null;
+    while (!this.stopped) {
+      try {
+        const batch = await poll(cursor, LONG_POLL_SECONDS, this.polling.signal);
+        cursor = batch.cursor;
+        for (const event of batch.events) this.dispatch(event);
+      } catch (error) {
+        if (this.stopped) return;
+        cursor = null;
+        this.opts.logger.debug('wakeup long-poll failed; the claim poll keeps running', { error: (error as Error).message });
+        await new Promise((resolve) => setTimeout(resolve, LONG_POLL_RETRY_MS).unref?.());
+      }
+    }
+  }
+
+  private dispatch(event: unknown): void {
+    const payload = WakeupPayload.safeParse(event);
+    if (!payload.success) return;
+    if (payload.data.kind === 'workAvailable') this.opts.onWork('workAvailable', payload.data.runtimeId);
+    else this.opts.onCancel(payload.data.runId);
   }
 
   stop(): void {
     this.stopped = true;
+    this.polling.abort();
     clearInterval(this.pollTimer);
     clearInterval(this.pingTimer);
     clearTimeout(this.reconnectTimer);
@@ -84,7 +121,7 @@ export class Wake {
   private connect(): void {
     if (this.stopped) return;
     this.state = this.attempts === 0 ? 'connecting' : 'reconnecting';
-    const ws = new WebSocket(realtimeUrl(this.opts.serverUrl), { headers: { 'x-api-key': this.opts.apiKey }, handshakeTimeout: 15_000 });
+    const ws = new WebSocket(realtimeUrl(this.opts.serverUrl), { headers: { 'x-api-key': this.opts.apiKey ?? '' }, handshakeTimeout: 15_000 });
     this.ws = ws;
     ws.on('open', () => ws.send(JSON.stringify({ type: 'subscribe', id: 'np-daemon', topic: REALTIME_TOPICS.daemon })));
     ws.on('message', (data) => this.onMessage(String(data)));
@@ -118,10 +155,7 @@ export class Wake {
       if (frame.code === 'AUTHENTICATION_REQUIRED') this.authUnsupported(frame.message ?? 'authentication required');
       else this.opts.logger.warn('realtime error frame', { code: frame.code, message: frame.message });
     } else if (frame.type === 'event' && frame.topic === REALTIME_TOPICS.daemon) {
-      const payload = WakeupPayload.safeParse(frame.payload);
-      if (!payload.success) return;
-      if (payload.data.kind === 'workAvailable') this.opts.onWork('workAvailable', payload.data.runtimeId);
-      else this.opts.onCancel(payload.data.runId);
+      this.dispatch(frame.payload);
     }
   }
 

@@ -5,6 +5,10 @@
 #   np-deploy <tag> --stdin   first unpack the tar.gz from stdin (dist/, Dockerfile, Dockerfile.dockerignore, config.example.yml)
 #
 # Order: back up the database -> build the image -> replace the container -> wait for the health check; if unhealthy, roll back to the previous image and exit non-zero.
+# Daemon compatibility (NP-150): before replacing, compare what the new build requires of daemons (MIN_CLI_VERSION,
+# SUPPORTED_PROTOCOLS.min) with the running image and warn when it rose; after a healthy start, wait for the daemons'
+# next heartbeats and warn when the number of online runtimes dropped by half or more. Warnings never fail the deploy.
+# NP_DEPLOY_RUNTIME_WAIT (seconds, default 45; 0 skips the after-check).
 set -euo pipefail
 
 TAG="${1:?usage: np-deploy <tag> [--stdin]}"
@@ -42,6 +46,24 @@ fi
 
 PREVIOUS="$(docker inspect -f '{{.Config.Image}}' "$APP" 2>/dev/null || true)"
 
+COMPAT_JS=dist/server/modules/shared/protocol.daemon-compat.js
+# `name value` pairs of what a build requires of daemons, from its compiled protocol file (empty before NP-150).
+daemon_rules() {
+  sed -nE "s/^export const MIN_CLI_VERSION = '([^']+)';/minCli \1/p; s/^export const SUPPORTED_PROTOCOLS = \{ min: ([0-9]+).*/minProtocol \1/p"
+}
+rule() { printf '%s\n' "$1" | awk -v k="$2" '$1 == k { print $2 }'; }
+sql() { docker exec nocoproject-postgres psql -U nocoproject -d nocoproject -tAc "$1" 2>/dev/null || true; }
+online_runtimes() { sql "select count(*) from runtimes where status = 'online' and last_seen_at > now() - interval '150 seconds'"; }
+
+NEW_RULES="$(daemon_rules < "$ROOT/build/$COMPAT_JS" 2>/dev/null || true)"
+OLD_RULES="$( [ -n "$PREVIOUS" ] && docker run --rm --entrypoint cat "$PREVIOUS" "/app/$COMPAT_JS" 2>/dev/null | daemon_rules || true)"
+if [ -n "$NEW_RULES" ] && [ "$(rule "$NEW_RULES" minCli)" != "$(rule "$OLD_RULES" minCli)" -o "$(rule "$NEW_RULES" minProtocol)" != "$(rule "$OLD_RULES" minProtocol)" ]; then
+  echo "!!! daemon requirements change: CLI $(rule "$OLD_RULES" minCli || true) -> $(rule "$NEW_RULES" minCli), protocol $(rule "$OLD_RULES" minProtocol || true) -> $(rule "$NEW_RULES" minProtocol)"
+  echo "    Older daemons will show 'Upgrade required' (and get no work) until their owners run the upgrade command. Online runtimes by CLI version:"
+  sql "select v || ': ' || n from (select coalesce((device_info #>> '{}')::json ->> 'daemonVersion', '?') as v, count(*) as n from runtimes where status = 'online' group by 1) t order by 1" | sed 's/^/      /'
+fi
+ONLINE_BEFORE="$(online_runtimes)"
+
 run_app() {
   docker rm -f "$APP" >/dev/null 2>&1 || true
   # Rootless Docker takes a moment to release the port; retry when it's still in use.
@@ -71,6 +93,15 @@ healthy() {
 echo "==> replace container (previous: ${PREVIOUS:-none})"
 if run_app "nocoproject:$TAG" && healthy; then
   echo "healthy: nocoproject:$TAG"
+  WAIT="${NP_DEPLOY_RUNTIME_WAIT:-45}"
+  if [ "$WAIT" -gt 0 ] && [ "${ONLINE_BEFORE:-0}" -gt 0 ] 2>/dev/null; then
+    sleep "$WAIT"
+    ONLINE_AFTER="$(online_runtimes)"
+    echo "    online runtimes: ${ONLINE_BEFORE} before, ${ONLINE_AFTER:-?} now"
+    if [ "${ONLINE_AFTER:-0}" -lt $(((ONLINE_BEFORE + 1) / 2)) ] 2>/dev/null; then
+      echo "!!! online runtimes dropped from $ONLINE_BEFORE to ${ONLINE_AFTER:-0}; runtimes waiting for an upgrade: $(sql "select count(*) from runtimes where status = 'upgrade_required'")"
+    fi
+  fi
   # Keep the 3 most recent image versions to make rollback easy.
   docker images nocoproject --format '{{.Tag}}' | grep -v '^latest$' | tail -n +4 |
     xargs -r -I{} docker rmi "nocoproject:{}" >/dev/null 2>&1 || true

@@ -13,6 +13,7 @@ import type { AgentListItem, IssueDetail, InboxItem } from '../types.js';
 import { latestAgentComment, latestFinishedRun } from './decision-model.js';
 import { DesignProposalContent } from './proposal-content.js';
 import { KnowledgeProposalContent } from './knowledge-content.js';
+import { RuntimeUpgradeContent } from './runtime-upgrade-content.js';
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
@@ -72,6 +73,8 @@ export function DecisionContent({
           loading={detailLoading}
         />
       );
+    case 'runtime_upgrade_required':
+      return <RuntimeUpgradeContent item={item} />;
     default:
       return <NoticeContent item={item} />;
   }

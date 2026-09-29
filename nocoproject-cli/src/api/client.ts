@@ -9,11 +9,15 @@ import type {
   CommentForAgent,
   DaemonClaimRequest,
   DaemonClaimResponse,
+  DaemonCompatibilityInfo,
+  DaemonCompatibilityResponse,
   DaemonCompleteRequest,
   DaemonEventsRequest,
   DaemonFailRequest,
   DaemonHeartbeatRequest,
+  DaemonHeartbeatRequestV2,
   DaemonRegisterRequest,
+  DaemonRegisterRequestV2,
   DaemonRegisterResponse,
   DaemonRunStatusResponse,
   DaemonStartRequest,
@@ -35,7 +39,9 @@ import type {
   StatusChangePendingResponse,
   SubtaskSummary,
   WorkflowProposal,
+  DaemonWakeupPayload,
 } from '../protocol.js';
+import { COMPUTER_KEY_HEADER } from '../protocol.js';
 import { redactText } from '../util/redact.js';
 
 export class HttpError extends Error {
@@ -71,7 +77,18 @@ export function isTransient(error: unknown): boolean {
   return false;
 }
 
-export type Credentials = { readonly kind: 'apiKey'; readonly apiKey: string } | { readonly kind: 'runToken'; readonly token: string };
+export type Credentials =
+  | { readonly kind: 'apiKey'; readonly apiKey: string }
+  | { readonly kind: 'runToken'; readonly token: string }
+  /** NP-150: a computer credential, accepted by `/np/daemon/*` only. */
+  | { readonly kind: 'computerKey'; readonly computerKey: string };
+
+/** The daemon's credential: the computer credential when there is one, else the personal API key (older setups). */
+export function daemonCredentials(cfg: { readonly computerKey?: string; readonly apiKey?: string }): Credentials | null {
+  if (cfg.computerKey) return { kind: 'computerKey', computerKey: cfg.computerKey };
+  if (cfg.apiKey) return { kind: 'apiKey', apiKey: cfg.apiKey };
+  return null;
+}
 
 export interface RequestOptions {
   readonly body?: unknown;
@@ -122,6 +139,7 @@ export class HttpClient {
     for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
     const headers: Record<string, string> = { ...this.extraHeaders, accept };
     if (this.credentials.kind === 'apiKey') headers['x-api-key'] = this.credentials.apiKey;
+    else if (this.credentials.kind === 'computerKey') headers[COMPUTER_KEY_HEADER] = this.credentials.computerKey;
     else headers.authorization = `Bearer ${this.credentials.token}`;
     if (opts.body !== undefined) headers['content-type'] = 'application/json';
     const timeout = AbortSignal.timeout(opts.timeoutMs ?? this.defaultTimeoutMs);
@@ -177,19 +195,34 @@ export type StatusChangeResult =
 
 export class DaemonApi {
   readonly http: HttpClient;
-  constructor(serverUrl: string, apiKey: string, timeoutMs?: number) {
-    this.http = new HttpClient(serverUrl, { kind: 'apiKey', apiKey }, timeoutMs);
+  readonly credentials: Credentials;
+  /** `credentials` is a daemon credential; a string is a personal API key. */
+  constructor(serverUrl: string, credentials: Credentials | string, timeoutMs?: number) {
+    this.credentials = typeof credentials === 'string' ? { kind: 'apiKey', apiKey: credentials } : credentials;
+    this.http = new HttpClient(serverUrl, this.credentials, timeoutMs);
   }
-  register(body: DaemonRegisterRequest): Promise<DaemonRegisterResponse> {
+  /** Long-poll wakeups (NP-150): messages after `after`, waiting up to `timeoutS` seconds. */
+  wakeups(after: number | null, timeoutS: number, signal?: AbortSignal): Promise<{ cursor: number; events: DaemonWakeupPayload[] }> {
+    return this.http.data('GET', '/np/daemon/wakeups', {
+      query: { after: after ?? undefined, timeout: timeoutS },
+      signal,
+      timeoutMs: (timeoutS + 15) * 1000,
+    });
+  }
+  register(body: DaemonRegisterRequest & DaemonRegisterRequestV2): Promise<DaemonRegisterResponse & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/register', { body });
   }
-  heartbeat(body: DaemonHeartbeatRequest): Promise<{ ok: boolean }> {
+  heartbeat(body: DaemonHeartbeatRequest & DaemonHeartbeatRequestV2): Promise<{ ok: boolean } & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/heartbeat', { body });
+  }
+  /** What the server accepts and the CLI it serves (NP-150); 404 on a server from before it. */
+  compatibility(): Promise<DaemonCompatibilityInfo> {
+    return this.http.data('GET', '/np/daemon/compatibility');
   }
   deregister(daemonId: string): Promise<unknown> {
     return this.http.data('POST', '/np/daemon/deregister', { body: { daemonId }, timeoutMs: 5000 });
   }
-  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse> {
+  claim(body: DaemonClaimRequest): Promise<DaemonClaimResponse & DaemonCompatibilityResponse> {
     return this.http.data('POST', '/np/daemon/runs/claim', { body });
   }
   lease(runId: string): Promise<unknown> {

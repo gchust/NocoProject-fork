@@ -163,18 +163,31 @@ describe.skipIf(skipped)('configured agent capabilities', () => {
       ).status,
     ).toBe(201);
   });
-  it('rejects old CLI before claiming any work', async () => {
-    const runtime = await registerRuntime(services, ALICE);
+  it('gives no work to a CLI that does not apply agent configuration', async () => {
+    const response = await services.runtimes.register(ALICE.id!, {
+      daemonId: 'old-cli',
+      deviceName: 'old',
+      version: '0.3.2',
+      protocolVersion: 1,
+      runtimes: [
+        {
+          provider: 'echo',
+          version: '1',
+          capabilities: { resume: true, steering: false },
+        },
+      ],
+    });
+    const runtimeId = response.runtimes[0]!.id;
     await expect(
       services.claims.claim(
         ALICE.id!,
-        {
-          daemonId: runtime.daemonId,
-          slots: [{ runtimeId: runtime.runtimeId, free: 1 }],
-        },
+        { daemonId: 'old-cli', slots: [{ runtimeId, free: 1 }] },
         'http://test',
       ),
-    ).rejects.toMatchObject({ code: 'CONFIGURATION_PROTOCOL_REQUIRED' });
+    ).resolves.toMatchObject({
+      runs: [],
+      compatibility: { status: 'unsupported', reason: 'daemonTooOld' },
+    });
   });
   it('records the run configuration and invalidates a session on configuration change', async () => {
     const { agent, run, runtime, conversation } = await setup();

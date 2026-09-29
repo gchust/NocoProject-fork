@@ -51,6 +51,8 @@ import {
   npRunServiceToken,
   npRunTokenServiceToken,
   npRuntimeServiceToken,
+  npComputerServiceToken,
+  npDaemonWakeupsToken,
 } from '../../server/providers/np.ts';
 
 export const RUN_TOKEN = `npr_${'a'.repeat(40)}`;
@@ -246,6 +248,12 @@ export async function build(
   container.instance(npCommentServiceToken, doubles.comments as never);
   container.instance(npAgentServiceToken, { list: async () => [] } as never);
   container.instance(npRuntimeServiceToken, doubles.runtimes as never);
+  // NP-150: no computer credential in these tests (the personal-key path); an idle wakeup long poll.
+  container.instance(npComputerServiceToken, {} as never);
+  container.instance(npDaemonWakeupsToken, {
+    wait: async () => ({ cursor: 0, events: [] }),
+    close: () => undefined,
+  } as never);
   container.instance(npRunServiceToken, doubles.runs as never);
   container.instance(npRunQueriesToken, doubles.runQueries as never);
   container.instance(npRunEventServiceToken, {
