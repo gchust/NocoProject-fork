@@ -1,13 +1,16 @@
+import { ApiClientError } from '@nocobase/app-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PullRequestsSection } from '../../client/pages/np/issues/detail/pull-requests-section.js';
 import type { IssuePullRequestView } from '../../client/pages/np/types.js';
-import { answer, renderNp } from './np-harness.js';
+import { GITHUB_ERRORS, answer, renderNp } from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
+const toast = vi.hoisted(() => ({ add: vi.fn() }));
 
+vi.mock('@/components/ui/toast', () => ({ toast }));
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,
@@ -59,7 +62,20 @@ const PRS: IssuePullRequestView[] = [
   },
 ];
 
-afterEach(() => api.request.mockReset());
+afterEach(() => {
+  api.request.mockReset();
+  toast.add.mockReset();
+});
+
+function apiError(code: string, status: number) {
+  return new ApiClientError(code, {
+    status,
+    code,
+    payload: { code, message: code },
+    method: 'POST',
+    url: 'np/issues/101/pull-requests',
+  });
+}
 
 describe('pull request cards', () => {
   it('shows state, size, CI, mergeability, author and branch for each PR', async () => {
@@ -153,4 +169,53 @@ describe('pull request cards', () => {
       ),
     );
   });
+});
+
+describe('GitHub failures on refresh and link (NP-133)', () => {
+  it.each(GITHUB_ERRORS)(
+    'refresh failing with %s says why',
+    async (code, status, message) => {
+      const user = userEvent.setup();
+      api.request.mockImplementation(
+        answer({
+          'POST np/issues/101/pull-requests/pr1/refresh': () =>
+            Promise.reject(apiError(code, status)),
+        }),
+      );
+      await renderNp(<PullRequestsSection issueId='101' pullRequests={PRS} />);
+      const card = within(screen.getAllByTestId('np-pr-card')[0]!);
+      await user.click(card.getByRole('button', { name: 'Refresh' }));
+      await waitFor(() =>
+        expect(toast.add).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'error', title: message }),
+        ),
+      );
+    },
+  );
+
+  it.each(GITHUB_ERRORS)(
+    'link failing with %s says why',
+    async (code, status, message) => {
+      const user = userEvent.setup();
+      api.request.mockImplementation(
+        answer({
+          'POST np/issues/101/pull-requests': () =>
+            Promise.reject(apiError(code, status)),
+        }),
+      );
+      await renderNp(
+        <PullRequestsSection issueId='101' pullRequests={[]} initialLinking />,
+      );
+      await user.type(
+        await screen.findByRole('textbox', { name: 'Pull request URL' }),
+        'https://github.com/acme/private/pull/1',
+      );
+      await user.click(screen.getByRole('button', { name: 'Link' }));
+      await waitFor(() =>
+        expect(toast.add).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'error', title: message }),
+        ),
+      );
+    },
+  );
 });

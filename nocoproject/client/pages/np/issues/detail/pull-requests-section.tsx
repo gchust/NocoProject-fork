@@ -43,6 +43,7 @@ import {
 import {
   PR_TONE,
   ciReading,
+  githubErrorText,
   looksLikePullRequestUrl,
   mergeBlockerOf,
   mergeableReading,
@@ -136,8 +137,10 @@ export function PullRequestCard({
     pr.linkedByName ??
     (linkedType === 'system' ? t('np.pullRequests.linkedAutomatically') : null);
 
-  const refresh = useDetailMutation(issueId, () =>
-    refreshPullRequest(api, issueId, pr.id),
+  const refresh = useDetailMutation(
+    issueId,
+    () => refreshPullRequest(api, issueId, pr.id),
+    { errorTitle: (failure) => githubErrorText(t, failure) },
   );
   const unlink = useDetailMutation(
     issueId,
@@ -345,11 +348,9 @@ function LinkPullRequestDialog({
     {
       success: t('np.pullRequests.linked'),
       errorTitle: (failure: ApiClientError) =>
-        failure.code === 'GITHUB_NOT_CONFIGURED'
-          ? t('np.pullRequests.notConfigured')
-          : failure.code === 'INVALID_PR_URL'
-            ? t('np.pullRequests.invalidUrl')
-            : null,
+        failure.code === 'INVALID_PR_URL'
+          ? t('np.pullRequests.invalidUrl')
+          : githubErrorText(t, failure),
     },
   );
 

@@ -8,7 +8,12 @@ import { readInboxActions } from '../../client/pages/np/inbox/decision-actions.j
 import { mergeBlockerOf } from '../../client/pages/np/issues/detail/pr-model.js';
 import { PullRequestsSection } from '../../client/pages/np/issues/detail/pull-requests-section.js';
 import type { IssuePullRequestView } from '../../client/pages/np/types.js';
-import { answer, renderNp, type RequestOptions } from './np-harness.js';
+import {
+  GITHUB_ERRORS,
+  answer,
+  renderNp,
+  type RequestOptions,
+} from './np-harness.js';
 
 /**
  * Merging from NocoProject (NP-85): the PR card's "Merge" button (only for whoever may merge, greyed out with the
@@ -267,6 +272,52 @@ describe('merge dialog', () => {
       ),
     );
   });
+});
+
+describe('GitHub failures in the merge dialog (NP-133)', () => {
+  async function openDialog(routes: Record<string, unknown>) {
+    const user = userEvent.setup();
+    api.request.mockImplementation(answer({ ...ME, ...routes }));
+    await renderNp(<PullRequestsSection issueId='101' pullRequests={[PR]} />);
+    await user.click(screen.getByRole('button', { name: 'Merge acme/app#7' }));
+    return { user, dialog: await screen.findByRole('dialog') };
+  }
+
+  it.each(GITHUB_ERRORS)(
+    'the merge check failing with %s says why',
+    async (code, status, message) => {
+      const { dialog } = await openDialog({
+        [`GET ${PATH}`]: () => Promise.reject(apiError(code, status)),
+      });
+      const view = within(dialog);
+      expect(await view.findByRole('alert')).toHaveTextContent(message);
+      expect(
+        view.getByRole('button', { name: 'Squash and merge' }),
+      ).toBeDisabled();
+    },
+  );
+
+  it.each(GITHUB_ERRORS)(
+    'the merge failing with %s says why',
+    async (code, status, message) => {
+      const { user, dialog } = await openDialog({
+        [`GET ${PATH}`]: { data: PREFLIGHT },
+        [`POST ${PATH}`]: () => Promise.reject(apiError(code, status)),
+      });
+      const view = within(dialog);
+      await view.findByText('Add login (#7)');
+      await user.click(view.getByRole('button', { name: 'Squash and merge' }));
+      await waitFor(() =>
+        expect(toast.add).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: 'error',
+            title: 'Unable to merge the pull request',
+            description: message,
+          }),
+        ),
+      );
+    },
+  );
 });
 
 describe('pr_review merge action in the inbox', () => {

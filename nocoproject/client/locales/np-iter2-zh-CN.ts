@@ -33,7 +33,15 @@ const npIter2ZhCN: NpIter2Resource = {
     unlinked: '已解除关联。',
     refresh: '刷新',
     invalidUrl: '请输入 PR 地址，例如 https://github.com/owner/repo/pull/123。',
-    notConfigured: '尚未连接 GitHub，请管理员在“设置 → GitHub”中添加令牌。',
+    githubError: {
+      notConfigured: '尚未连接 GitHub，请管理员在“设置 → GitHub”中添加令牌。',
+      authFailed:
+        'GitHub 拒绝了令牌：令牌可能已过期或被撤销，或缺少 Pull requests、Checks、Commit statuses 的读权限。请管理员在“设置 → GitHub”中检查令牌。',
+      notFound:
+        'GitHub 找不到这个 PR，或令牌没有该仓库的访问权限。请管理员在“设置 → GitHub”中检查令牌可访问的仓库。',
+      requestFailed:
+        '连接 GitHub 失败，请稍后重试；一直失败请管理员在“设置 → GitHub”中检查连接。',
+    },
     lines: '改动行数',
     files: '文件',
     ci: 'CI',
