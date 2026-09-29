@@ -8,7 +8,12 @@
  */
 import type { AccessHolders } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
-import type { MemberRole } from '../shared/protocol.js';
+import type {
+  AccessCatalog,
+  AccessGrant,
+  AccessTitle,
+  MemberRole,
+} from '../shared/protocol.js';
 
 export interface RoleAssignments extends AccessHolders {
   /** The user's role, projected from what they hold (`projectRole`). */
@@ -21,4 +26,44 @@ export interface RoleAssignments extends AccessHolders {
   setAdmin(conn: Conn, userId: string, admin: boolean): Promise<void>;
   /** After commit: tells sessions and caches that the user's assignments changed. */
   changed(userId: string): Promise<void>;
+}
+
+/** A permission set as `/config` reads and writes it (NP-153 stage 2). */
+export interface StoredRole {
+  readonly key: string;
+  readonly title?: AccessTitle;
+  readonly grants: readonly AccessGrant[];
+}
+
+/** One assignment: a subject (a user, or a team or an audience assigned in the permission workspace) holds a set. */
+export interface StoredAssignment {
+  readonly subject: { readonly type: string; readonly id: string };
+  readonly permissionSet: string;
+}
+
+/**
+ * The permission sets and assignments behind the business roles (`roles.service.ts`). The provider implements it on
+ * the permission-set service (`server/providers/np-authorization.roles.ts`); nothing here checks who may: the service
+ * does, before it calls in.
+ *
+ * - `create` / `update` / `delete` run on their own (they write nothing of NocoProject's) and announce the change to
+ *   every holder themselves.
+ * - `replace` joins the caller's transaction; `RoleAssignments.changed` announces it after commit. Removing the last
+ *   active `np-owner` is 409 `LAST_OWNER`.
+ */
+export interface RoleStore {
+  /** Everything a business role may hold; built from NocoProject's own registrations. */
+  catalog(): AccessCatalog;
+  list(conn: Conn): Promise<readonly StoredRole[]>;
+  assignments(conn: Conn): Promise<readonly StoredAssignment[]>;
+  create(role: StoredRole): Promise<StoredRole>;
+  update(key: string, role: StoredRole): Promise<StoredRole>;
+  delete(key: string): Promise<void>;
+  /** Makes the user's direct assignments among `managed` exactly `keys`; every other assignment stays. */
+  replace(
+    conn: Conn,
+    userId: string,
+    managed: readonly string[],
+    keys: readonly string[],
+  ): Promise<void>;
 }

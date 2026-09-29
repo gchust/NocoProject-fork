@@ -36,7 +36,11 @@ import {
   runTokenAuth,
 } from '../../server/modules/run/agent-api.routes.ts';
 import { createSecretBox } from '../../server/modules/shared/crypto.ts';
-import { membersTableRoles, withRoleAccess } from './np-role-double.ts';
+import {
+  membersTableRoleStore,
+  membersTableRoles,
+  withRoleAccess,
+} from './np-role-double.ts';
 import { guarded } from '../../server/modules/shared/http.ts';
 import type { Actor } from '../../server/modules/shared/activity.ts';
 import {
@@ -261,6 +265,7 @@ export function buildServices(
     bus,
     secrets: createSecretBox(TEST_SECRET_KEY),
     roles: () => membersTableRoles,
+    roleStore: () => membersTableRoleStore,
     ...options,
   });
   // Every user actor gets the access the browser guard would give it (NP-153).

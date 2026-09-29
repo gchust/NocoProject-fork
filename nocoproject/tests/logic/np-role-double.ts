@@ -12,7 +12,11 @@
  */
 import type { DatabaseManager } from '@nocobase/db';
 
-import type { RoleAssignments } from '../../server/modules/member/member.roles.ts';
+import type {
+  RoleAssignments,
+  RoleStore,
+  StoredRole,
+} from '../../server/modules/member/member.roles.ts';
 import {
   businessKey,
   NP_BUSINESS,
@@ -92,6 +96,60 @@ export const membersTableRoles: RoleAssignments = {
       .where('role', 'in', ['owner', 'admin'])
       .execute();
     return rows.map((row) => String(row.userId));
+  },
+};
+
+const ROLE_KEYS: Readonly<Record<MemberRole, readonly string[]>> = {
+  owner: ['np-member', 'np-owner'],
+  admin: ['np-member', 'np-admin'],
+  member: ['np-member'],
+};
+
+const BUILT_IN_SETS: readonly StoredRole[] = [
+  { key: 'np-owner', grants: [] },
+  { key: 'np-admin', grants: [] },
+  { key: 'np-member', grants: [] },
+];
+
+/**
+ * The service tests' `RoleStore` (NP-153 stage 2): the three built-in sets, held as `members.role` says (owner and
+ * admin also hold np-member), so the legacy `PATCH /np/members/:userId` rules run on the same double as
+ * `membersTableRoles`. Custom roles and the catalog are covered by `np-business-roles-app.test.ts` on the real plugin.
+ */
+export const membersTableRoleStore: RoleStore = {
+  catalog: () => ({ pages: [], settings: [], business: [], recordAccess: [] }),
+  list: async () => BUILT_IN_SETS,
+  async assignments(conn) {
+    const rows = await conn.query
+      .selectFrom('members')
+      .select(['userId', 'role'])
+      .execute();
+    return rows.flatMap((row) => {
+      const role =
+        row.role === 'owner' || row.role === 'admin' ? row.role : 'member';
+      return ROLE_KEYS[role].map((permissionSet) => ({
+        subject: { type: 'user', id: String(row.userId) },
+        permissionSet,
+      }));
+    });
+  },
+  create: async () => {
+    throw new Error('Custom roles need the authorization plugin.');
+  },
+  update: async () => {
+    throw new Error('Custom roles need the authorization plugin.');
+  },
+  delete: async () => {
+    throw new Error('Custom roles need the authorization plugin.');
+  },
+  async replace(conn, userId, _managed, keys) {
+    const role: MemberRole = keys.includes('np-owner')
+      ? 'owner'
+      : keys.includes('np-admin')
+        ? 'admin'
+        : 'member';
+    if (role !== 'owner') await membersTableRoles.setOwner(conn, userId, false);
+    await write(conn, userId, role);
   },
 };
 

@@ -6,9 +6,10 @@
  * services use; `server/providers/np-authorization.ts` implements it on the plugin.
  *
  * - `np-owner`: the business owner identity. Protected by code: the generic management surface may edit its grants
- *   but never assign, revoke or delete it; at least one active assignment always remains. Changed only through
- *   `PATCH /np/members/:userId` by an owner.
- * - `np-admin`: business administrators. An ordinary set: assigned in the Users page by whoever may assign roles there.
+ *   but never assign, revoke or delete it; at least one active assignment always remains. Assigned only through
+ *   `/config/members` (`member/roles.service.ts`) by an owner.
+ * - `np-admin`: business administrators. An ordinary set, assigned in `/config/members` (NP-153 stage 2) by whoever
+ *   holds `nocoproject.members` `assign`.
  * - `np-member`: ordinary members, assigned once when a user first becomes a member.
  *
  * `members.role` is kept as a projection of these assignments (owner, else admin, else member) for lists and for
@@ -185,4 +186,58 @@ export function projectRole(
   if (keys.has(NP_OWNER_SET)) return 'owner';
   if (unrestricted || keys.has(NP_ADMIN_SET)) return 'admin';
   return 'member';
+}
+
+/**
+ * NP-153 stage 2: business roles are the permission sets whose key starts with `np-` (the three above and the custom
+ * ones `np-r-<id>`, created in `/config/members`). The permission sets carry no other ownership mark, so the prefix is
+ * what `/config` may manage; every other set (`root`, `member`, plugin sets) belongs to the platform.
+ */
+export const NP_ROLE_PREFIX = 'np-';
+export const NP_CUSTOM_ROLE_PREFIX = 'np-r-';
+export const NP_BUILT_IN_ROLES: readonly string[] = [
+  NP_OWNER_SET,
+  NP_ADMIN_SET,
+  NP_MEMBER_SET,
+];
+
+export function isNpRoleKey(key: string): boolean {
+  return key.startsWith(NP_ROLE_PREFIX);
+}
+
+/**
+ * The NocoProject pages a role may open: the page grants of `client/routes.ts` (the client route tree is where pages
+ * are declared; `np-access-catalog.test.ts` keeps the two in step).
+ */
+export const NP_PAGES = [
+  'np-inbox',
+  'np-my-issues',
+  'np-pm',
+  'np-issues',
+  'np-projects',
+  'np-agents',
+  'np-runtimes',
+  'np-skills',
+  'np-knowledge',
+  'np-reports',
+  'np-config',
+] as const;
+
+/**
+ * Whether a stored grant's resource is NocoProject's own, whether or not it is still offered: `np-` pages (including
+ * retired ones such as `np-intake`), `nocoproject.*` settings items and composites, and the retired `np-*` settings
+ * items. Everything else in an `np-` set is a platform grant, kept as it is and never handed out from `/config`.
+ */
+export function isNpResource(resource: {
+  readonly type: string;
+  readonly id: string;
+}): boolean {
+  if (resource.type === 'page') return resource.id.startsWith('np-');
+  if (resource.type === 'settings')
+    return (
+      resource.id.startsWith('nocoproject.') || resource.id.startsWith('np-')
+    );
+  if (resource.type === 'composite')
+    return resource.id.startsWith('nocoproject.');
+  return false;
 }

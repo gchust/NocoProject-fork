@@ -142,28 +142,28 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
 
   it('enforces member role rules, including the last owner', async () => {
     await expect(
-      services.members.updateRole(BOB, CAROL.id!, 'admin'),
+      services.businessRoles.setRole(BOB, CAROL.id!, 'admin'),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    const admin = await services.members.updateRole(ALICE, BOB.id!, 'admin');
+    const admin = await services.businessRoles.setRole(ALICE, BOB.id!, 'admin');
     expect(admin.role).toBe('admin');
     expect(
-      (await services.members.updateRole(BOB, CAROL.id!, 'admin')).role,
+      (await services.businessRoles.setRole(BOB, CAROL.id!, 'admin')).role,
     ).toBe('admin');
     await expect(
-      services.members.updateRole(BOB, CAROL.id!, 'owner'),
+      services.businessRoles.setRole(BOB, CAROL.id!, 'owner'),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
-      services.members.updateRole(BOB, ALICE.id!, 'member'),
+      services.businessRoles.setRole(BOB, ALICE.id!, 'member'),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
-      services.members.updateRole(ALICE, ALICE.id!, 'admin'),
+      services.businessRoles.setRole(ALICE, ALICE.id!, 'admin'),
     ).rejects.toMatchObject({ code: 'LAST_OWNER' });
-    await services.members.updateRole(ALICE, CAROL.id!, 'owner');
+    await services.businessRoles.setRole(ALICE, CAROL.id!, 'owner');
     expect(
-      (await services.members.updateRole(ALICE, ALICE.id!, 'member')).role,
+      (await services.businessRoles.setRole(ALICE, ALICE.id!, 'member')).role,
     ).toBe('member');
     await expect(
-      services.members.updateRole(ALICE, BOB.id!, 'role' as never),
+      services.businessRoles.setRole(ALICE, BOB.id!, 'role' as never),
     ).rejects.toMatchObject({ code: 'INVALID_ROLE' });
     const list = await services.members.list(BOB);
     expect(list.map((member) => [member.userId, member.role]).sort()).toEqual(

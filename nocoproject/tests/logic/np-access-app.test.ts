@@ -8,7 +8,8 @@
  * - A newcomer holds `np-member`: reads the labels, cannot change them, the workspace settings or the GitHub connection.
  * - `np-admin` assigned in the Users page (its role-scope API) opens those writes on the next request, and projects to
  *   `admin` in `/np/members`; removing it closes them again.
- * - A business admin without the Users page's `assign-role` cannot change ordinary roles through `/np/members`.
+ * - A business admin assigns business roles through `/np/members` (NP-153: `nocoproject.members` `assign`, not the
+ *   Users page's `assign-role`; `np-business-roles-app.test.ts` covers the rest).
  * - `np-owner` cannot be assigned through the permission workspace; an owner grants it through `/np/members`, and the
  *   last owner cannot give it up.
  */
@@ -198,11 +199,16 @@ describe('NocoProject roles and settings on the built-in authorization (NP-117)'
     expect((await alice.get('/np/integrations/github')).status).toBe(200);
     expect(await roleIn(alice, alice.userId)).toBe('admin');
 
-    // A business admin is not a user administrator: ordinary roles stay with the Users page.
+    // NP-153: a business admin assigns business roles (`nocoproject.members` `assign`), through the older PATCH too.
     const promote = await alice.send('PATCH', `/np/members/${bob.userId}`, {
       role: 'admin',
     });
-    expect(promote.status).toBe(403);
+    expect(promote.status).toBe(200);
+    expect(await effective(bob.userId)).toEqual(['np-admin', 'np-member']);
+    const demote = await alice.send('PATCH', `/np/members/${bob.userId}`, {
+      role: 'member',
+    });
+    expect(demote.status).toBe(200);
     expect(await effective(bob.userId)).toEqual(['np-member']);
 
     // Removing np-admin closes the writes again.

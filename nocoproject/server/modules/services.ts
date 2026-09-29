@@ -64,7 +64,8 @@ import {
   createMemberService,
   type MemberService,
 } from './member/member.service.js';
-import type { RoleAssignments } from './member/member.roles.js';
+import type { RoleAssignments, RoleStore } from './member/member.roles.js';
+import { createRoleService, type RoleService } from './member/roles.service.js';
 import {
   createInvitationService,
   type InvitationAccounts,
@@ -148,6 +149,7 @@ import { createTxRunner, type TxRunner } from './shared/db.js';
 import { createDomainEventBus, type DomainEventBus } from './shared/events.js';
 import { createIdSource } from './shared/ids.js';
 import { createUserDirectory } from './shared/users.js';
+import { conflict } from './shared/errors.js';
 import {
   createSettingsService,
   type SettingsService,
@@ -219,6 +221,8 @@ export interface NpServices {
   // NP-150.
   readonly computers: ComputerService;
   readonly daemonWakeups: DaemonWakeups;
+  // NP-153.
+  readonly businessRoles: RoleService;
 }
 
 /** What an alternative approval gateway gets to build itself (tests: the in-memory double). */
@@ -256,6 +260,11 @@ export interface NpServiceDeps {
    * pass a double over `members.role`.
    */
   readonly roles: () => RoleAssignments;
+  /**
+   * NP-153: the permission sets behind the business roles of `/config/members`. Absent (service tests) = role
+   * management answers 409 `ROLES_UNAVAILABLE`.
+   */
+  readonly roleStore?: () => RoleStore;
   /** Replaces the database approval gateway (the replacement checklist test). */
   readonly approvalGateway?: (
     context: ApprovalGatewayContext,
@@ -428,9 +437,22 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       users,
       keys: lazyComputerKeys(deps.computerKeys),
     }),
+    businessRoles: createRoleService({
+      tx,
+      ids,
+      roles: deps.roles,
+      store: deps.roleStore ?? unavailableRoles,
+    }),
   } satisfies NpServices);
 
   return services;
+}
+
+function unavailableRoles(): never {
+  throw conflict(
+    'ROLES_UNAVAILABLE',
+    'Business roles need the built-in authorization.',
+  );
 }
 
 /** Resolves the key store at request time (the plugin is registered after this service is built). */

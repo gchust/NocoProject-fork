@@ -5,14 +5,11 @@
  * `RoleAssignments`; `members.role` only projects them. Every signed-in `/np/*` request passes `ensure(userId)` first:
  * a user seen for the first time gets a members row with their projected role and the `np-member` set. Arriving first
  * no longer makes anyone owner: a new installation's owner is its initial administrator (seed
- * `2026100800002_np_role_permission_sets`). Role rules for `PATCH /np/members/:userId`:
- *
- * - only an owner may grant or revoke owner, and the last active owner cannot give it up (409 `LAST_OWNER`);
- * - admin and member are ordinary role assignments: only whoever may assign roles in the Users page (`user` `assign-role`)
- *   changes them here, as there.
+ * `2026100800002_np_role_permission_sets`). Assigning roles (`PATCH /np/members/:userId` and, since NP-153,
+ * `PUT /np/members/:userId/roles`) is `roles.service.ts`.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid, isMemberRole, viewerOf } from '../shared/authz.js';
+import { isMemberRole, viewerOf } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import {
   bool,
@@ -35,7 +32,6 @@ export interface MemberService {
   /** Makes sure the signed-in user has a members row (and, the first time, the `np-member` set). */
   ensure(userId: string): Promise<void>;
   list(actor: Actor): Promise<Member[]>;
-  updateRole(actor: Actor, userId: string, role: unknown): Promise<Member>;
   /** The member's own preferences (NP-108); the row exists, `ensureMember` runs before every browser route. */
   preferences(userId: string): Promise<MemberPreferences>;
   /** Changes only the fields given; anything but a boolean `inboxChime` is 400 `INVALID_PREFERENCES`. */
@@ -94,7 +90,7 @@ async function hasRow(conn: Conn, userId: string): Promise<boolean> {
 }
 
 /** Serializes member bootstrap and role changes. */
-async function lockMembers(conn: Conn): Promise<void> {
+export async function lockMembers(conn: Conn): Promise<void> {
   if (!isPostgres(conn)) return;
   const knex = await knexOf(conn);
   await knex.raw("SELECT pg_advisory_xact_lock(hashtext('np:members'))");
@@ -118,7 +114,7 @@ export async function admitMember(
 }
 
 /** Writes the `members.role` projection of the user's current assignments. */
-async function project(
+export async function projectRoleOf(
   tx: Tx,
   ids: IdSource,
   roles: RoleAssignments,
@@ -137,11 +133,15 @@ async function project(
   return role;
 }
 
-interface Target extends Omit<Member, 'role'> {
+export interface Target extends Omit<Member, 'role'> {
   readonly disabled: boolean;
 }
 
-async function describe(conn: Conn, userId: string): Promise<Target> {
+/** The user a role change is about; 404 for an unknown or deleted account. */
+export async function describeUser(
+  conn: Conn,
+  userId: string,
+): Promise<Target> {
   const user = await conn.query
     .selectFrom('user')
     .select(['id', 'name', 'username', 'email', 'disabledAt', 'deletedAt'])
@@ -154,41 +154,6 @@ async function describe(conn: Conn, userId: string): Promise<Target> {
     email: str(user.email),
     disabled: !!user.disabledAt,
   };
-}
-
-const RANK: Readonly<Record<MemberRole, number>> = {
-  member: 0,
-  admin: 1,
-  owner: 2,
-};
-
-/**
- * Whether `actor` may change ordinary role assignments: the Users page's `user` `assign-role`. A caller without the
- * built-in authorization (an internal actor) may not.
- */
-async function canAssignRoles(conn: Conn, actor: Actor): Promise<boolean> {
-  await viewerOf(conn, actor);
-  if (!actor.access) return false;
-  return actor.access.can({
-    resource: { type: 'user', id: '*' },
-    action: 'assign-role',
-  });
-}
-
-/** Applies `from → to` through the role store; the caller has checked who may. */
-async function applyRole(
-  conn: Conn,
-  roles: RoleAssignments,
-  userId: string,
-  from: MemberRole,
-  to: MemberRole,
-): Promise<void> {
-  if (to === 'owner') {
-    await roles.setOwner(conn, userId, true);
-    return;
-  }
-  if (from === 'owner') await roles.setOwner(conn, userId, false);
-  await roles.setAdmin(conn, userId, to === 'admin');
 }
 
 export function createMemberService(deps: {
@@ -245,42 +210,6 @@ export function createMemberService(deps: {
           role: isMemberRole(role) ? role : 'member',
         };
       });
-    },
-
-    async updateRole(actor, userId, role) {
-      if (!isMemberRole(role))
-        throw invalid('INVALID_ROLE', 'role must be owner, admin or member.');
-      const roles = deps.roles();
-      // Checked before the transaction (`ActorAccess.can`); applied only if the change needs it.
-      const assigner = await canAssignRoles(deps.tx.read(), actor);
-      const result = await deps.tx.run(async (tx) => {
-        const viewer = await viewerOf(tx.conn, actor);
-        await lockMembers(tx.conn);
-        const { disabled, ...target } = await describe(tx.conn, userId);
-        const from = await roles.roleOf(tx.conn, userId);
-        if (from === role)
-          return {
-            ...target,
-            role: await project(tx, deps.ids, roles, userId),
-          };
-        if (disabled && RANK[role] > RANK[from])
-          throw invalid(
-            'USER_DISABLED',
-            'A disabled account cannot be given a higher role.',
-          );
-        if (from === 'owner' || role === 'owner') {
-          if (viewer.role !== 'owner')
-            forbid('Only an owner may grant or revoke the owner role.');
-        } else if (!assigner) {
-          forbid(
-            'Only someone who may assign roles in user management may change this role.',
-          );
-        }
-        await applyRole(tx.conn, roles, userId, from, role);
-        return { ...target, role: await project(tx, deps.ids, roles, userId) };
-      });
-      await roles.changed(userId);
-      return result;
     },
 
     preferences(userId) {
