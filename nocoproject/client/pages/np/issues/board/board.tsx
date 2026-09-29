@@ -5,7 +5,8 @@ import {
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDroppable,
   useSensor,
   useSensors,
@@ -170,7 +171,12 @@ export function IssueBoard({
     [catalog, groups, move.overrides],
   );
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // A mouse drags after a few pixels; a finger drags only after a press-and-hold, so a swipe on a card scrolls
+    // its column instead of picking the card up (NP-144).
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),

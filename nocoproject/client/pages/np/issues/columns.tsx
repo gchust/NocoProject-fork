@@ -64,7 +64,9 @@ export function useIssueColumns(
         header: t('np.issues.columns.title'),
         // One line, capped at 30rem, the full title on hover: a long title never stretches the table (§1.5). The
         // column takes the remaining width but may shrink (`max-w-0`), so the table never scrolls sideways for it.
-        meta: { className: 'w-full max-w-0 min-w-40' },
+        // On a phone the other columns already overflow the screen, so the title keeps a wider floor and the table
+        // scrolls sideways for the rest (NP-144).
+        meta: { className: 'w-full max-w-0 min-w-40 max-md:min-w-64' },
         cell: ({ row }) => (
           <div className='flex max-w-[30rem] items-center gap-2'>
             <span className='truncate font-medium' title={row.original.title}>
