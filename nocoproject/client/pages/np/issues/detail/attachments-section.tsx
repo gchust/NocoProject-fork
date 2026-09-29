@@ -53,23 +53,27 @@ import { useDetailMutation } from './use-detail-mutation.js';
  * Issue attachments (NP-78): a card listing each file (thumbnail, name opening the preview, size, uploader, time),
  * download, and removal for those allowed (confirmed). "Upload" opens the upload field, and so do files dropped or pasted
  * onto the card; every finished upload is attached right away. Rendered by the main column only when the issue has attachments or the "Add → Attachment" chip
- * revealed it (empty sections take no room).
+ * revealed it (empty sections take no room). Without `issues/edit` (NP-161) uploading, dropping and pasting are all
+ * off, and a file's own `canDelete` (uploader or manager) is not enough on its own to show removal.
  */
 export function AttachmentsSection({
   issueId,
   attachments,
   initialUploading = false,
+  canEdit = true,
 }: {
   readonly issueId: string;
   readonly attachments: readonly IssueAttachment[];
   readonly initialUploading?: boolean;
+  /** `issues/edit` (NP-161): without it, uploading does not render; `attachment.canDelete` alone does not imply it. */
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const format = useNpFormatters();
   const repository = useAttachmentRepository();
   const labels = useFileLabels();
-  const [uploading, setUploading] = useState(initialUploading);
+  const [uploading, setUploading] = useState(initialUploading && canEdit);
   const [pending, setPending] = useState<readonly FileRecord[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<IssueAttachment | null>(null);
@@ -77,17 +81,19 @@ export function AttachmentsSection({
   const uploadRef = useRef<FileUploadFieldHandle>(null);
   // Files dropped or pasted anywhere on the card open the upload field and start uploading.
   const handlers = usePasteDrop(uploadRef);
-  const cardDrop = {
-    onDragOver: handlers.onDragOver,
-    onDrop: (event: DragEvent) => {
-      setUploading(true);
-      handlers.onDrop(event);
-    },
-    onPaste: (event: ClipboardEvent) => {
-      if (event.clipboardData.files.length > 0) setUploading(true);
-      handlers.onPaste(event);
-    },
-  };
+  const cardDrop = canEdit
+    ? {
+        onDragOver: handlers.onDragOver,
+        onDrop: (event: DragEvent) => {
+          setUploading(true);
+          handlers.onDrop(event);
+        },
+        onPaste: (event: ClipboardEvent) => {
+          if (event.clipboardData.files.length > 0) setUploading(true);
+          handlers.onPaste(event);
+        },
+      }
+    : {};
 
   const attach = useDetailMutation(
     issueId,
@@ -127,15 +133,17 @@ export function AttachmentsSection({
         title={t('np.attachments.title')}
         count={attachments.length}
         actions={
-          <Button
-            variant='ghost'
-            size='sm'
-            aria-expanded={uploading}
-            onClick={() => setUploading((open) => !open)}
-          >
-            <UploadIcon data-icon='inline-start' />
-            {t('np.attachments.upload')}
-          </Button>
+          canEdit ? (
+            <Button
+              variant='ghost'
+              size='sm'
+              aria-expanded={uploading}
+              onClick={() => setUploading((open) => !open)}
+            >
+              <UploadIcon data-icon='inline-start' />
+              {t('np.attachments.upload')}
+            </Button>
+          ) : undefined
         }
       />
       {attachments.length > 0 ? (
@@ -180,7 +188,7 @@ export function AttachmentsSection({
                 >
                   <DownloadIcon />
                 </a>
-                {attachment.canDelete ? (
+                {canEdit && attachment.canDelete ? (
                   <Button
                     variant='ghost'
                     size='icon-sm'
@@ -198,7 +206,7 @@ export function AttachmentsSection({
         </ul>
       ) : null}
       {/* Always mounted, so files dropped or pasted onto the closed card reach it. */}
-      <div hidden={!uploading}>
+      <div hidden={!uploading || !canEdit}>
         <FileUploadField
           ref={uploadRef}
           repository={repository}

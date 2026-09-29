@@ -55,6 +55,11 @@ function allowsOwn(
   );
 }
 
+/** `issues/edit`: create, fields, comments, attachments, dependencies (no record-level relation). */
+export function canEditIssue(viewer: Viewer | null): boolean {
+  return scopeOf(viewer, NP_BUSINESS.issues, 'edit') !== 'none';
+}
+
 /** Issue actions whose "related" is the issue owner and the project lead (`managesIssue`). */
 function managesIssue(
   viewer: Viewer | null,

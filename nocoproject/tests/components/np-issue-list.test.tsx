@@ -17,11 +17,29 @@ const realtime = vi.hoisted(() => ({
   onOpen: vi.fn(() => () => {}),
 }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,
   useService: () => realtime,
 }));
+
+/** `np/me` answered for every test here: a plain member, full `issues/edit` unless `scopes` overrides it. */
+function withMe(
+  fallback: (options: {
+    path: string;
+    query?: Record<string, unknown>;
+  }) => unknown,
+  scopes?: Record<string, string>,
+): (options: { path: string; query?: Record<string, unknown> }) => unknown {
+  return (options) =>
+    options.path === 'np/me'
+      ? { data: { userId: 'u1', name: 'Zhou', scopes } }
+      : fallback(options);
+}
 
 const ISSUES: IssueListItem[] = [
   {
@@ -87,7 +105,7 @@ afterEach(() => {
 
 describe('issue list', () => {
   it('renders a row per issue with status, owner and executor', async () => {
-    api.request.mockResolvedValue({ data: ISSUES });
+    api.request.mockImplementation(withMe(() => ({ data: ISSUES })));
     await renderPage();
 
     const firstRow = (
@@ -110,8 +128,19 @@ describe('issue list', () => {
     );
   });
 
+  it('hides "New issue" without issues/edit (NP-161)', async () => {
+    api.request.mockImplementation(
+      withMe(() => ({ data: ISSUES }), { 'nocoproject.issues/edit': 'none' }),
+    );
+    await renderPage();
+
+    await screen.findByText('Wire up the claim endpoint');
+    expect(screen.queryByRole('button', { name: /New issue/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /New issue/ })).toBeNull();
+  });
+
   it('marks agent executors and shows a working indicator while a run is active', async () => {
-    api.request.mockResolvedValue({ data: ISSUES });
+    api.request.mockImplementation(withMe(() => ({ data: ISSUES })));
     await renderPage();
 
     const agentRow = (await screen.findByText('Claude Coder')).closest(
@@ -126,7 +155,7 @@ describe('issue list', () => {
   });
 
   it('subscribes to issue and agent invalidation topics', async () => {
-    api.request.mockResolvedValue({ data: ISSUES });
+    api.request.mockImplementation(withMe(() => ({ data: ISSUES })));
     await renderPage();
     await screen.findByText('Wire up the claim endpoint');
     const topics = realtime.subscribe.mock.calls.map((call) => call[0]);
@@ -134,14 +163,16 @@ describe('issue list', () => {
   });
 
   it('shows the empty state when there are no issues', async () => {
-    api.request.mockResolvedValue({ data: [] });
+    api.request.mockImplementation(withMe(() => ({ data: [] })));
     await renderPage();
     expect(await screen.findByText('No issues yet')).toBeVisible();
   });
 
   it('reads the search and status filter from the URL and sends them', async () => {
-    api.request.mockImplementation((options: { path: string }) =>
-      Promise.resolve({ data: options.path === 'np/issues' ? ISSUES : [] }),
+    api.request.mockImplementation(
+      withMe((options) => ({
+        data: options.path === 'np/issues' ? ISSUES : [],
+      })),
     );
     await renderPage('/issues?view=list&q=claim&status=in_progress');
 
@@ -167,12 +198,11 @@ describe('issue list', () => {
     const user = userEvent.setup();
     localStorage.clear();
     api.request.mockImplementation(
-      (options: { path: string; query?: Record<string, unknown> }) =>
-        Promise.resolve(
-          options.query?.view === 'board'
-            ? { data: { groups: [{ statusKey: 'todo', issues: [ISSUES[1]] }] } }
-            : { data: options.path === 'np/issues' ? ISSUES : [] },
-        ),
+      withMe((options) =>
+        options.query?.view === 'board'
+          ? { data: { groups: [{ statusKey: 'todo', issues: [ISSUES[1]] }] } }
+          : { data: options.path === 'np/issues' ? ISSUES : [] },
+      ),
     );
     const view = await renderPage('/issues');
     expect(
@@ -192,12 +222,11 @@ describe('issue list', () => {
   it('switches to the board view', async () => {
     const user = userEvent.setup();
     api.request.mockImplementation(
-      (options: { path: string; query?: Record<string, unknown> }) =>
-        Promise.resolve(
-          options.query?.view === 'board'
-            ? { data: { groups: [{ statusKey: 'todo', issues: [ISSUES[1]] }] } }
-            : { data: options.path === 'np/issues' ? ISSUES : [] },
-        ),
+      withMe((options) =>
+        options.query?.view === 'board'
+          ? { data: { groups: [{ statusKey: 'todo', issues: [ISSUES[1]] }] } }
+          : { data: options.path === 'np/issues' ? ISSUES : [] },
+      ),
     );
     await renderPage();
     await screen.findByText('Wire up the claim endpoint');

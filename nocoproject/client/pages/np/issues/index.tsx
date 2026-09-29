@@ -6,6 +6,8 @@ import { NpShortcuts } from '@/components/np-shortcuts';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
 
+import { canEditIssue } from '../permissions.js';
+import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import { IssuesView } from './issues-view.js';
 import { NewIssueButton } from './new-issue-button.js';
 
@@ -19,6 +21,8 @@ export default function IssuesPage(): ReactElement {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const { viewer } = useWorkspaceViewer();
+  const canEdit = canEditIssue(viewer);
   // The page is exactly the content area's height (nocosolution/guidelines/NocoSolution 前端规范.md §3.6): header, toolbar, then the board
   // or table filling the rest and scrolling inside, so the page itself never scrolls.
   return (
@@ -30,11 +34,12 @@ export default function IssuesPage(): ReactElement {
           <>
             <NpShortcuts
               showTrigger
+              canCreate={canEdit}
               onCreate={() =>
                 void navigate({ pathname: 'new', search: location.search })
               }
             />
-            <NewIssueButton />
+            <NewIssueButton canEdit={canEdit} />
           </>
         }
       />
@@ -42,7 +47,7 @@ export default function IssuesPage(): ReactElement {
         <IssuesView
           emptyTitle={t('np.issues.emptyTitle')}
           emptyDescription={t('np.issues.emptyDescription')}
-          emptyAction={<NewIssueButton variant='outline' />}
+          emptyAction={<NewIssueButton variant='outline' canEdit={canEdit} />}
         />
       </div>
       <Outlet />

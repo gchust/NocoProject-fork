@@ -132,14 +132,17 @@ export function BoardCardFace({
 
 /**
  * A draggable card. The title link opens the issue; dragging starts after a few pixels so a click stays a click, and
- * on a touch screen after a press-and-hold, so the page keeps native touch scrolling (`touch-manipulation`).
+ * on a touch screen after a press-and-hold, so the page keeps native touch scrolling (`touch-manipulation`). Without
+ * `issues/edit` (NP-161) the card is not draggable, since a drop would only 403.
  */
 export function BoardCard({
   issue,
   issueLink,
+  canEdit = true,
 }: {
   readonly issue: IssueListItem;
   readonly issueLink?: IssueLink;
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const {
@@ -149,20 +152,25 @@ export function BoardCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: issue.id, data: { statusKey: issue.statusKey } });
+  } = useSortable({
+    id: issue.id,
+    data: { statusKey: issue.statusKey },
+    disabled: !canEdit,
+  });
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
-        'cursor-grab touch-manipulation rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing',
+        'touch-manipulation rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        canEdit && 'cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40',
       )}
-      {...attributes}
-      aria-roledescription={t('np.board.cardRole')}
+      {...(canEdit ? attributes : undefined)}
+      aria-roledescription={canEdit ? t('np.board.cardRole') : undefined}
       aria-label={`${issue.identifier} ${issue.title}`}
-      {...listeners}
+      {...(canEdit ? listeners : undefined)}
     >
       <BoardCardFace issue={issue} issueLink={issueLink} />
     </div>

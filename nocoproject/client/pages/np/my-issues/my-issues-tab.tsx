@@ -8,6 +8,7 @@ import { NpListSkeleton, NpLoadError } from '@/components/np-states';
 import { fetchMe } from '../api.js';
 import { npKeys } from '../constants.js';
 import { IssuesView } from '../issues/issues-view.js';
+import { canEditIssue, viewerFrom } from '../permissions.js';
 import { myIssueFilters, type MyIssuesRole } from './my-issues-model.js';
 import { NewIssueButtonAbsolute } from './new-issue-link.js';
 
@@ -34,6 +35,7 @@ export function MyIssuesTab({
   }
   if (!me.data) return <NpListSkeleton />;
   const { fixedFilters, hiddenFilters } = myIssueFilters(role, me.data.userId);
+  const canEdit = canEditIssue(viewerFrom(me.data));
   return (
     <IssuesView
       fixedFilters={fixedFilters}
@@ -42,7 +44,9 @@ export function MyIssuesTab({
       viewKey='my-issues'
       emptyTitle={t(`np.myIssues.empty.${role}`)}
       emptyDescription={t('np.myIssues.emptyDescription')}
-      emptyAction={<NewIssueButtonAbsolute variant='outline' />}
+      emptyAction={
+        <NewIssueButtonAbsolute variant='outline' canEdit={canEdit} />
+      }
     />
   );
 }

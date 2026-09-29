@@ -693,3 +693,99 @@ describe('activity source (NP-86)', () => {
     expect(screen.getByText('edited the description')).toBeVisible();
   });
 });
+
+describe('issues/edit scope (NP-161)', () => {
+  const SCOPED_ATTACHMENT = {
+    id: 'f1',
+    filename: 'spec.pdf',
+    ext: 'pdf',
+    mimeType: 'application/pdf',
+    size: 2048,
+    contentUrl: '/main/uploads/np/f1.pdf',
+    uploadedById: 'u2',
+    uploadedByName: 'Ada',
+    createdAt: NOW,
+    updatedAt: NOW,
+    canDelete: true,
+  };
+
+  function withScopes(
+    scopes: Record<string, string>,
+  ): (options: { path: string; method?: string }) => Promise<unknown> {
+    return (options) => {
+      if (options.path === 'np/me') {
+        return Promise.resolve({
+          data: { userId: 'u1', name: 'Zhou', scopes },
+        });
+      }
+      if (options.path === 'np/issues/101' && !options.method) {
+        return Promise.resolve({ data: COLLAB_DETAIL });
+      }
+      if (options.path === 'np/issues/101/attachments' && !options.method) {
+        return Promise.resolve({ data: [SCOPED_ATTACHMENT] });
+      }
+      return respond(options);
+    };
+  }
+
+  it('hides every write control when the viewer has no issues/edit', async () => {
+    api.request.mockImplementation(
+      withScopes({ 'nocoproject.issues/edit': 'none' }),
+    );
+    await renderDetail();
+
+    await screen.findByRole('heading', {
+      name: 'Wire up the claim endpoint',
+    });
+    expect(screen.queryByRole('button', { name: 'Edit title' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Edit description' }),
+    ).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Comment' })).toBeNull();
+    expect(screen.queryByText('New sub-issue')).toBeNull();
+    expect(screen.queryByText('AI breakdown')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Remove NP-90 as a blocker' }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('textbox', { name: 'Add a blocking issue' }),
+    ).toBeNull();
+    const attachments = await screen.findByRole('region', {
+      name: /Attachments/,
+    });
+    expect(
+      within(attachments).queryByRole('button', { name: 'Upload' }),
+    ).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Priority' })).toBeDisabled();
+  });
+
+  it('shows every write control when the viewer holds issues/edit: related', async () => {
+    api.request.mockImplementation(
+      withScopes({ 'nocoproject.issues/edit': 'related' }),
+    );
+    await renderDetail();
+
+    await screen.findByRole('heading', {
+      name: 'Wire up the claim endpoint',
+    });
+    expect(screen.getByRole('button', { name: 'Edit title' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Edit description' }),
+    ).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Comment' })).toBeVisible();
+    expect(screen.getByText('New sub-issue')).toBeVisible();
+    expect(screen.getByText('AI breakdown')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Remove NP-90 as a blocker' }),
+    ).toBeVisible();
+    const attachments = await screen.findByRole('region', {
+      name: /Attachments/,
+    });
+    expect(
+      within(attachments).getByRole('button', { name: 'Upload' }),
+    ).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: 'Priority' })).toBeEnabled();
+  });
+});

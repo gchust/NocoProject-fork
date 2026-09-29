@@ -8,6 +8,8 @@ import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
 import { useIsParentEntry } from '@/components/use-default-tab';
 
+import { canEditIssue } from '../permissions.js';
+import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import { NewIssueButtonAbsolute } from './new-issue-link.js';
 
 /**
@@ -19,6 +21,8 @@ export default function MyIssuesPage(): ReactElement {
   const { t } = useTranslation();
   const location = useLocation();
   const isParentEntry = useIsParentEntry();
+  const { viewer } = useWorkspaceViewer();
+  const canEdit = canEditIssue(viewer);
   if (isParentEntry) {
     return (
       <Navigate replace to={{ pathname: 'owned', search: location.search }} />
@@ -31,8 +35,8 @@ export default function MyIssuesPage(): ReactElement {
         description={t('np.myIssues.description')}
         actions={
           <>
-            <NpShortcuts showTrigger />
-            <NewIssueButtonAbsolute />
+            <NpShortcuts showTrigger canCreate={canEdit} />
+            <NewIssueButtonAbsolute canEdit={canEdit} />
           </>
         }
       />

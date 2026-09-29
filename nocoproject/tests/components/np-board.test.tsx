@@ -22,6 +22,10 @@ const realtime = vi.hoisted(() => ({
 }));
 const toast = vi.hoisted(() => ({ add: vi.fn() }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,
@@ -113,6 +117,9 @@ describe('issue board', () => {
   it('shows a column per status with its cards, read from the board view', async () => {
     api.request.mockImplementation(
       (options: { path: string; query?: Record<string, unknown> }) => {
+        if (options.path === 'np/me') {
+          return Promise.resolve({ data: { userId: 'u1', name: 'Zhou' } });
+        }
         if (options.path === 'np/issues' && options.query?.view === 'board') {
           return Promise.resolve({
             data: {
@@ -148,6 +155,40 @@ describe('issue board', () => {
         query: expect.objectContaining({ view: 'board', projectId: 'p1' }),
       }),
     );
+  });
+
+  it('is not draggable without issues/edit (NP-161)', async () => {
+    api.request.mockImplementation(
+      (options: { path: string; query?: Record<string, unknown> }) => {
+        if (options.path === 'np/me') {
+          return Promise.resolve({
+            data: {
+              userId: 'u1',
+              name: 'Zhou',
+              scopes: { 'nocoproject.issues/edit': 'none' },
+            },
+          });
+        }
+        if (options.path === 'np/issues' && options.query?.view === 'board') {
+          return Promise.resolve({
+            data: { groups: [{ statusKey: 'todo', issues: [PLAIN_ISSUE] }] },
+          });
+        }
+        return Promise.resolve({ data: [] });
+      },
+    );
+    await renderWithProviders(<IssuesPage />, '/issues?view=board');
+
+    const board = await screen.findByRole('region', { name: 'Issue board' });
+    // The card is not a drag handle: no role, no roledescription, no grab cursor.
+    expect(
+      within(board).queryByRole('button', { name: /Write the docs/ }),
+    ).toBeNull();
+    const card = within(board)
+      .getByText('Write the docs')
+      .closest('div')!.parentElement!;
+    expect(card).not.toHaveClass('cursor-grab');
+    expect(card).not.toHaveAttribute('aria-roledescription');
   });
 
   it('asks before a move starts the agent, and sends start: false for "Don\'t start now"', async () => {
