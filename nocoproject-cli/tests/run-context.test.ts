@@ -1,3 +1,4 @@
+import { AGENT_CAPABILITIES } from '../src/protocol.js';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ describe('run context', () => {
     expect(buildRunContext(claimedRun())).toEqual({
       version: 1,
       runId: '7301234567890123',
-      agent: { id: 'a1', name: 'Coder', delegationTargets: [], kind: 'coder' },
+      agent: { capabilities: AGENT_CAPABILITIES, id: 'a1', name: 'Coder', delegationTargets: [], kind: 'coder' },
       issue: { id: 'i12', identifier: 'NP-12', title: 'Fix login redirect', parent: null, stage: null, autoExecuteSubtasks: false, projectId: null, executionMode: 'task', pullRequests: [], process: 'direct', designApprovedAt: null },
       project: null,
       knowledge: [],

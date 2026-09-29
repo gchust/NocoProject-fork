@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * NP-78: AI 整理 reads the attached files. On a real PostgreSQL with the real extractor over the fixtures and a fake
+ * NP-78: AI draft reads the attached files. On a real PostgreSQL with the real extractor over the fixtures and a fake
  * model: the description and every readable file reach the model (unreadable ones by name), the description may be
  * empty when a file is readable, the read status is kept with the batch, the files are checked to be the caller's
  * own before anything is read, and without the AI an empty description yields one draft named after the file.
@@ -92,7 +92,7 @@ async function upload(uploader: string, fixture: string): Promise<string> {
   return id;
 }
 
-describe.skipIf(!db)('AI 整理 reads attachments (PostgreSQL)', () => {
+describe.skipIf(!db)('AI draft reads attachments (PostgreSQL)', () => {
   beforeEach(async () =>
     setup({
       aiIntake: createAiIntakeParser(factory(async () => ANSWER)),

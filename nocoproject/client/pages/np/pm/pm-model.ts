@@ -8,5 +8,8 @@ export const pmConversationKey = ['np', 'pm', 'conversation'] as const;
  * (or a viewer who may not read settings) leaves the answer to the conversation endpoint.
  */
 export function pmNotConfigured(settings: WorkspaceSettings): boolean {
-  return 'pmAgentId' in settings && !settings.pmAgentId;
+  return settings.agentEntries
+    ? !settings.agentEntries.conversation.enabled ||
+        !settings.agentEntries.conversation.agentId
+    : 'pmAgentId' in settings && !settings.pmAgentId;
 }

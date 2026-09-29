@@ -22,7 +22,7 @@ export function createPmRoutes(pm: PmService): Hono<AuthEnv> {
 }
 
 /**
- * `/np/agent/pm/*` (run token; only a project manager agent, 403 `MANAGER_ONLY`; everything filtered by what the
+ * `/np/agent/pm/*` (run token; requires `workspace.read`, 403 `CAPABILITY_DENIED`; everything filtered by what the
  * run's asking member may see):
  *
  * - `GET /pm/projects` → `{ data: ProjectListItem[] }`

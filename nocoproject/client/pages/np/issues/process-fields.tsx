@@ -63,7 +63,7 @@ export function NpCommentTag({
   return null;
 }
 
-/** 自动 / 直接开发 / 先出方案 as a select; `choices` narrows it (the issue page offers no "automatic"). */
+/** Automatic / Straight to development / Design first as a select; `choices` narrows it (the issue page offers no "automatic"). */
 export function ProcessSelect({
   id,
   value,

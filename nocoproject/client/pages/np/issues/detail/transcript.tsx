@@ -116,6 +116,14 @@ function TranscriptBody({ runId }: { readonly runId: string }): ReactElement {
 
   return (
     <div className='flex min-h-0 flex-col gap-3'>
+      {data?.configurationSnapshot ? (
+        <details>
+          <summary>{t('np.capabilities.preview')}</summary>
+          <pre className='whitespace-pre-wrap'>
+            {JSON.stringify(data.configurationSnapshot, null, 2)}
+          </pre>
+        </details>
+      ) : null}
       {data ? (
         <div className='space-y-1'>
           <div className='flex flex-wrap items-center gap-2'>

@@ -1,5 +1,5 @@
 /**
- * The structured difference between two workflow definitions (NP-77 方案 §4): what the decider reads on a template
+ * The structured difference between two workflow definitions (NP-77 proposal §4): what the decider reads on a template
  * proposal card. Pure; the caller resolves agent names.
  *
  * - statuses by key: added, removed, name / color changes (key and category are fixed by validation), and `order`

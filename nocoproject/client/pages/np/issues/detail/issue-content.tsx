@@ -89,7 +89,7 @@ export function IssueTitle({ issue }: { readonly issue: Issue }): ReactElement {
 }
 
 /**
- * The description rendered as Markdown, edited in the rich text editor with Save and Cancel (iteration 2 "富文本").
+ * The description rendered as Markdown, edited in the rich text editor with Save and Cancel (iteration 2 "rich text").
  * The editor reads and writes Markdown, so the stored description stays Markdown. A save that loses the revision race
  * reports the conflict and reloads (`useIssueUpdate`); the draft stays open so nothing typed is lost.
  */

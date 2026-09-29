@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Workflow entry conditions (NP-77 方案 §1, §2), on a real PostgreSQL: requirePrMerged for human, agent and system
+ * Workflow entry conditions (NP-77 design proposal §1, §2), on a real PostgreSQL: requirePrMerged for human, agent and system
  * writes; a required checklist item of the status being left (agent and browser checklist endpoints, cancelling never
  * blocked, run tokens limited to their own issue); an approval whose conditions no longer hold becomes stale.
  */

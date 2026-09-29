@@ -262,7 +262,11 @@ describe('daemon API /np/daemon/*', () => {
 
   it('claims for the key owner with the public server URL', async () => {
     const { router, doubles } = await build(npDaemonRoutes);
-    const body = { daemonId: 'd1', slots: [{ runtimeId: 'rt1', free: 2 }] };
+    const body = {
+      daemonId: 'd1',
+      configurationProtocol: 1,
+      slots: [{ runtimeId: 'rt1', free: 2 }],
+    };
     const response = await router.request(
       'http://localhost/np/daemon/runs/claim',
       json(body, signedIn),

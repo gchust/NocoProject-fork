@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * What an agent may do to the issue tree through its run token (docs/phase1/iteration-1-contract.md §D, §I):
  * create sub-issues, list children, add and remove dependencies. Writes are limited to the run's issue and its
@@ -171,6 +172,7 @@ async function create(
   validateInput(input);
   const actor = agentActor(auth);
   const { issue, proposal, triggered } = await deps.tx.run(async (tx) => {
+    await requireCapability(tx.conn, auth, 'subtask.create');
     const parent = await requireInRunTree(
       tx,
       auth,
@@ -264,6 +266,7 @@ async function agentIssueAddDependency(
       'blockedBy (or dependsOnIssueId) is required.',
     );
   return deps.tx.run(async (tx) => {
+    await requireCapability(tx.conn, auth, 'dependency.write');
     const issue = await requireInRunTree(tx, auth, idOrKey);
     const dependsOn = await findIssue(tx.conn, targetKey);
     if (!dependsOn)
@@ -291,6 +294,7 @@ async function agentIssueRemoveDependency(
   if (!target)
     throw invalid('INVALID_DEPENDENCY', 'dependsOnIssueId is required.');
   await deps.tx.run(async (tx) => {
+    await requireCapability(tx.conn, auth, 'dependency.write');
     const issue = await requireInRunTree(tx, auth, idOrKey);
     const removed = await deleteDependency(
       tx,

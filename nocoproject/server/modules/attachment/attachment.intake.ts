@@ -1,5 +1,5 @@
 /**
- * Attachments of intake batches (NP-78, the AI 整理 tab): files uploaded before parsing travel with the batch
+ * Attachments of intake batches (NP-78, the AI draft tab / np.newIssue.tabs.ai): files uploaded before parsing travel with the batch
  * (`npFiles.intakeBatchId`) and are attached when it is confirmed — each to the issue created from the draft whose
  * `fields.attachmentIds` names it, any other to the first issue created, so no file is lost when drafts are edited.
  */

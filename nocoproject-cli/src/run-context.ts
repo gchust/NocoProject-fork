@@ -66,6 +66,7 @@ export interface RunContextFile {
   readonly version: 1;
   readonly runId: string;
   readonly agent: {
+    readonly capabilities?: readonly import('./protocol.js').AgentCapability[];
     readonly id: string;
     readonly name: string;
     readonly delegationTargets: readonly { readonly id: string; readonly name: string }[];
@@ -141,7 +142,7 @@ export function buildRunContext(claimed: ClaimedRunV1): RunContextFile {
   return {
     version: 1,
     runId: claimed.run.id,
-    agent: { id: claimed.agent.id, name: claimed.agent.name, delegationTargets: claimed.agent.delegationTargets ?? [], kind: agentKindOf(claimed) },
+    agent: { capabilities: claimed.agent.capabilities ?? [], id: claimed.agent.id, name: claimed.agent.name, delegationTargets: claimed.agent.delegationTargets ?? [], kind: agentKindOf(claimed) },
     issue: {
       id: claimed.issue.id,
       identifier: claimed.issue.identifier,

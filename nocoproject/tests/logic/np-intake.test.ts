@@ -153,7 +153,11 @@ describe.skipIf(!db)('intake batches (PostgreSQL)', () => {
       fixture.runtimeId,
       'Dev',
     );
-    await services.agents.update(ALICE, agentId, { access: 'everyone' });
+    await services.agents.update(ALICE, agentId, {
+      configurationRevision: (await services.agents.get(ALICE, agentId))
+        .configurationRevision,
+      access: 'everyone',
+    });
     const project = await services.projects.create(ALICE, { name: 'Web' });
     const { batch } = await services.intake.create(BOB, {
       source: 'paste',

@@ -1,5 +1,6 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
- * Issue checklists (NP-77 方案 §1, §6): a `checklist` stage action snapshots its items into `issueChecklistItems`
+ * Issue checklists (NP-77 proposal §1, §6): a `checklist` stage action snapshots its items into `issueChecklistItems`
  * when the issue enters the status; leaving that status for anything but a `closed` status requires every required
  * item to be checked (409 `CHECKLIST_INCOMPLETE`, checked by `stage-guards.ts`).
  *
@@ -285,6 +286,7 @@ export function createChecklistService(deps: ChecklistDeps): ChecklistService {
       }),
     agentSet: (auth, idOrKey, statusKey, itemKey, input) =>
       deps.tx.run(async (tx) => {
+        await requireCapability(tx.conn, auth, 'checklist.write');
         const issue = await findIssue(tx.conn, idOrKey);
         if (!issue) throw notFound('Issue');
         if (issue.id !== auth.issueId)

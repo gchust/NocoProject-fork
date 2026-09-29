@@ -1,13 +1,14 @@
 /**
  * `nocoproject repo checkout <url>` (contract §I): a bare clone cache per repository plus one git
- * worktree per run workDir, on the branch `agent/<agentSlug>/<issue identifier>`.
+ * worktree per run workDir, on the branch `agent/<issue identifier>`.
  *
  * - Only URLs listed in the project's resources (`<workDir>/.nocoproject/context.json`) are allowed.
  * - Cache: `<home>/repos/<sha1(normalized url)>.git`, fetched with a remote-tracking refspec so
  *   remote heads never collide with the per-task branches that live in `refs/heads/*`.
  * - Worktree: `<workDir>/<repoName>/`. A later run resumes the branch: the same workDir reuses the
  *   worktree; a new workDir checks out the branch the server remembered (`session.branchName`).
- * - A same-named branch the session does not own gets a short run-key suffix (as Multica does).
+ * - A same-named branch the session does not own (local, or on origin from another machine) gets a short
+ *   run-key suffix (as Multica does).
  * - `--fresh` removes this workDir's worktree and resets the branch to the base ref.
  * - Never deletes other worktrees; a branch held by a dormant worktree elsewhere is detached there.
  */
@@ -208,10 +209,15 @@ function resumeSessionBranch(p: Placement, branch: string): string | null {
   return null;
 }
 
+/** Without the agent segment another agent (or machine) may already use the name: check origin too. */
+function branchTaken(bare: string, branch: string): boolean {
+  return branchExists(bare, branch) || refExists(bare, `${ORIGIN}${branch}`);
+}
+
 function createBranch(p: Placement, desired: string): string {
   let branch = desired;
-  if (branchExists(p.bare, branch)) branch = `${desired}-${runKey(p.runId)}`;
-  if (branchExists(p.bare, branch)) branch = `${desired}-${Date.now().toString(36)}`;
+  if (branchTaken(p.bare, branch)) branch = `${desired}-${runKey(p.runId)}`;
+  if (branchTaken(p.bare, branch)) branch = `${desired}-${Date.now().toString(36)}`;
   const r = gitTry(['-C', p.bare, 'worktree', 'add', '--quiet', '-b', branch, p.path, p.base.ref]);
   if (!r.ok) {
     if (!/a branch named/i.test(r.stderr)) throw new CliError(`git worktree add failed: ${redactText(r.stderr.trim())}`, EXIT.other, 'GIT_FAILED');
@@ -225,7 +231,7 @@ function createBranch(p: Placement, desired: string): string {
 
 /** Puts a worktree at `p.path` and returns the branch it is on. */
 function placeWorktree(p: Placement): string {
-  const desired = branchNameFor(p.context.agent.name, p.context.issue.identifier);
+  const desired = branchNameFor(p.context.issue.identifier);
   const sessionBranch = sameRepoUrl(p.context.session.repoUrl, p.repoUrl) ? p.context.session.branchName : null;
   if (existsSync(p.path)) {
     if (!isWorktree(p.path)) {

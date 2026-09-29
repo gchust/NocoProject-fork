@@ -1,3 +1,5 @@
+import { canInvokeAgent, loadAgentAccess } from '../shared/authz.js';
+import { hasCapability, requireCapability } from '../agent/capabilities.js';
 /**
  * The project manager agent (docs/phase1/iteration-4-contract.md §C).
  *
@@ -8,14 +10,14 @@
  * conversation's executor follows it. With no usable project manager (unset, missing, archived or not a manager) both
  * answer 409 `PM_NOT_CONFIGURED`. Creation is serialized per member with an advisory lock (PostgreSQL).
  *
- * Reads for the agent (`/np/agent/pm/*`, run token): only a `kind = 'manager'` agent (403 `MANAGER_ONLY`); every
+ * Reads for the agent (`/np/agent/pm/*`, run token): requires the explicit `workspace.read` capability; every
  * read goes through the browser services as the run's asking member (`actorUserId`), so it sees exactly what that
  * member may see (403 `FORBIDDEN` when the run has none).
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import { viewerOf } from '../shared/authz.js';
 import type { Tx, TxRunner } from '../shared/db.js';
-import { isPostgres, knexOf, now, str } from '../shared/db.js';
+import { isPostgres, knexOf, now } from '../shared/db.js';
 import { conflict, forbidden, invalid, notFound } from '../shared/errors.js';
 import type {
   InboxUnreadCounts,
@@ -87,7 +89,6 @@ export interface PmDeps {
   readonly knowledge: () => KnowledgeService;
 }
 
-const PM_TITLE = '项目经理';
 const RELATIVE_SINCE = /^(\d{1,5})([dhm])$/u;
 const UNIT_MS: Readonly<Record<string, number>> = {
   d: 86_400_000,
@@ -95,14 +96,21 @@ const UNIT_MS: Readonly<Record<string, number>> = {
   m: 60_000,
 };
 
-async function isManager(tx: Tx, agentId: string | null): Promise<boolean> {
+async function isConversationAgent(
+  tx: Tx,
+  agentId: string | null,
+): Promise<boolean> {
   if (!agentId) return false;
   const row = await tx.conn.query
     .selectFrom('agents')
-    .select(['kind', 'archivedAt'])
+    .select(['archivedAt'])
     .where('id', '=', agentId)
     .executeTakeFirst();
-  return !!row && !row.archivedAt && row.kind === 'manager';
+  return (
+    !!row &&
+    !row.archivedAt &&
+    (await hasCapability(tx.conn, agentId, 'comment.create'))
+  );
 }
 
 async function lockMember(tx: Tx, userId: string): Promise<void> {
@@ -153,13 +161,21 @@ async function conversation(
   const userId = (await viewerOf(deps.tx.read(), actor)).userId;
   return deps.tx.run(async (tx) => {
     await lockMember(tx, userId);
-    const { pmAgentId } = await deps.settings.read(tx.conn);
-    const usable = (await isManager(tx, pmAgentId)) ? pmAgentId : null;
+    const { agentEntries } = await deps.settings.read(tx.conn);
+    const pmAgentId = agentEntries.conversation.enabled
+      ? agentEntries.conversation.agentId
+      : null;
+    const usable = (await isConversationAgent(tx, pmAgentId))
+      ? pmAgentId
+      : null;
     if (!usable)
       throw conflict(
         'PM_NOT_CONFIGURED',
         'No project manager agent is configured (settings.pmAgentId must name an active manager agent).',
       );
+    const target = await loadAgentAccess(tx.conn, usable);
+    if (!target || !(await canInvokeAgent(tx.conn, userId, target)))
+      throw forbidden('FORBIDDEN', 'You cannot invoke the configured agent.');
     const row = await tx.conn.query
       .selectFrom('issues')
       .selectAll()
@@ -181,7 +197,7 @@ async function conversation(
     if (!create) throw notFound('Project manager conversation');
     const name = (await deps.users.names(tx.conn, [userId])).get(userId);
     const created = await deps.issues().insertIssue(tx, actor, {
-      title: `${PM_TITLE} · ${name ?? userId}`,
+      title: `${agentEntries.conversation.name} · ${name ?? userId}`,
       description: '',
       statusKey: 'todo',
       priority: 'none',
@@ -210,17 +226,7 @@ async function conversation(
 
 /** The asking member of a manager's run (see the file comment). */
 async function askingMember(deps: PmDeps, auth: RunAuth): Promise<Actor> {
-  const agent = await deps.tx
-    .read()
-    .query.selectFrom('agents')
-    .select('kind')
-    .where('id', '=', auth.agentId)
-    .executeTakeFirst();
-  if (str(agent?.kind) !== 'manager')
-    throw forbidden(
-      'MANAGER_ONLY',
-      'Only a project manager agent may use these reads.',
-    );
+  await requireCapability(deps.tx.read(), auth, 'workspace.read');
   if (!auth.actorUserId)
     throw forbidden('FORBIDDEN', 'This run has no asking member.');
   return { type: 'user', id: auth.actorUserId };

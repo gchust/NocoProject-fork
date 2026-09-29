@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 每日数据库备份（systemd 用户定时器 nocoproject-backup.timer 调用），保留 14 天。说明见 docs/deploy.md。
+# Daily database backup (invoked by the systemd user timer nocoproject-backup.timer), keeps 14 days. See docs/deploy.md.
 set -euo pipefail
 
 DIR="$HOME/nocoproject/backups"

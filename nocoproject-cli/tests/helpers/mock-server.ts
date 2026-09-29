@@ -1,3 +1,4 @@
+import { AGENT_CAPABILITIES } from '../../src/protocol.js';
 /**
  * In-process mock of the NocoProject server: daemon API (§4), agent API (§5) and the
  * NocoBase realtime socket at <base>/ws. Records every call for assertions.
@@ -191,7 +192,7 @@ export class MockServer {
     this.queue.push({
       run: { id: runId, agentId: 'agent-1', runtimeId: runtime?.id ?? 'rt-missing', attempt: 1, priority: 0, createdAt: new Date().toISOString() },
       token: `npr_${randomBytes(20).toString('hex')}`,
-      agent: { id: 'agent-1', name: 'Echo Bot', instructions: 'Be brief.', provider: provider as any, model: null, ...opts.agentExtras },
+      agent: { capabilities: AGENT_CAPABILITIES, configurationRevision: 1, id: 'agent-1', name: 'Echo Bot', instructions: 'Be brief.', provider: provider as any, model: null, ...opts.agentExtras },
       issue: {
         id: issue.id,
         identifier: issue.identifier,
@@ -336,7 +337,7 @@ export class MockServer {
     if (path === '/np/agent/context') {
       const issue = this.issues.get(run.claimed.issue.id);
       const project = run.claimed.project ?? null;
-      return send(200, { data: { run: { id: runId }, agent: { id: 'agent-1', name: 'Echo Bot' }, issue, statusCatalog: [], agentTransitions: TRANSITIONS, project } });
+      return send(200, { data: { run: { id: runId }, agent: { capabilities: AGENT_CAPABILITIES, configurationRevision: 1, id: 'agent-1', name: 'Echo Bot' }, issue, statusCatalog: [], agentTransitions: TRANSITIONS, project } });
     }
     if (path.startsWith('/np/agent/knowledge')) return this.knowledge.route(method, path, body, run.claimed, send);
     if (path.startsWith('/np/agent/pm/')) return this.pm.route(method, path, url, run.claimed, send);

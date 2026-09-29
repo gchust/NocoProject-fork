@@ -13,8 +13,8 @@ import { visibleConfigTabs } from './config-model.js';
 import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 
 /**
- * Route `/config` (§G, "设置"): the workspace settings in the front end instead of the system settings shell. Tabs
- * are child routes — 通用, 成员, 工作流模板, 标签 and (owner/admin) GitHub. Every member opens the page; owner/admin
+ * Route `/config` (§G, "Settings"): the workspace settings in the front end instead of the system settings shell. Tabs
+ * are child routes — General, Members, Workflow templates, Labels and (owner/admin) GitHub. Every member opens the page; owner/admin
  * edit, the others read. The bare URL redirects to `general` once the viewer's role is known.
  */
 export default function ConfigPage(): ReactElement {

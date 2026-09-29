@@ -166,11 +166,17 @@ describe.skipIf(!db)('skills (PostgreSQL)', () => {
     ]);
     const other = await services.skills.create(CAROL, { name: 'Other' });
     await expect(
-      services.agents.update(BOB, agentId, { skillIds: ['missing'] }),
+      services.agents.update(BOB, agentId, {
+        configurationRevision: (await services.agents.get(BOB, agentId))
+          .configurationRevision,
+        skillIds: ['missing'],
+      }),
     ).rejects.toMatchObject({
       code: 'INVALID_SKILL',
     });
     const agent = await services.agents.update(BOB, agentId, {
+      configurationRevision: (await services.agents.get(BOB, agentId))
+        .configurationRevision,
       skillIds: [review.skill.id, other.skill.id],
     });
     expect(agent.skillIds).toHaveLength(2);
@@ -178,9 +184,12 @@ describe.skipIf(!db)('skills (PostgreSQL)', () => {
       'other',
       'review',
     ]);
-    expect(
-      (await services.skills.get(BOB, review.skill.id)).skill.agentCount,
-    ).toBe(1);
+    const reviewDetail = await services.skills.get(BOB, review.skill.id);
+    expect(reviewDetail.skill.agentCount).toBe(1);
+    expect(reviewDetail.agents).toEqual([{ id: agentId, name: 'Dev' }]);
+    expect((await services.skills.get(BOB, other.skill.id)).agents).toEqual([
+      { id: agentId, name: 'Dev' },
+    ]);
     await services.issues.create(BOB, {
       title: 'Work',
       executor: { type: 'agent', id: agentId },

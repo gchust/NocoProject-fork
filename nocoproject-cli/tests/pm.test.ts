@@ -124,7 +124,7 @@ describe('pm commands (manager agent)', () => {
     expect(JSON.parse(r.out).error).toMatchObject({ code: 'MANAGER_ONLY', exitCode: 3 });
     const text = await run(['pm', 'projects'], coderToken, ['i63', 'NP-63']);
     expect(text.code).toBe(3);
-    expect(text.err).toContain('only available to project-manager agents');
+    expect(text.err).toContain('requires workspace.read');
     expect(`${r.out}${text.err}`).not.toContain(coderToken);
   });
 });

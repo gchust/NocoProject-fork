@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # 只取消 PR 上被新提交取代的运行；main 上的运行带部署，不能中途被取消。
+  # Only cancel runs on a PR superseded by a new commit; runs on main carry a deploy and must not be cancelled mid-way.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -78,8 +78,9 @@ jobs:
       - run: pnpm build
       - run: pnpm exec vitest run --exclude "**/*.live.test.ts"
 
-  # main 通过 app 与 cli 后自动部署到 ali-agents（nocosolution/NocoProject/docs/deploy.md）。部署密钥在服务器上被强制命令
-  # np-ci-deploy 限定为只能部署：接收构建产物、备份数据库、替换容器、不健康就回滚。
+  # Automatically deploys to ali-agents after main passes app and cli (nocosolution/NocoProject/docs/deploy.md). On the server
+  # the deploy key is restricted by the forced command np-ci-deploy to deploy only: receive the build output, back up the
+  # database, replace the container, roll back if unhealthy.
   deploy:
     name: deploy
     needs: [app, cli]
@@ -105,7 +106,7 @@ jobs:
           path: ~/.local/share/pnpm/store
           key: pnpm-app-${{ runner.os }}-${{ hashFiles('nocoproject/pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
-      # 构建钩子会把 CLI 安装包打进 dist/client/assets/cli/（scripts/pack-cli.sh）。
+      # The build hook packs the CLI installer into dist/client/assets/cli/ (scripts/pack-cli.sh).
       - run: pnpm build --target linux-x64 --node-version 24
         env:
           APP_BASE_PATH: /main

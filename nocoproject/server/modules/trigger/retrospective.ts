@@ -1,3 +1,4 @@
+import { hasCapability } from '../agent/capabilities.js';
 /**
  * Iteration 4 trigger rules (docs/phase1/iteration-4-contract.md §B, §C). Part of the trigger module: only
  * `trigger.service.ts` hands this file its enqueue functions.
@@ -61,7 +62,11 @@ async function activeManager(tx: Tx, agentId: string): Promise<boolean> {
     .select(['kind', 'archivedAt'])
     .where('id', '=', agentId)
     .executeTakeFirst();
-  return !!row && !row.archivedAt && row.kind === 'manager';
+  return (
+    !!row &&
+    !row.archivedAt &&
+    (await hasCapability(tx.conn, agentId, 'comment.create'))
+  );
 }
 
 /** The issue is executed by an agent other than the manager, or one ran on it. */
@@ -97,8 +102,8 @@ export async function retrospectiveRun(
   if (!view.isDone(issue.statusKey) || view.isDone(change.before.statusKey))
     return [];
   const settings = await deps.settings.read(tx.conn);
-  const managerId = settings.pmAgentId;
-  if (!settings.retrospectiveOnDone || !managerId) return [];
+  const managerId = settings.agentEntries.completion.agentId;
+  if (!settings.agentEntries.completion.enabled || !managerId) return [];
   if (!(await activeManager(tx, managerId))) return [];
   if (!(await workedByAgent(tx, issue, managerId))) return [];
   const { actor } = change;

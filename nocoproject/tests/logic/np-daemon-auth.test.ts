@@ -186,7 +186,13 @@ describe('daemon authentication through the application', () => {
     // Writes use the key: cookie-authenticated writes also need a trusted Origin, which this in-process request lacks.
     const agent = await post(
       '/np/agents',
-      { name: 'Echo', instructions: 'Echo.', runtimeId, provider: 'echo' },
+      {
+        name: 'Echo',
+        instructions: 'Echo.',
+        runtimeId,
+        provider: 'echo',
+        capabilities: ['context.read', 'comment.create', 'issue.execute'],
+      },
       apiKey,
     );
     expect(agent.status).toBe(201);

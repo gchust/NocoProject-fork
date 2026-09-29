@@ -40,7 +40,11 @@ export function AgentSkillsSection({
     selected.some((skillId) => !initial.includes(skillId));
 
   const save = useMutation({
-    mutationFn: () => updateAgent(api, agent.id, { skillIds: selected }),
+    mutationFn: () =>
+      updateAgent(api, agent.id, {
+        skillIds: selected,
+        configurationRevision: agent.configurationRevision,
+      }),
     onSuccess: () =>
       toast.add({ type: 'success', title: t('np.agentSkills.saved') }),
     onError: (error: unknown) =>

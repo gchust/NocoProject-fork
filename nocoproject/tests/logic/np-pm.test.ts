@@ -89,7 +89,10 @@ beforeEach(async () => {
 type Data<T> = { data: T };
 
 async function setPm(agentId: string | null = manager): Promise<void> {
-  await services.workspaceSettings.update(CAROL, { pmAgentId: agentId });
+  await services.workspaceSettings.update(CAROL, {
+    pmAgentId: agentId,
+    retrospectiveOnDone: true,
+  });
 }
 
 async function parsedActivities(issueId: string, action: string) {
@@ -139,7 +142,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
     const patched = await carol<Data<AgentListItemV4>>(
       'PATCH',
       `/np/agents/${manager}`,
-      { reasoningEffort: null },
+      { reasoningEffort: null, configurationRevision: 1 },
     );
     expect(patched.body.data).toMatchObject({
       kind: 'manager',
@@ -153,7 +156,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       executor: { type: 'agent', id: manager },
     });
     expect(created.status).toBe(400);
-    expect(created.body.code).toBe('MANAGER_NOT_EXECUTOR');
+    expect(created.body.code).toBe('CAPABILITY_DENIED');
     const issue = (await services.issues.create(ALICE, {
       title: 'Task',
     })) as IssueV4;
@@ -161,7 +164,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       executor: { type: 'agent', id: manager },
       revision: issue.revision,
     });
-    expect(patched.body.code).toBe('MANAGER_NOT_EXECUTOR');
+    expect(patched.body.code).toBe('CAPABILITY_DENIED');
     const batch = await alice<
       Data<{ drafts: { validation: { errors: string[] } }[] }>
     >('POST', '/np/intake/batches', {
@@ -182,7 +185,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       ],
     });
     expect(drafts.body.data.drafts[0]!.validation.errors).toContain(
-      'a project manager agent cannot execute issues',
+      'the agent needs issue.execute',
     );
   });
 });
@@ -201,7 +204,7 @@ describe.skipIf(!db)('workspace settings (PostgreSQL)', () => {
     expect(
       (await bob('PATCH', '/np/settings', { pmAgentId: manager })).status,
     ).toBe(403);
-    for (const pmAgentId of [coder, 'missing'])
+    for (const pmAgentId of ['missing'])
       expect(
         (await carol('PATCH', '/np/settings', { pmAgentId })).body.code,
       ).toBe('INVALID_PM_AGENT');
@@ -263,7 +266,7 @@ describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
     ).toBe(issueId);
     const [row] = await rows(db!, 'issues', 'id = ?', [issueId]);
     expect(row).toMatchObject({
-      title: '项目经理 · Alice',
+      title: 'Assistant · Alice',
       origin_type: 'pm',
       execution_mode: 'session',
       executor_type: 'agent',
@@ -466,7 +469,7 @@ describe.skipIf(!db)("the manager's reads (PostgreSQL)", () => {
       '/pm/projects',
     );
     expect(denied.status).toBe(403);
-    expect(denied.body.code).toBe('MANAGER_ONLY');
+    expect(denied.body.code).toBe('CAPABILITY_DENIED');
   });
 });
 

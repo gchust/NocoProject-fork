@@ -205,7 +205,7 @@ function RunRow({
   );
 }
 
-/** The process an issue got (iteration 4 §B `process_selected`): the design-first marker, or "直接开发". */
+/** The process an issue got (iteration 4 §B `process_selected`): the design-first marker, or "Straight to development". */
 function SelectedProcess({
   details,
 }: {

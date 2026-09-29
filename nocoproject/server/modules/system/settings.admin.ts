@@ -1,8 +1,12 @@
+import { randomUUID } from 'node:crypto';
+import { validateEntries } from './agent-entries.js';
+import { hasCapability } from '../agent/capabilities.js';
+import { isPostgres, knexOf } from '../shared/db.js';
 /**
  * `GET/PATCH /np/settings` (docs/phase1/iteration-2-contract.md §I): every member reads the workspace settings;
  * owner/admin change them. `prMergedStatus` must be `'none'` or a status of the default workflow. Iteration 3 §C adds
  * `metricThresholds` (partial updates merge over the stored thresholds). Iteration 4 adds `defaultProcess`
- * (auto | direct | design_first), `pmAgentId` (null or an active agent of kind manager, 400 `INVALID_PM_AGENT`) and
+ * (auto | direct | design_first), `pmAgentId` (null or an accessible active agent with comment.create, 400 `INVALID_PM_AGENT`) and
  * `retrospectiveOnDone`. Phase 2 (NP-77) adds `stageRunLimit` (1–100) and `stageRunWindowHours` (1–720), the loop guard
  * of `runExecutor` stage actions.
  */
@@ -110,7 +114,7 @@ export function validateThresholds(
   return result;
 }
 
-/** Iteration 4: null, or an active agent of kind manager. */
+/** Iteration 4: null, or an accessible active agent with comment.create. */
 async function validatePmAgent(
   conn: Conn,
   value: unknown,
@@ -124,10 +128,14 @@ async function validatePmAgent(
           .where('id', '=', value)
           .executeTakeFirst()
       : undefined;
-  if (!agent || agent.archivedAt || agent.kind !== 'manager')
+  if (
+    !agent ||
+    agent.archivedAt ||
+    !(await hasCapability(conn, value as string, 'comment.create'))
+  )
     throw invalid(
       'INVALID_PM_AGENT',
-      'pmAgentId must be null or an active agent of kind manager.',
+      'Choose an active agent with comment.create.',
     );
   return value as string;
 }
@@ -251,14 +259,49 @@ export function createWorkspaceSettingsService(deps: {
       await deps.tx.run(async (tx) => {
         if (!isAdmin(await viewerOf(tx.conn, actor)))
           forbid('Only an owner or admin may change the workspace settings.');
+        if (isPostgres(tx.conn))
+          await (
+            await knexOf(tx.conn)
+          ).raw('SELECT pg_advisory_xact_lock(hashtext(?))', [
+            'np:agent-entries',
+          ]);
         const values = await patchValues(
           tx.conn,
           deps.settings,
           deps.workflows,
           patch ?? {},
         );
-        if (Object.keys(values).length > 0)
-          await deps.settings.write(tx.conn, values);
+        const agentEntries =
+          patch.agentEntries !== undefined
+            ? await validateEntries(
+                tx.conn,
+                patch.agentEntries,
+                (await deps.settings.read(tx.conn)).agentEntries,
+                actor.id ?? '',
+              )
+            : undefined;
+        const before = await deps.settings.read(tx.conn);
+        const after = await deps.settings.write(tx.conn, {
+          ...values,
+          ...(agentEntries ? { agentEntries } : {}),
+        });
+        if (
+          JSON.stringify(before.agentEntries) !==
+          JSON.stringify(after.agentEntries)
+        )
+          await tx.conn.query
+            .insertInto('agentConfigurationChanges')
+            .values({
+              id: randomUUID(),
+              agentId: '@entries',
+              actorUserId: actor.id,
+              revision: after.agentEntries.revision,
+              before: JSON.stringify(before.agentEntries),
+              after: JSON.stringify(after.agentEntries),
+              createdAt: new Date(),
+            })
+            .execute();
+        tx.emit({ type: 'agents.changed' });
       });
       return view(deps.tx.read(), actor);
     },

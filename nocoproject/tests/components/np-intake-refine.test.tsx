@@ -1,5 +1,5 @@
 /**
- * NP-120: revising AI 整理 drafts by an instruction. The block shows only when the batch says AI can revise it; a
+ * NP-120: revising AI draft's drafts by an instruction. The block shows only when the batch says AI can revise it; a
  * revision sends the current table (unsaved edits included), replaces the table and lists the instruction; undo puts
  * the previous table back; a failure keeps the table and the instruction.
  */
@@ -91,7 +91,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('AI 整理: ask AI to revise the drafts (NP-120)', () => {
+describe('AI draft: ask AI to revise the drafts (NP-120)', () => {
   it('is absent when AI cannot revise the batch', async () => {
     await open(false);
     expect(

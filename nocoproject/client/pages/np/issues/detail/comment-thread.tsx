@@ -32,7 +32,7 @@ export interface ThreadContext {
   readonly userName: (userId: string) => string;
   readonly replyingToId: string | null;
   readonly onReply: (comment: IssueComment) => void;
-  /** Iteration 4: the "方案" / "总结" tag of a proposal or retrospective comment. */
+  /** Iteration 4: the "Proposal" / "Retrospective" tag of a proposal or retrospective comment. */
   readonly commentTag?: (comment: IssueComment) => CommentTag;
 }
 

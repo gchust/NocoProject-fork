@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Workflow stage effects (NP-77 方案 §1–§3), on a real PostgreSQL: runExecutor with a preset agent (and its downgrade
+ * Workflow stage effects (NP-77 design proposal §1–§3), on a real PostgreSQL: runExecutor with a preset agent (and its downgrade
  * to a suggestion when the owner may not invoke it), suggestExecutor, notifyOwner, the checklist snapshot in the claim
  * payload, a failing effect that leaves the transition and the other effects in place, and the loop guard. The seeded
  * templates pass the definition validation. Entry conditions: `np-stage-guards.test.ts`.

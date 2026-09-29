@@ -1,3 +1,7 @@
+import { useApiClient } from '@nocobase/app-client';
+import { useQuery } from '@tanstack/react-query';
+import { fetchWorkspaceSettings } from '@/pages/np/api-iter2';
+import { npKeys } from '@/pages/np/constants';
 import { useTranslation } from '@nocobase/i18n/client';
 import {
   routeKey,
@@ -42,6 +46,7 @@ function isDesktop() {
 }
 
 interface NavigationTreeProps {
+  readonly labelOverride?: string;
   readonly collapsed: boolean;
   readonly inPopover?: boolean;
   readonly item: RouteNavigationItem;
@@ -49,7 +54,34 @@ interface NavigationTreeProps {
   readonly selectedKey: string | undefined;
 }
 
-export function NavigationTree({
+export function NavigationTree(
+  props: NavigationTreeProps,
+): ReactElement | null {
+  return props.item.route.path === '/pm' ? (
+    <ConversationNavigationTree {...props} />
+  ) : (
+    <NavigationTreeItem {...props} />
+  );
+}
+
+function ConversationNavigationTree(
+  props: NavigationTreeProps,
+): ReactElement | null {
+  const api = useApiClient();
+  const settings = useQuery({
+    queryKey: npKeys.settings,
+    queryFn: () => fetchWorkspaceSettings(api),
+  });
+  return (
+    <NavigationTreeItem
+      {...props}
+      labelOverride={settings.data?.agentEntries?.conversation.name}
+    />
+  );
+}
+
+function NavigationTreeItem({
+  labelOverride,
   collapsed,
   inPopover = false,
   item,
@@ -64,9 +96,11 @@ export function NavigationTree({
   const restoringFocusRef = useRef(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const { t } = useTranslation(item.route.packageName);
-  const label = t(item.route.navigation!.title, {
-    defaultValue: item.route.navigation!.title,
-  });
+  const label =
+    labelOverride ??
+    t(item.route.navigation!.title, {
+      defaultValue: item.route.navigation!.title,
+    });
   const isSelected = routeKey(item.route) === selectedKey;
   const children = item.children ?? EMPTY_ARRAY;
   const Icon = item.route.navigation?.icon;
