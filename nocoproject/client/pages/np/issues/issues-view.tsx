@@ -21,6 +21,7 @@ import {
   npKeys,
   statusLabelKey,
 } from '../constants.js';
+import { canEditIssue } from '../permissions.js';
 import type {
   AgentsTopicPayload,
   IssueFilters,
@@ -28,6 +29,7 @@ import type {
   IssuesTopicPayload,
 } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
+import { useWorkspaceViewer } from '../use-workspace-viewer.js';
 import { IssueBoard } from './board/board.js';
 import { useIssueColumns } from './columns.js';
 import {
@@ -96,6 +98,8 @@ export function IssuesView({
   const filters: IssueFilters = { ...urlFilters, ...fixedFilters };
   const list = useIssuePages(filters, view === 'list');
   const board = useBoardPages(filters, view === 'board');
+  const { viewer } = useWorkspaceViewer();
+  const canEdit = canEditIssue(viewer);
 
   const projects = useQuery({
     queryKey: npKeys.projects,
@@ -248,6 +252,7 @@ export function IssuesView({
         issueLink={detailBase ? issueLink : undefined}
         columnMore={board.more}
         fill
+        canEdit={canEdit}
       />
     );
   } else if (rows.length === 0 && !filtered) {

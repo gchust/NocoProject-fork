@@ -33,7 +33,11 @@ import { catalogFromWorkflow, npKeys } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
 import { type BoardColumnMore, IssueBoard } from '../../issues/board/board.js';
 import { useBoardPages } from '../../issues/use-issue-pages.js';
-import { canDeleteProject, canEditProject } from '../../permissions.js';
+import {
+  canDeleteProject,
+  canEditIssue,
+  canEditProject,
+} from '../../permissions.js';
 import type { BoardGroup, Member, ProjectDetail } from '../../types.js';
 import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { ProjectStatusBadge } from '../project-badges.js';
@@ -138,6 +142,7 @@ function ProjectDetailView({
       workspaceMembers={members.data ?? []}
       canEdit={canEditProject(viewer, project.data)}
       canDelete={canDeleteProject(viewer)}
+      canEditIssues={canEditIssue(viewer)}
     />
   );
 }
@@ -155,6 +160,7 @@ function ProjectLayout({
   workspaceMembers,
   canEdit,
   canDelete,
+  canEditIssues,
 }: {
   readonly project: ProjectDetail;
   readonly groups: readonly BoardGroup[] | undefined;
@@ -162,6 +168,8 @@ function ProjectLayout({
   readonly workspaceMembers: readonly Member[];
   readonly canEdit: boolean;
   readonly canDelete: boolean;
+  /** `issues/edit` (NP-161): gates "New issue" here and dragging cards on the Issues tab's board. */
+  readonly canEditIssues: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const format = useNpFormatters();
@@ -255,20 +263,22 @@ function ProjectLayout({
             </div>
           </div>
           <div className='flex shrink-0 items-center gap-2'>
-            <Button
-              nativeButton={false}
-              render={
-                <Link
-                  to={{
-                    pathname: '/issues/new',
-                    search: `?project=${encodeURIComponent(project.id)}`,
-                  }}
-                />
-              }
-            >
-              <PlusIcon data-icon='inline-start' />
-              {t('np.issues.new')}
-            </Button>
+            {canEditIssues ? (
+              <Button
+                nativeButton={false}
+                render={
+                  <Link
+                    to={{
+                      pathname: '/issues/new',
+                      search: `?project=${encodeURIComponent(project.id)}`,
+                    }}
+                  />
+                }
+              >
+                <PlusIcon data-icon='inline-start' />
+                {t('np.issues.new')}
+              </Button>
+            ) : null}
             <ProjectActions project={project} canDelete={canDelete} />
           </div>
         </header>
@@ -326,6 +336,7 @@ function ProjectLayout({
                 columnMore={columnMore}
                 catalog={catalog}
                 issueLink={(issue) => `/issues/${encodeURIComponent(issue.id)}`}
+                canEdit={canEditIssues}
               />
             ) : (
               <div

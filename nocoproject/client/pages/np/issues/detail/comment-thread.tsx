@@ -32,6 +32,8 @@ export interface ThreadContext {
   readonly userName: (userId: string) => string;
   readonly replyingToId: string | null;
   readonly onReply: (comment: IssueComment) => void;
+  /** `issues/edit` (NP-161): without it, replying would only 403, so the button does not render. */
+  readonly canReply: boolean;
   /** Iteration 4: the "Proposal" / "Retrospective" tag of a proposal or retrospective comment. */
   readonly commentTag?: (comment: IssueComment) => CommentTag;
 }
@@ -230,16 +232,18 @@ function CommentBlock({
               {t('np.threads.resolve')}
             </Button>
           ) : null}
-          <Button
-            variant='ghost'
-            size='xs'
-            className='text-muted-foreground'
-            aria-label={t('np.comment.replyTo', { name })}
-            onClick={() => context.onReply(comment)}
-          >
-            <ReplyIcon data-icon='inline-start' />
-            {t('np.comment.reply')}
-          </Button>
+          {context.canReply ? (
+            <Button
+              variant='ghost'
+              size='xs'
+              className='text-muted-foreground'
+              aria-label={t('np.comment.replyTo', { name })}
+              onClick={() => context.onReply(comment)}
+            >
+              <ReplyIcon data-icon='inline-start' />
+              {t('np.comment.reply')}
+            </Button>
+          ) : null}
         </div>
       </header>
       <NpMarkdown content={comment.content} className='pl-8' />

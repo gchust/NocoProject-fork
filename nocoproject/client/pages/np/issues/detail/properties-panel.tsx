@@ -38,7 +38,11 @@ import {
   statusLabelKey,
 } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
-import { canChangeIssueOwner, canCloseIssue } from '../../permissions.js';
+import {
+  canChangeIssueOwner,
+  canCloseIssue,
+  canEditIssue,
+} from '../../permissions.js';
 import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import type {
   AgentListItem,
@@ -75,9 +79,10 @@ const PANEL_CARD =
 /**
  * The right-hand panel: editable properties, dates, labels, subscribers, timestamps and the execution log.
  *
- * Controls the §B rules would refuse are disabled rather than hidden, so the value stays readable: the owner picker
- * and the done / cancelled statuses for anyone but the owner, the project lead and owner/admin; agents the viewer
- * cannot invoke in the executor picker. The server enforces the same rules.
+ * Controls the §B rules would refuse are disabled rather than hidden, so the value stays readable: every field
+ * without `issues/edit` (NP-161, `canEditIssue`); the owner picker and the done / cancelled statuses on top of that
+ * for anyone but the owner, the project lead and owner/admin; agents the viewer cannot invoke in the executor
+ * picker. The server enforces the same rules.
  */
 export function PropertiesPanel({
   detail,
@@ -133,8 +138,10 @@ export function PropertiesPanel({
 
   const projectId = detail.project?.id ?? issue.projectId ?? null;
   const project = projects.data?.find((item) => item.id === projectId);
-  const canClose = canCloseIssue(viewer, issue, project?.leadUserId);
-  const canReassign = canChangeIssueOwner(viewer, issue, project?.leadUserId);
+  const canEdit = canEditIssue(viewer);
+  const canClose = canEdit && canCloseIssue(viewer, issue, project?.leadUserId);
+  const canReassign =
+    canEdit && canChangeIssueOwner(viewer, issue, project?.leadUserId);
 
   const statusItems = statusCatalog.map((entry) => ({
     value: entry.key,
@@ -171,7 +178,7 @@ export function PropertiesPanel({
           <Select
             items={statusItems}
             value={issue.statusKey}
-            disabled={busy}
+            disabled={busy || !canEdit}
             onValueChange={(value) => {
               if (value && value !== issue.statusKey) {
                 confirmed.apply({ statusKey: value });
@@ -208,7 +215,7 @@ export function PropertiesPanel({
           <Select
             items={priorityItems}
             value={issue.priority}
-            disabled={busy}
+            disabled={busy || !canEdit}
             onValueChange={(value: IssuePriority | null) => {
               if (value && value !== issue.priority) {
                 update.mutate({ priority: value });
@@ -275,7 +282,7 @@ export function PropertiesPanel({
             userExecutorName={
               issue.executorType === 'user' ? issue.executorName : null
             }
-            disabled={busy}
+            disabled={busy || !canEdit}
             onChange={(executor) => confirmed.apply({ executor })}
           />
         </PropertyRow>
@@ -295,7 +302,7 @@ export function PropertiesPanel({
                 id='np-prop-labels'
                 labels={labels.data ?? detail.labels}
                 value={detail.labels.map((label) => label.id)}
-                disabled={busy}
+                disabled={busy || !canEdit}
                 onChange={(labelIds) => update.mutate({ labelIds })}
               />
             </div>
@@ -319,7 +326,7 @@ export function PropertiesPanel({
             value={projectId}
             noneLabel={t('np.issueForm.noProject')}
             noneAsDash
-            disabled={busy || !projects.data}
+            disabled={busy || !canEdit || !projects.data}
             onChange={(value) => update.mutate({ projectId: value })}
           />
         </PropertyRow>
@@ -327,7 +334,7 @@ export function PropertiesPanel({
           <DateField
             id='np-prop-start'
             value={issue.startDate}
-            disabled={busy}
+            disabled={busy || !canEdit}
             clearLabel={t('np.dates.clearStart')}
             onChange={(value) => update.mutate({ startDate: value })}
           />
@@ -336,7 +343,7 @@ export function PropertiesPanel({
           <DateField
             id='np-prop-due'
             value={issue.dueDate}
-            disabled={busy}
+            disabled={busy || !canEdit}
             clearLabel={t('np.dates.clearDue')}
             onChange={(value) => update.mutate({ dueDate: value })}
           />
@@ -348,7 +355,7 @@ export function PropertiesPanel({
           <Switch
             id='np-prop-auto-execute'
             checked={issue.autoExecuteSubtasks ?? false}
-            disabled={busy}
+            disabled={busy || !canEdit}
             onCheckedChange={(checked) =>
               update.mutate({ autoExecuteSubtasks: checked })
             }
@@ -362,7 +369,7 @@ export function PropertiesPanel({
             <Switch
               id='np-prop-session-mode'
               checked={sessionMode}
-              disabled={busy}
+              disabled={busy || !canEdit}
               onCheckedChange={(checked) =>
                 update.mutate({ executionMode: checked ? 'session' : 'task' })
               }
@@ -383,6 +390,7 @@ export function PropertiesPanel({
             // Iteration 4 §B: the process changes only before work starts (409 `PROCESS_LOCKED` otherwise).
             disabled={
               busy ||
+              !canEdit ||
               statusCategory(issue.statusKey, statusCatalog) !== 'unstarted'
             }
             onChange={(process) => {

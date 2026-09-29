@@ -33,6 +33,8 @@ import { ProposalsCard } from './proposals-card.js';
 import { PullRequestsSection } from './pull-requests-section.js';
 import { SubtasksSection } from './subtasks-section.js';
 import { commentTag } from '../../api-iter4.js';
+import { canEditIssue } from '../../permissions.js';
+import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { NpProcessBadge } from '../process-fields.js';
 import { buildTimeline, mergeActivities } from './timeline.js';
 import { useIssueDecisions } from './use-issue-decisions.js';
@@ -68,7 +70,9 @@ function coveredByDecisions(decisions: readonly InboxItem[]): {
  * live run), "Waiting for you", description, attachments (NP-78; only with files or once revealed), pending approvals and executor proposals not already in a decision, then pull
  * requests,
  * sub-issues and dependencies as cards, the activity timeline (older activities on demand, virtualized when long,
- * iteration 3 §D / §H 8) and the comment composer pinned under it (⌘Enter sends).
+ * iteration 3 §D / §H 8) and the comment composer pinned under it (⌘Enter sends). Without `issues/edit` (NP-161,
+ * `canEditIssue`) the title, description, composer, replies, and the subtask, dependency and attachment write
+ * controls do not render — pull requests are governed by their own scope, not this one.
  */
 export function IssueMain({
   detail,
@@ -82,6 +86,8 @@ export function IssueMain({
   const { t } = useTranslation();
   const api = useApiClient();
   const { issue } = detail;
+  const { viewer } = useWorkspaceViewer();
+  const canEdit = canEditIssue(viewer);
   const editorRef = useRef<NpRichTextHandle>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<IssueComment | null>(null);
@@ -160,7 +166,7 @@ export function IssueMain({
                 <span className='truncate'>{detail.parent.title}</span>
               </Link>
             ) : null}
-            <IssueTitle issue={issue} />
+            <IssueTitle issue={issue} canEdit={canEdit} />
             <div className='flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground'>
               <span className='font-mono text-xs'>{issue.identifier}</span>
               <NpStatusBadge
@@ -199,12 +205,13 @@ export function IssueMain({
             agents={agents}
             decisions={decisions}
           />
-          <IssueDescription issue={issue} agents={agents} />
+          <IssueDescription issue={issue} agents={agents} canEdit={canEdit} />
           {showAttachments ? (
             <AttachmentsSection
               issueId={issue.id}
               attachments={attachmentList}
               initialUploading={attachmentList.length === 0}
+              canEdit={canEdit}
             />
           ) : null}
           <ApprovalsCard
@@ -241,6 +248,7 @@ export function IssueMain({
                 issueId={issue.id}
                 subtasks={detail.subtasks}
                 catalog={detail.statusCatalog}
+                canEdit={canEdit}
               />
             </div>
           ) : (
@@ -248,17 +256,18 @@ export function IssueMain({
               issueId={issue.id}
               subtasks={detail.subtasks}
               catalog={detail.statusCatalog}
+              canEdit={canEdit}
             />
           )}
           {showDependencies ? (
             <div className='rounded-lg border bg-card p-4 text-card-foreground'>
-              <DependenciesSection detail={detail} />
+              <DependenciesSection detail={detail} canEdit={canEdit} />
             </div>
           ) : null}
-          {!showPrs || !showDependencies || !showAttachments ? (
+          {!showPrs || (canEdit && (!showDependencies || !showAttachments)) ? (
             <div className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
               <span>{t('np.issueAdd.label')}</span>
-              {!showAttachments ? (
+              {!showAttachments && canEdit ? (
                 <Button
                   variant='outline'
                   size='sm'
@@ -270,7 +279,7 @@ export function IssueMain({
                   {t('np.issueAdd.attachment')}
                 </Button>
               ) : null}
-              {!showDependencies ? (
+              {!showDependencies && canEdit ? (
                 <Button
                   variant='outline'
                   size='sm'
@@ -323,6 +332,7 @@ export function IssueMain({
               userName={userName}
               replyingToId={replyTo?.id ?? null}
               commentTag={(comment) => commentTag(comment, detail.runs)}
+              canReply={canEdit}
               onReply={(comment) => {
                 setReplyTo(comment);
                 editorRef.current?.focus();
@@ -331,24 +341,26 @@ export function IssueMain({
           </section>
         </div>
       </div>
-      <div
-        ref={composerRef}
-        className='sticky bottom-0 border-t bg-background/95 backdrop-blur-md'
-      >
-        <div className='w-full px-6 py-3 md:px-8'>
-          <CommentComposer
-            issueId={issue.id}
-            executor={{ type: issue.executorType, id: issue.executorId }}
-            agents={agents}
-            agentName={agentName}
-            replyTo={replyTo}
-            replyToName={replyToName}
-            onCancelReply={() => setReplyTo(null)}
-            editorRef={editorRef}
-            onSent={revealSent}
-          />
+      {canEdit ? (
+        <div
+          ref={composerRef}
+          className='sticky bottom-0 border-t bg-background/95 backdrop-blur-md'
+        >
+          <div className='w-full px-6 py-3 md:px-8'>
+            <CommentComposer
+              issueId={issue.id}
+              executor={{ type: issue.executorType, id: issue.executorId }}
+              agents={agents}
+              agentName={agentName}
+              replyTo={replyTo}
+              replyToName={replyToName}
+              onCancelReply={() => setReplyTo(null)}
+              editorRef={editorRef}
+              onSent={revealSent}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
     </>
   );
 }

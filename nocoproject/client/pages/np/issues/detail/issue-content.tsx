@@ -16,8 +16,17 @@ import type { AgentListItem, Issue } from '../../types.js';
 import { useMentionCandidates } from './mention-candidates.js';
 import { useIssueUpdate } from './use-issue-update.js';
 
-/** The issue title as the page heading; click (or the edit button) to rename, Enter saves, Escape cancels. */
-export function IssueTitle({ issue }: { readonly issue: Issue }): ReactElement {
+/**
+ * The issue title as the page heading; click (or the edit button) to rename, Enter saves, Escape cancels. Without
+ * `issues/edit` (NP-161) the edit button does not render, since the server refuses the same write.
+ */
+export function IssueTitle({
+  issue,
+  canEdit = true,
+}: {
+  readonly issue: Issue;
+  readonly canEdit?: boolean;
+}): ReactElement {
   const { t } = useTranslation();
   const update = useIssueUpdate(issue);
   const [draft, setDraft] = useState<string | null>(null);
@@ -75,15 +84,17 @@ export function IssueTitle({ issue }: { readonly issue: Issue }): ReactElement {
       <h1 className='min-w-0 font-heading text-2xl font-semibold tracking-tight wrap-anywhere'>
         {issue.title}
       </h1>
-      <Button
-        variant='ghost'
-        size='icon-sm'
-        aria-label={t('np.issue.editTitle')}
-        className='mt-0.5 shrink-0 opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
-        onClick={() => setDraft(issue.title)}
-      >
-        <PencilIcon />
-      </Button>
+      {canEdit ? (
+        <Button
+          variant='ghost'
+          size='icon-sm'
+          aria-label={t('np.issue.editTitle')}
+          className='mt-0.5 shrink-0 opacity-60 group-hover:opacity-100 focus-visible:opacity-100'
+          onClick={() => setDraft(issue.title)}
+        >
+          <PencilIcon />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -96,9 +107,11 @@ export function IssueTitle({ issue }: { readonly issue: Issue }): ReactElement {
 export function IssueDescription({
   issue,
   agents = [],
+  canEdit = true,
 }: {
   readonly issue: Issue;
   readonly agents?: readonly AgentListItem[];
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -169,30 +182,34 @@ export function IssueDescription({
     return (
       <div className='flex items-center gap-2 text-sm text-muted-foreground'>
         <p>{t('np.issue.noDescription')}</p>
-        <Button
-          variant='ghost'
-          size='sm'
-          className='text-muted-foreground'
-          onClick={() => setDraft(description)}
-        >
-          <PencilIcon data-icon='inline-start' />
-          {t('np.issue.editDescription')}
-        </Button>
+        {canEdit ? (
+          <Button
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground'
+            onClick={() => setDraft(description)}
+          >
+            <PencilIcon data-icon='inline-start' />
+            {t('np.issue.editDescription')}
+          </Button>
+        ) : null}
       </div>
     );
   }
   return (
     <div className='group relative'>
       <NpMarkdown content={description} className='max-w-3xl' />
-      <Button
-        variant='ghost'
-        size='sm'
-        className='mt-2 text-muted-foreground'
-        onClick={() => setDraft(description)}
-      >
-        <PencilIcon data-icon='inline-start' />
-        {t('np.issue.editDescription')}
-      </Button>
+      {canEdit ? (
+        <Button
+          variant='ghost'
+          size='sm'
+          className='mt-2 text-muted-foreground'
+          onClick={() => setDraft(description)}
+        >
+          <PencilIcon data-icon='inline-start' />
+          {t('np.issue.editDescription')}
+        </Button>
+      ) : null}
     </div>
   );
 }

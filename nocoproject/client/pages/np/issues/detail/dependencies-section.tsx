@@ -62,8 +62,11 @@ function DependencyRow({
  */
 export function DependenciesSection({
   detail,
+  canEdit = true,
 }: {
   readonly detail: IssueDetail;
+  /** `issues/edit` (NP-161): without it, adding or removing a blocker does not render. */
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -139,18 +142,24 @@ export function DependenciesSection({
                 dependency={dependency}
                 catalog={statusCatalog}
                 removing={remove.isPending}
-                onRemove={() => remove.mutate(dependency.dependencyId)}
+                onRemove={
+                  canEdit
+                    ? () => remove.mutate(dependency.dependencyId)
+                    : undefined
+                }
               />
             ))}
           </ul>
         ) : null}
-        <IssuePicker
-          exclude={exclude}
-          disabled={add.isPending}
-          aria-label={t('np.dependencies.add')}
-          placeholder={t('np.dependencies.addPlaceholder')}
-          onPick={(picked) => add.mutate(picked.id)}
-        />
+        {canEdit ? (
+          <IssuePicker
+            exclude={exclude}
+            disabled={add.isPending}
+            aria-label={t('np.dependencies.add')}
+            placeholder={t('np.dependencies.addPlaceholder')}
+            onPick={(picked) => add.mutate(picked.id)}
+          />
+        ) : null}
       </div>
       {blocks.length > 0 ? (
         <div className='space-y-2'>

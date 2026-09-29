@@ -59,10 +59,13 @@ export function SubtasksSection({
   issueId,
   subtasks,
   catalog,
+  canEdit = true,
 }: {
   readonly issueId: string;
   readonly subtasks: readonly SubtaskSummary[];
   readonly catalog: readonly StatusCatalogEntry[];
+  /** `issues/edit` (NP-161): without it, "AI breakdown" and "New sub-issue" do not render. */
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -118,30 +121,32 @@ export function SubtasksSection({
             </span>
           ) : null}
         </h2>
-        <div className='flex gap-1'>
-          <Button
-            variant='ghost'
-            size='sm'
-            disabled={breakdown.isPending}
-            onClick={() => breakdown.mutate()}
-          >
-            {breakdown.isPending ? (
-              <Spinner data-icon='inline-start' />
-            ) : (
-              <SparklesIcon data-icon='inline-start' />
-            )}
-            {t('np.intake.aiBreakdown')}
-          </Button>
-          <Button
-            variant='ghost'
-            size='sm'
-            nativeButton={false}
-            render={<Link to='new-subtask' />}
-          >
-            <PlusIcon data-icon='inline-start' />
-            {t('np.subtasks.new')}
-          </Button>
-        </div>
+        {canEdit ? (
+          <div className='flex gap-1'>
+            <Button
+              variant='ghost'
+              size='sm'
+              disabled={breakdown.isPending}
+              onClick={() => breakdown.mutate()}
+            >
+              {breakdown.isPending ? (
+                <Spinner data-icon='inline-start' />
+              ) : (
+                <SparklesIcon data-icon='inline-start' />
+              )}
+              {t('np.intake.aiBreakdown')}
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              nativeButton={false}
+              render={<Link to='new-subtask' />}
+            >
+              <PlusIcon data-icon='inline-start' />
+              {t('np.subtasks.new')}
+            </Button>
+          </div>
+        ) : null}
       </div>
       {empty ? null : (
         <div className='space-y-3'>

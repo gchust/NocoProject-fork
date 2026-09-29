@@ -54,12 +54,14 @@ function Column({
   issueLink,
   more,
   fill = false,
+  canEdit = true,
 }: {
   readonly column: BoardColumn;
   readonly catalog: readonly StatusCatalogEntry[];
   readonly issueLink?: IssueLink;
   readonly more?: BoardColumnMore;
   readonly fill?: boolean;
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
@@ -117,7 +119,11 @@ function Column({
               items={column.issues}
               itemKey={(issue) => issue.id}
               renderItem={(issue) => (
-                <BoardCard issue={issue} issueLink={issueLink} />
+                <BoardCard
+                  issue={issue}
+                  issueLink={issueLink}
+                  canEdit={canEdit}
+                />
               )}
             />
           )}
@@ -143,6 +149,7 @@ function Column({
  * The issue board (§J 1): a column per workflow status, cards dragged between columns to change status. Order inside
  * a column follows the server (latest activity first) and is not persisted, so a drop within the same column does
  * nothing. A column shows its first page with "load more" (iteration 3 §D) and virtualizes past 100 cards (§H 8).
+ * Without `issues/edit` (NP-161) cards are not draggable, since a drop would only 403.
  */
 export function IssueBoard({
   groups,
@@ -150,6 +157,7 @@ export function IssueBoard({
   issueLink,
   columnMore,
   fill = false,
+  canEdit = true,
 }: {
   readonly groups: readonly BoardGroup[];
   readonly catalog: readonly StatusCatalogEntry[];
@@ -162,6 +170,7 @@ export function IssueBoard({
    * own and the columns scroll sideways. The parent must bound the height.
    */
   readonly fill?: boolean;
+  readonly canEdit?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const move = useBoardMove(catalog);
@@ -212,6 +221,7 @@ export function IssueBoard({
 
   function handleDragEnd(event: DragEndEvent): void {
     setActive(null);
+    if (!canEdit) return;
     const issue = findIssue(String(event.active.id));
     const target = resolveDropStatus(
       event.over ? String(event.over.id) : null,
@@ -251,6 +261,7 @@ export function IssueBoard({
               issueLink={issueLink}
               more={columnMore?.[column.statusKey]}
               fill={fill}
+              canEdit={canEdit}
             />
           ))}
         </div>

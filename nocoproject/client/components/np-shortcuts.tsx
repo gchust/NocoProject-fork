@@ -109,15 +109,20 @@ export function NpSearchDialog({
 /**
  * The keyboard shortcuts of the NocoProject pages (§H 7): `C` creates an issue, ⌘K / Ctrl+K opens the search. Each
  * top-level NocoProject page renders one (the pages are siblings, so exactly one listens at a time). `C` is ignored
- * while typing or while a dialog is open. `showTrigger` also renders a search button for pointer users.
+ * while typing, while a dialog is open, or without `issues/edit` (NP-161, `canCreate`, since it would only open a
+ * form that 403s) — callers that already compute the viewer's scope pass it; others default to allowed, matching
+ * the page's own "New issue" button when neither computes it. `showTrigger` also renders a search button for
+ * pointer users.
  */
 export function NpShortcuts({
   onCreate,
   showTrigger = false,
+  canCreate = true,
 }: {
   /** Replaces the default "go to /issues/new", for a page that opens its own create dialog. */
   readonly onCreate?: () => void;
   readonly showTrigger?: boolean;
+  readonly canCreate?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -143,13 +148,14 @@ export function NpShortcuts({
       if (document.querySelector('[role="dialog"], [role="alertdialog"]')) {
         return;
       }
+      if (!canCreate) return;
       event.preventDefault();
       if (onCreateRef.current) onCreateRef.current();
       else void navigate('/issues/new');
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigate]);
+  }, [navigate, canCreate]);
 
   return (
     <>

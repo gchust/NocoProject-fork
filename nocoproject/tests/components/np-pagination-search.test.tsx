@@ -16,6 +16,10 @@ const realtime = vi.hoisted(() => ({
   onOpen: vi.fn(() => () => {}),
 }));
 
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@nocobase/app-client', async (original) => ({
   ...(await original<typeof import('@nocobase/app-client')>()),
   useApiClient: () => api,
@@ -23,6 +27,16 @@ vi.mock('@nocobase/app-client', async (original) => ({
 }));
 
 afterEach(() => api.request.mockReset());
+
+/** `np/me` answered for every `IssuesPage` render here: a plain member, full `issues/edit`. */
+function withMe(
+  fallback: (options: RequestOptions) => unknown,
+): (options: RequestOptions) => unknown {
+  return (options) =>
+    options.path === 'np/me'
+      ? { data: { userId: 'u1', name: 'Zhou' } }
+      : fallback(options);
+}
 
 function issue(id: string, statusKey = 'todo'): IssueListItem {
   return {
@@ -41,14 +55,14 @@ function issue(id: string, statusKey = 'todo'): IssueListItem {
 describe('issue list pages (§D)', () => {
   it('loads the next cursor page on "Load more" and appends it', async () => {
     const user = userEvent.setup();
-    api.request.mockImplementation((options: RequestOptions) => {
-      if (options.path !== 'np/issues') return Promise.resolve({ data: [] });
-      return Promise.resolve(
-        options.query?.cursor === 'c2'
+    api.request.mockImplementation(
+      withMe((options) => {
+        if (options.path !== 'np/issues') return { data: [] };
+        return options.query?.cursor === 'c2'
           ? { data: [issue('3')], nextCursor: null }
-          : { data: [issue('1'), issue('2')], nextCursor: 'c2' },
-      );
-    });
+          : { data: [issue('1'), issue('2')], nextCursor: 'c2' };
+      }),
+    );
     await renderNpRoutes(<Route path='/issues' element={<IssuesPage />} />, {
       url: '/issues?view=list',
     });
@@ -69,35 +83,37 @@ describe('issue list pages (§D)', () => {
 
   it('loads more cards into one board column', async () => {
     const user = userEvent.setup();
-    api.request.mockImplementation((options: RequestOptions) => {
-      if (options.path !== 'np/issues') return Promise.resolve({ data: [] });
-      if (options.query?.statusKey === 'todo') {
-        return Promise.resolve({
+    api.request.mockImplementation(
+      withMe((options) => {
+        if (options.path !== 'np/issues') return { data: [] };
+        if (options.query?.statusKey === 'todo') {
+          return {
+            data: {
+              groups: [
+                {
+                  statusKey: 'todo',
+                  issues: [issue('5')],
+                  hasMore: false,
+                  nextCursor: null,
+                },
+              ],
+            },
+          };
+        }
+        return {
           data: {
             groups: [
               {
                 statusKey: 'todo',
-                issues: [issue('5')],
-                hasMore: false,
-                nextCursor: null,
+                issues: [issue('4')],
+                hasMore: true,
+                nextCursor: 't2',
               },
             ],
           },
-        });
-      }
-      return Promise.resolve({
-        data: {
-          groups: [
-            {
-              statusKey: 'todo',
-              issues: [issue('4')],
-              hasMore: true,
-              nextCursor: 't2',
-            },
-          ],
-        },
-      });
-    });
+        };
+      }),
+    );
     await renderNpRoutes(<Route path='/issues' element={<IssuesPage />} />, {
       url: '/issues?view=board',
     });
@@ -158,8 +174,8 @@ describe('long issue tables (§H 8)', () => {
     const many = Array.from({ length: 250 }, (_, index) =>
       issue(String(index)),
     );
-    api.request.mockImplementation((options: RequestOptions) =>
-      Promise.resolve(
+    api.request.mockImplementation(
+      withMe((options) =>
         options.path === 'np/issues'
           ? { data: many, nextCursor: null }
           : { data: [] },
