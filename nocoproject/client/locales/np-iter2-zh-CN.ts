@@ -141,7 +141,7 @@ const npIter2ZhCN: NpIter2Resource = {
     rowProblems: '第 {{position}} 行的问题',
     addRow: '添加一行',
     batchOwner: '新任务的负责人',
-    defaultExecutor: '未指定执行者的行使用',
+    defaultExecutor: '未指定执行者的任务使用',
     discard: '放弃本批',
     save: '保存草稿',
     confirm: '创建 {{count}} 个任务',
