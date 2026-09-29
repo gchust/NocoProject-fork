@@ -132,7 +132,6 @@ const npIter4EnUS = {
     changed: 'The pull request has new commits. Check it again before merging.',
     forbiddenToken:
       'The GitHub token cannot merge: it needs write access to Contents and Pull requests.',
-    authFailed: 'GitHub rejected the configured token.',
     openSettings: 'Open GitHub settings',
     blocker: {
       closed: 'Closed',

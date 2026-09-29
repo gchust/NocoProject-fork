@@ -39,8 +39,16 @@ const npIter2EnUS = {
     refresh: 'Refresh',
     invalidUrl:
       'Enter a pull request URL such as https://github.com/owner/repo/pull/123.',
-    notConfigured:
-      'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
+    githubError: {
+      notConfigured:
+        'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
+      authFailed:
+        'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to Pull requests, Checks or Commit statuses. Ask an admin to check it in Settings → GitHub.',
+      notFound:
+        'GitHub cannot find this pull request, or the token has no access to its repository. Ask an admin to check which repositories the token can access in Settings → GitHub.',
+      requestFailed:
+        'Could not reach GitHub. Try again later; if it keeps failing, ask an admin to check the connection in Settings → GitHub.',
+    },
     lines: 'Lines changed',
     files: 'Files',
     ci: 'CI',
