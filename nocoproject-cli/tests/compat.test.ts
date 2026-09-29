@@ -84,3 +84,37 @@ describe('daemon compatibility', () => {
     expect(harness.daemon.snapshot().upgradeRequired?.command).toBe('nocoproject upgrade');
   });
 });
+
+describe('computer credential (NP-150)', () => {
+  it('uses the computer credential, long-polls for wakeups and claims', async () => {
+    mock = new MockServer();
+    await mock.start();
+    // A long poll interval: the claim must come from the wakeup, not from the periodic poll.
+    harness = await startDaemon(mock, { computerKey: true, pollIntervalMs: 60_000 });
+    expect(mock.callsTo(/daemon\/register/)[0]?.auth).toBeUndefined();
+    expect(harness.daemon.snapshot()).toMatchObject({ credential: 'computer', socket: 'longPoll' });
+    await waitFor(() => mock!.callsTo(/daemon\/wakeups/).length >= 2, 5000, 'long poll');
+    mock.addIssue({ id: 'i1', identifier: 'NP-1', title: 'Woken' });
+    const runId = mock.enqueue('i1');
+    await waitFor(() => mock!.runs.has(runId), 5000, 'claimed after a wakeup');
+    expect(mock.subscribers).toBe(0);
+  });
+
+  it('pauses and says how to recover when the credential is revoked', async () => {
+    mock = new MockServer();
+    await mock.start();
+    harness = await startDaemon(mock, { computerKey: true });
+    mock.computerKeyRefusal = 'COMPUTER_REVOKED';
+    await waitFor(() => harness!.daemon.snapshot().credentialProblem, 5000, 'refusal noticed');
+    expect(harness.daemon.snapshot().credentialProblem).toMatchObject({
+      code: 'COMPUTER_REVOKED',
+      command: `nocoproject login --server ${mock.url} --computer-key-stdin`,
+    });
+    expect(harness.logs.join('\n')).toContain('COMPUTER CREDENTIAL REFUSED');
+    const claims = claimsWithSlots(mock).length;
+    mock.addIssue({ id: 'i1', identifier: 'NP-1', title: 'Not for a revoked computer' });
+    mock.enqueue('i1');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(claimsWithSlots(mock).length).toBe(claims);
+  });
+});

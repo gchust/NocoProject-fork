@@ -1178,3 +1178,4 @@ export * from './protocol.capabilities.js';
 // ---------- Daemon version compatibility (NP-150) ----------
 
 export * from './protocol.daemon-compat.js';
+// Server- and browser-only (the CLI's sync-protocol drops this line)

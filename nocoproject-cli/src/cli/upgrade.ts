@@ -12,7 +12,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { DaemonApi, HttpError } from '../api/client.js';
+import { DaemonApi, HttpError, daemonCredentials } from '../api/client.js';
 import { loadConfig } from '../config.js';
 import { exec, readInstalledService, type Exec } from '../daemon/service.js';
 import { cliDownloadPath, compareVersions } from '../protocol.js';
@@ -68,8 +68,8 @@ export async function upgrade(opts: UpgradeOptions, deps: UpgradeDeps): Promise<
     throw new CliError('refusing to upgrade from inside an agent run (restarting the daemon would stop this run)', EXIT.auth, 'IN_RUN');
   }
   const cfg = loadConfig();
-  if (!cfg.serverUrl || !cfg.apiKey) throw new CliError('not logged in: run `nocoproject login --server <url> --api-key-stdin` first', EXIT.auth, 'NOT_LOGGED_IN');
-  const version = await targetVersion(new DaemonApi(cfg.serverUrl, cfg.apiKey), opts.to);
+  if (!cfg.serverUrl || !daemonCredentials(cfg)) throw new CliError('not logged in: run `nocoproject login --server <url> --computer-key-stdin` (add the computer in the app first)', EXIT.auth, 'NOT_LOGGED_IN');
+  const version = await targetVersion(new DaemonApi(cfg.serverUrl, daemonCredentials(cfg)!), opts.to);
   if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(version)) throw new CliError(`not a version: ${version}`, EXIT.validation, 'INVALID_VERSION');
   const runningVersion = runningPid(cfg.home) ? readState(cfg.home)?.version : undefined;
   if (compareVersions(version, CLI_VERSION) === 0 && !opts.force && (runningVersion === undefined || runningVersion === CLI_VERSION)) {

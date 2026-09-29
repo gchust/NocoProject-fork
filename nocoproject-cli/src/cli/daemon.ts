@@ -5,13 +5,13 @@ import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, watchFile, writeFileSync, createReadStream } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { HttpError } from '../api/client.js';
+import { HttpError, daemonCredentials } from '../api/client.js';
 import { ensureHome, loadConfig, loadDaemonSettings } from '../config.js';
 import { Daemon } from '../daemon/lifecycle.js';
 import { sleep } from '../util/backoff.js';
 import { createLogger } from '../util/log.js';
 import { CliError, EXIT, failAndExit, printJson, printLine } from './output.js';
-import type { UpgradeRequired } from '../daemon/lifecycle.js';
+import type { CredentialProblem, UpgradeRequired } from '../daemon/lifecycle.js';
 import { readInstalledService, realEntry, serviceWarnings } from '../daemon/service.js';
 import { PROTOCOL_VERSION, upgradeCommand, type DaemonCompatibility } from '../protocol.js';
 import { CLI_VERSION } from '../version.js';
@@ -80,12 +80,12 @@ function settingsFrom(home: string, opts: StartOpts) {
 
 async function startForeground(opts: StartOpts): Promise<void> {
   const cfg = loadConfig();
-  if (!cfg.serverUrl || !cfg.apiKey) throw new CliError('not logged in: run `nocoproject login --server <url> --api-key <key>`', EXIT.auth, 'NOT_LOGGED_IN');
+  if (!cfg.serverUrl || !daemonCredentials(cfg)) throw new CliError('not logged in: run `nocoproject login --server <url> --computer-key-stdin` (add the computer in the app first)', EXIT.auth, 'NOT_LOGGED_IN');
   ensureHome(cfg.home);
   const existing = runningPid(cfg.home);
   if (existing && existing !== process.pid) throw new CliError(`daemon already running (pid ${existing})`, EXIT.other, 'ALREADY_RUNNING');
   const logger = createLogger({ scope: 'daemon' });
-  const daemon = new Daemon({ config: { ...cfg, serverUrl: cfg.serverUrl, apiKey: cfg.apiKey }, settings: settingsFrom(cfg.home, opts), logger });
+  const daemon = new Daemon({ config: { ...cfg, serverUrl: cfg.serverUrl }, settings: settingsFrom(cfg.home, opts), logger });
   const p = paths(cfg.home);
   writeFileSync(p.pid, `${process.pid}\n`, { mode: 0o600 });
   let stopping = false;
@@ -125,7 +125,7 @@ async function startBackground(opts: StartOpts): Promise<void> {
   if (service)
     process.stderr.write(`warning: the boot service ${service.label} is installed; it starts the daemon itself (use \`nocoproject daemon install\` to restart it)\n`);
   for (const warning of currentWarnings(cfg.home)) process.stderr.write(`warning: ${warning}\n`);
-  if (!cfg.serverUrl || !cfg.apiKey) throw new CliError('not logged in: run `nocoproject login --server <url> --api-key <key>`', EXIT.auth, 'NOT_LOGGED_IN');
+  if (!cfg.serverUrl || !daemonCredentials(cfg)) throw new CliError('not logged in: run `nocoproject login --server <url> --computer-key-stdin` (add the computer in the app first)', EXIT.auth, 'NOT_LOGGED_IN');
   const p = paths(cfg.home);
   const existing = runningPid(cfg.home);
   if (existing) throw new CliError(`daemon already running (pid ${existing})`, EXIT.other, 'ALREADY_RUNNING');
@@ -195,6 +195,10 @@ function statusDaemon(json: boolean): void {
     const compatibility = state.compatibility as DaemonCompatibility | null | undefined;
     if (compatibility)
       printLine(`server: accepts protocols ${compatibility.protocols.min}-${compatibility.protocols.current}, CLI ${compatibility.minVersion} or later, latest ${compatibility.latestVersion} (this daemon: ${compatibility.status})`);
+    if (state.credential === 'personalKey')
+      printLine('  credential: your personal API key; add this computer in the app and run `nocoproject login --server <url> --computer-key-stdin`');
+    const problem = state.credentialProblem as CredentialProblem | null | undefined;
+    if (problem) printLine(`  !! computer credential refused (${problem.code}); claiming is paused. Add the computer again in the app, then run: ${problem.command}`);
     const upgrade = state.upgradeRequired as UpgradeRequired | null | undefined;
     if (upgrade) printLine(`  !! upgrade required (${upgrade.reason}); claiming is paused. Run: ${upgrade.command}`);
     else if (state.protocolMismatch) printLine('  !! protocol mismatch: upgrade nocoproject-cli');

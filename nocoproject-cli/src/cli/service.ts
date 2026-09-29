@@ -4,6 +4,7 @@
  */
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import type { Command } from 'commander';
+import { daemonCredentials } from '../api/client.js';
 import { loadConfig } from '../config.js';
 import {
   exec,
@@ -71,7 +72,7 @@ export function requireIdle(home: string, force: boolean | undefined): void {
 export async function installService(opts: InstallOptions, run: Exec = exec, log: (line: string) => void = printLine): Promise<Record<string, unknown>> {
   refuseInsideRunForService();
   const cfg = loadConfig();
-  if (!cfg.serverUrl || !cfg.apiKey) throw new CliError('not logged in: run `nocoproject login --server <url> --api-key-stdin` first', EXIT.auth, 'NOT_LOGGED_IN');
+  if (!cfg.serverUrl || !daemonCredentials(cfg)) throw new CliError('not logged in: run `nocoproject login --server <url> --computer-key-stdin` (add the computer in the app first)', EXIT.auth, 'NOT_LOGGED_IN');
   const kind = serviceKind();
   if (!kind) throw new CliError(`no boot service support on ${process.platform}; run \`nocoproject daemon start\` instead`, EXIT.validation, 'UNSUPPORTED_PLATFORM');
   const entry = process.argv[1];

@@ -10,7 +10,7 @@
  */
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DaemonApi, HttpError, NetworkError } from '../api/client.js';
+import { DaemonApi, daemonCredentials, HttpError, NetworkError } from '../api/client.js';
 import type { DaemonSettings, ResolvedConfig } from '../config.js';
 import type { AgentProvider, ClaimedRun, DaemonCompatibility, DaemonRegisterResponse } from '../protocol.js';
 import { PROTOCOL_VERSION, SUPPORTED_PROTOCOLS, upgradeCommand } from '../protocol.js';
@@ -32,7 +32,8 @@ export interface DaemonIntervals {
 }
 
 export interface DaemonOptions {
-  readonly config: ResolvedConfig & { serverUrl: string; apiKey: string };
+  /** The daemon uses `computerKey` when set (NP-150), else the personal `apiKey`. */
+  readonly config: ResolvedConfig & { serverUrl: string };
   readonly settings: DaemonSettings;
   readonly logger: Logger;
   readonly adapters?: readonly DetectedAdapter[];
@@ -50,6 +51,13 @@ export interface UpgradeRequired {
 }
 
 const UPGRADE_WARN_EVERY_MS = 10 * 60_000;
+
+/** The server refused the computer credential (revoked, unknown, owner disabled): the daemon idles and says so. */
+export interface CredentialProblem {
+  readonly code: string;
+  readonly since: string;
+  readonly command: string;
+}
 const REGISTER_REFUSED_RETRY_MS = 60_000;
 
 export interface RuntimeInfo {
@@ -73,6 +81,9 @@ export interface DaemonSnapshot {
   /** Kept for older `daemon status` readers: true while `upgradeRequired` is set. */
   readonly protocolMismatch: boolean;
   readonly upgradeRequired: UpgradeRequired | null;
+  /** NP-150: `computer` or `personalKey`. */
+  readonly credential: 'computer' | 'personalKey';
+  readonly credentialProblem: CredentialProblem | null;
   readonly compatibility: DaemonCompatibility | null;
   /** The protocol agreed with the server. */
   readonly negotiatedProtocol: number | null;
@@ -93,6 +104,7 @@ export class Daemon {
   private readonly shutdown = new AbortController();
   private readonly cancelHooks = new Map<string, Set<() => void>>();
   private upgrade: UpgradeRequired | null = null;
+  private credentialProblem: CredentialProblem | null = null;
   private compatibility: DaemonCompatibility | null = null;
   private lastUpgradeWarnAt = 0;
   /** The protocol offered at register: lowered once when a server from before NP-150 refuses it. */
@@ -104,7 +116,9 @@ export class Daemon {
   private binDir: string | undefined;
 
   constructor(private readonly opts: DaemonOptions) {
-    this.api = new DaemonApi(opts.config.serverUrl, opts.config.apiKey);
+    const credentials = daemonCredentials(opts.config);
+    if (!credentials) throw new Error('no daemon credential: run `nocoproject login --server <url> --computer-key-stdin`');
+    this.api = new DaemonApi(opts.config.serverUrl, credentials);
   }
 
   private get log(): Logger {
@@ -125,10 +139,13 @@ export class Daemon {
     this.writeState();
   }
 
-  /** The server refused every protocol: try again every minute (it may be upgraded meanwhile). */
+  /**
+   * The server refused every protocol, or the computer credential: try again every minute (the server may be
+   * upgraded meanwhile), or every ten minutes for a refused credential (an owner may be enabled again).
+   */
   private async registerLater(): Promise<void> {
     while (!this.shutdown.signal.aborted) {
-      await sleep(REGISTER_REFUSED_RETRY_MS, this.shutdown.signal);
+      await sleep(this.credentialProblem ? UPGRADE_WARN_EVERY_MS : REGISTER_REFUSED_RETRY_MS, this.shutdown.signal);
       if (this.shutdown.signal.aborted) return;
       const registered = await this.registerWithRetry().catch((error: unknown) => {
         this.log.warn('register failed', { error: (error as Error).message });
@@ -196,6 +213,10 @@ export class Daemon {
           this.offeredProtocol = PROTOCOL_VERSION;
           return null;
         }
+        if (this.isCredentialRefusal(error)) {
+          this.onCredentialRefused(error as HttpError);
+          return null;
+        }
         if (error instanceof HttpError && (error.status === 401 || error.status === 403)) throw error;
         const delay = backoffDelay(attempt, 1000, 30_000);
         const kind = error instanceof NetworkError ? 'network' : 'server';
@@ -204,6 +225,26 @@ export class Daemon {
       }
     }
     return null;
+  }
+
+  /** A 401 for a computer credential: it was revoked, is unknown, or its owner is disabled. */
+  private isCredentialRefusal(error: unknown): boolean {
+    return this.api.credentials.kind === 'computerKey' && error instanceof HttpError && error.status === 401;
+  }
+
+  /** Stops claiming and says how to recover; the process stays up so a service manager does not restart it in a loop. */
+  private onCredentialRefused(error: HttpError): void {
+    const first = this.credentialProblem === null;
+    this.credentialProblem = {
+      code: error.code,
+      since: this.credentialProblem?.since ?? new Date().toISOString(),
+      command: `nocoproject login --server ${this.opts.config.serverUrl} --computer-key-stdin`,
+    };
+    if (first || Date.now() - this.lastUpgradeWarnAt >= UPGRADE_WARN_EVERY_MS) {
+      this.lastUpgradeWarnAt = Date.now();
+      this.log.error(`!!! COMPUTER CREDENTIAL REFUSED (${error.code}): claiming is paused. Add the computer again in the app, then run: ${this.credentialProblem.command}`);
+    }
+    this.writeState();
   }
 
   /** A 426 from a server from before NP-150 (it says nothing more): claiming pauses, heartbeats go on. */
@@ -256,7 +297,7 @@ export class Daemon {
       api: this.api,
       daemonId: this.opts.config.daemonId,
       maxConcurrent: this.opts.settings.maxConcurrent,
-      runtimeIds: () => (this.upgrade ? [] : this.runtimes.map((r) => r.id)),
+      runtimeIds: () => (this.upgrade || this.credentialProblem ? [] : this.runtimes.map((r) => r.id)),
       execute: (run) => this.execute(run),
       logger: this.log.child('claim'),
       onProtocolMismatch: (e) => this.onProtocolMismatch(e),
@@ -267,7 +308,8 @@ export class Daemon {
     this.heartbeatTimer = setInterval(() => void this.heartbeat(), heartbeatMs);
     this.wake = new Wake({
       serverUrl: this.opts.config.serverUrl,
-      apiKey: this.opts.config.apiKey,
+      apiKey: this.api.credentials.kind === 'apiKey' ? this.api.credentials.apiKey : undefined,
+      longPoll: (after, timeoutS, signal) => this.api.wakeups(after, timeoutS, signal),
       pollIntervalMs: this.opts.settings.pollIntervalMs ?? reg.pollIntervalMs ?? 15_000,
       logger: this.log.child('wake'),
       disableSocket: this.opts.disableSocket,
@@ -290,10 +332,16 @@ export class Daemon {
         minProtocolVersion: SUPPORTED_PROTOCOLS.min,
       });
       this.lastHeartbeatAt = new Date().toISOString();
+      if (this.credentialProblem) {
+        this.credentialProblem = null;
+        this.log.info('the computer credential is accepted again; claiming resumes');
+        this.claim?.trigger('credential');
+      }
       if (res?.compatibility) this.applyCompatibility(res.compatibility);
       else if (this.upgrade) this.requireUpgrade(this.upgrade, 'still refused');
     } catch (error) {
       if (error instanceof HttpError && error.status === 426) this.onProtocolMismatch(error);
+      else if (this.isCredentialRefusal(error)) this.onCredentialRefused(error as HttpError);
       else if (error instanceof HttpError && error.status === 404) await this.reregister();
       else this.log.warn('heartbeat failed', { error: (error as Error).message });
     }
@@ -365,6 +413,8 @@ export class Daemon {
       socket: this.wake?.state ?? 'disabled',
       protocolMismatch: this.upgrade !== null,
       upgradeRequired: this.upgrade,
+      credential: this.api.credentials.kind === 'computerKey' ? 'computer' : 'personalKey',
+      credentialProblem: this.credentialProblem,
       compatibility: this.compatibility,
       negotiatedProtocol: this.negotiatedProtocol,
       execPath: process.execPath,

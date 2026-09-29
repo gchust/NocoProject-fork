@@ -17,6 +17,12 @@
 
 import type { InboxItemTypeV6 } from './protocol.phase2-workflow-proposals.js';
 
+/** The header that carries a computer credential on `/np/daemon/*` (NP-150; personal keys use `x-api-key`). */
+export const COMPUTER_KEY_HEADER = 'x-np-computer-key';
+
+/** How a daemon authenticated: a computer credential, or its owner's personal API key (accepted for older CLIs). */
+export type DaemonCredential = 'computer' | 'personalKey';
+
 /** The protocol versions this server accepts. */
 export const SUPPORTED_PROTOCOLS = { min: 1, current: 2 } as const;
 
@@ -71,6 +77,8 @@ export interface RuntimeDaemonInfo {
   readonly reason: DaemonCompatibilityReason;
   readonly updateAvailable: boolean;
   readonly latestVersion: string;
+  /** How the daemon last authenticated; null for rows from before NP-150's credentials. */
+  readonly credential: DaemonCredential | null;
 }
 
 /** Protocol 2 additions to register (optional: a protocol 1 daemon sends neither). */

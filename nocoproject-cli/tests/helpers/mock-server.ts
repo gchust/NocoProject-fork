@@ -14,6 +14,8 @@ import { MockPm } from './mock-pm.js';
 import { MockWorkflow } from './mock-workflow.js';
 
 export const API_KEY = 'test-api-key-0123456789';
+/** NP-150: a computer credential the mock accepts on `/np/daemon/*` (header `x-np-computer-key`). */
+export const COMPUTER_KEY = 'npc_test-computer-key-0123456789';
 export const BASE = '/main';
 
 export interface Call {
@@ -98,6 +100,11 @@ export class MockServer {
   readonly calls: Call[] = [];
   /** NP-150: the verdict sent with register, heartbeat and claim responses (none when undefined). */
   compatibility: DaemonCompatibility | undefined;
+  /** NP-150: answers computer-credential requests with 401 of this code (a revoked credential). */
+  computerKeyRefusal: string | undefined;
+  /** Long-poll wakeups (`/np/daemon/wakeups`) kept for computer-credential daemons. */
+  private readonly wakeupLog: unknown[] = [];
+  private readonly wakeupWaiters = new Set<() => void>();
   latestVersion = '0.5.0';
 
   private compat(): { compatibility?: DaemonCompatibility } {
@@ -171,6 +178,27 @@ export class MockServer {
   publish(payload: unknown): void {
     const frame = JSON.stringify({ type: 'event', topic: 'np:daemon', payload, publishedAt: new Date().toISOString() });
     for (const ws of this.sockets) ws.send(frame);
+    this.wakeupLog.push(payload);
+    for (const wake of this.wakeupWaiters) wake();
+  }
+
+  private async wakeups(url: URL, send: (s: number, p: unknown) => void): Promise<void> {
+    const after = url.searchParams.get('after');
+    if (after === null) return send(200, { data: { cursor: this.wakeupLog.length, events: [] } });
+    const from = Number(after);
+    if (this.wakeupLog.length <= from) {
+      const timeoutMs = Math.min(Number(url.searchParams.get('timeout') ?? 25), 2) * 1000;
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          this.wakeupWaiters.delete(done);
+          resolve();
+        };
+        const timer = setTimeout(done, timeoutMs);
+        this.wakeupWaiters.add(done);
+      });
+    }
+    send(200, { data: { cursor: this.wakeupLog.length, events: this.wakeupLog.slice(from) } });
   }
 
   addIssue(partial: Partial<MockIssue> & { id: string; identifier: string }): MockIssue {
@@ -278,7 +306,12 @@ export class MockServer {
   }
 
   private async daemonRoute(method: string, path: string, body: any, req: IncomingMessage, send: (s: number, p: unknown) => void): Promise<void> {
-    if (req.headers['x-api-key'] !== API_KEY) return send(401, { code: 'UNAUTHORIZED', message: 'bad key' });
+    const computer = req.headers['x-np-computer-key'];
+    if (computer !== undefined) {
+      if (computer !== COMPUTER_KEY) return send(401, { code: 'COMPUTER_KEY_INVALID', message: 'bad credential' });
+      if (this.computerKeyRefusal) return send(401, { code: this.computerKeyRefusal, message: 'refused' });
+    } else if (req.headers['x-api-key'] !== API_KEY) return send(401, { code: 'UNAUTHORIZED', message: 'bad key' });
+    if (path === '/np/daemon/wakeups') return this.wakeups(new URL(req.url ?? '/', 'http://mock'), send);
     if (path === '/np/daemon/register') {
       if (this.opts.protocolMismatch) return send(426, { code: 'PROTOCOL_MISMATCH', message: 'upgrade' });
       if (this.opts.legacyServer && body.protocolVersion !== 1) return send(426, { code: 'PROTOCOL_MISMATCH', message: `Server speaks protocol 1; daemon sent ${String(body.protocolVersion)}.` });
