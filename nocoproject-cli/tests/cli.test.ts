@@ -170,7 +170,7 @@ describe('run-token mode CLI', () => {
 
   it('prints the version', async () => {
     const r = await run(['version', '--json']);
-    expect(JSON.parse(r.out)).toMatchObject({ version: '0.4.0', protocolVersion: 1 });
+    expect(JSON.parse(r.out)).toMatchObject({ version: '0.5.0', protocolVersion: 2 });
   });
 
   it('logs in against the server and stores the key with 0600', async () => {
@@ -182,6 +182,21 @@ describe('run-token mode CLI', () => {
     expect(out).toMatchObject({ serverUrl: mock.url, user: 'Alice', verified: true });
     expect(r.out).not.toContain(API_KEY);
     const bad = await run(['login', '--server', mock.url, '--api-key', 'wrong-key-123456', '--json'], { NOCOPROJECT_SERVER_URL: undefined });
+    expect(bad.code).toBe(3);
+  });
+
+  it('saves a computer credential and drops the personal key from this computer (NP-150)', async () => {
+    const { API_KEY, COMPUTER_KEY } = await import('./helpers/mock-server.js');
+    const env = { NOCOPROJECT_SERVER_URL: undefined, NOCOPROJECT_TOKEN: undefined, NOCOPROJECT_HOME: mkdtempSync(join(tmpdir(), 'ncp-login-')) };
+    expect((await run(['login', '--server', mock.url, '--api-key', API_KEY, '--json'], env)).code).toBe(0);
+    const r = await run(['login', '--server', mock.url, '--computer-key', COMPUTER_KEY, '--json'], env);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.out)).toMatchObject({ credential: 'computer', verified: true, removedApiKey: true });
+    expect(r.out).not.toContain(COMPUTER_KEY);
+    const saved = JSON.parse(readFileSync(join(env.NOCOPROJECT_HOME, 'config.json'), 'utf8')) as Record<string, unknown>;
+    expect(saved).toMatchObject({ computerKey: COMPUTER_KEY });
+    expect(saved.apiKey).toBeUndefined();
+    const bad = await run(['login', '--server', mock.url, '--computer-key', 'npc_wrong-0123456789', '--json'], { NOCOPROJECT_SERVER_URL: undefined });
     expect(bad.code).toBe(3);
   });
 });

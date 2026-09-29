@@ -112,5 +112,7 @@ export function inboxItemLink(
       ? `/knowledge/${encodeURIComponent(docId)}`
       : '/knowledge';
   }
+  // NP-150: a daemon that must be upgraded; the runtimes page shows the command.
+  if (type === 'runtime_upgrade_required') return '/runtimes';
   return null;
 }

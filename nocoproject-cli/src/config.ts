@@ -15,6 +15,8 @@ import { registerSecret } from './util/redact.js';
 export const StoredConfigSchema = z.object({
   serverUrl: z.string().optional(),
   apiKey: z.string().optional(),
+  /** NP-150: the computer credential the daemon uses (only `/np/daemon/*`). */
+  computerKey: z.string().optional(),
   daemonId: z.string().optional(),
   deviceName: z.string().optional(),
 });
@@ -24,6 +26,7 @@ export interface ResolvedConfig {
   readonly home: string;
   readonly serverUrl: string | undefined;
   readonly apiKey: string | undefined;
+  readonly computerKey?: string;
   readonly daemonId: string;
   readonly deviceName: string;
 }
@@ -87,11 +90,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ResolvedConfig
   }
   const rawUrl = env.NOCOPROJECT_SERVER_URL || stored.serverUrl;
   const apiKey = env.NOCOPROJECT_API_KEY || stored.apiKey;
+  const computerKey = env.NOCOPROJECT_COMPUTER_KEY || stored.computerKey;
   registerSecret(apiKey);
+  registerSecret(computerKey);
   return {
     home,
     serverUrl: rawUrl ? normalizeServerUrl(rawUrl) : undefined,
     apiKey,
+    ...(computerKey ? { computerKey } : {}),
     daemonId,
     deviceName: env.NOCOPROJECT_DEVICE_NAME || stored.deviceName || hostname(),
   };

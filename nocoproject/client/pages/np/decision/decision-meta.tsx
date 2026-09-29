@@ -6,6 +6,7 @@ import {
   BookCheckIcon,
   BookOpenTextIcon,
   DraftingCompassIcon,
+  MonitorUpIcon,
   GitMergeIcon,
   GitPullRequestIcon,
   LayersIcon,
@@ -45,6 +46,7 @@ const TYPE_ICON: Readonly<Record<string, LucideIcon>> = {
   pr_merged: GitMergeIcon,
   knowledge_decided: BookCheckIcon,
   design_review: DraftingCompassIcon,
+  runtime_upgrade_required: MonitorUpIcon,
 };
 
 /**

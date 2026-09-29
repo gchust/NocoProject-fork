@@ -184,6 +184,7 @@ const npCollabEnUS = {
       knowledge_proposal: 'Knowledge proposal',
       knowledge_decided: 'Knowledge decided',
       design_review: 'Proposal to review',
+      runtime_upgrade_required: 'CLI upgrade required',
       signal_suppressed: 'Agent stopped retrying',
     },
   },
@@ -357,10 +358,15 @@ const npCollabEnUS = {
     description:
       'Run these commands on the computer where your coding tools are installed.',
     install: 'Install the CLI',
-    login: 'Sign in to this application',
-    start: 'Start the daemon',
-    apiKeyPlaceholder: 'API key',
-    apiKeyHint: 'Create an API key in Settings → API Keys.',
+    credential: 'Issue this computer’s credential and sign in',
+    computerName: 'Computer name, e.g. Studio Mac',
+    issue: 'Issue credential',
+    credentialFailed: 'Unable to issue the credential.',
+    credentialOnce:
+      'Run it on that computer. The credential for “{{name}}” is shown only now; it reaches only the daemon API and can be revoked on the runtimes page.',
+    start: 'Start the daemon at login',
+    startHint:
+      'Installs a launchd (macOS) or systemd user (Linux) service that runs this CLI. Upgrade later with `nocoproject upgrade`.',
     after:
       'The computer appears in this list within a few seconds, with one runtime per detected coding tool.',
     copy: 'Copy command',
