@@ -487,7 +487,7 @@ describe.skipIf(!db)('knowledge for agents and proposals (PostgreSQL)', () => {
       status: 409,
       body: {
         code: 'KNOWLEDGE_PROPOSAL_STALE',
-        details: { currentVersion: 2 },
+        details: { currentVersion: 2, baseVersion: 1 },
       },
     });
     // Still pending: the guarded attempt did not apply.
