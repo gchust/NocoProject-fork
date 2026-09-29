@@ -201,7 +201,6 @@ export const npKeys = {
   // Phase 1 iteration 2
   gitConnection: ['np', 'integrations', 'github'] as const,
   approvals: ['np', 'approvals'] as const,
-  intakeBatches: ['np', 'intake'] as const,
   intakeBatch: (id: string) => ['np', 'intake', id] as const,
   skills: ['np', 'skills'] as const,
   skill: (id: string) => ['np', 'skills', id] as const,

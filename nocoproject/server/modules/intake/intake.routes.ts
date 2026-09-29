@@ -2,7 +2,7 @@ import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Hono } from 'hono';
 
 import { invalid } from '../shared/errors.js';
-import { npRouter, queryText, readJson, sessionActor } from '../shared/http.js';
+import { npRouter, readJson, sessionActor } from '../shared/http.js';
 import type {
   ConfirmIntakeRequest,
   CreateIntakeBatchRequestV4,
@@ -51,14 +51,6 @@ export function createIntakeRoutes(
       201,
     ),
   );
-  routes.get('/batches', async (context) =>
-    context.json({
-      data: await intake.list(
-        sessionActor(context),
-        ['1', 'true'].includes(queryText(context, 'mine') ?? ''),
-      ),
-    }),
-  );
   routes.get('/batches/:id', async (context) =>
     context.json({
       data: withBase(
@@ -102,11 +94,6 @@ export function createIntakeRoutes(
   routes.post('/batches/:id/cancel', async (context) =>
     context.json({
       data: await intake.cancel(sessionActor(context), context.req.param('id')),
-    }),
-  );
-  routes.post('/batches/:id/revert', async (context) =>
-    context.json({
-      data: await intake.revert(sessionActor(context), context.req.param('id')),
     }),
   );
   return routes;

@@ -138,7 +138,9 @@ export function BatchEditor({
     mutationFn: () => saveIntakeDrafts(api, batch.id, draftInputs(rows)),
     onSuccess: (drafts) => {
       setRows(rowsFromDrafts(drafts));
-      void queryClient.invalidateQueries({ queryKey: npKeys.intakeBatches });
+      void queryClient.invalidateQueries({
+        queryKey: npKeys.intakeBatch(batch.id),
+      });
     },
     onError: (error) =>
       toast.add({ type: 'error', priority: 'high', title: errorTitle(error) }),
@@ -170,7 +172,9 @@ export function BatchEditor({
         title: t('np.intake.created', { count: issues.length }),
       });
       void queryClient.invalidateQueries({ queryKey: npKeys.issues });
-      void queryClient.invalidateQueries({ queryKey: npKeys.intakeBatches });
+      void queryClient.invalidateQueries({
+        queryKey: npKeys.intakeBatch(batch.id),
+      });
       const sourceIssueId = batch.sourceIssueId ?? batch.issueId;
       if (sourceIssueId) {
         void queryClient.invalidateQueries({
@@ -186,7 +190,9 @@ export function BatchEditor({
   const cancel = useMutation({
     mutationFn: () => cancelIntakeBatch(api, batch.id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: npKeys.intakeBatches });
+      void queryClient.invalidateQueries({
+        queryKey: npKeys.intakeBatch(batch.id),
+      });
       onClose();
     },
     onError: (error) =>

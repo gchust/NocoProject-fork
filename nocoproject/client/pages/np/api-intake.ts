@@ -7,7 +7,6 @@ import type {
   IntakeConfirmInput,
   IntakeDraft,
   IntakeDraftInput,
-  IntakeRevertResult,
   IssueRef,
 } from './types.js';
 
@@ -50,19 +49,6 @@ export async function createIntakeBatch(
       path: 'np/intake/batches',
       method: 'POST',
       json: input,
-    }),
-  );
-}
-
-export async function fetchMyIntakeBatches(
-  api: ApiClient,
-  signal?: AbortSignal,
-): Promise<IntakeBatch[]> {
-  return unwrapList(
-    await api.request<unknown>({
-      path: 'np/intake/batches',
-      query: { mine: '1' },
-      signal,
     }),
   );
 }
@@ -139,17 +125,4 @@ export async function cancelIntakeBatch(
     path: `np/intake/batches/${id(batchId)}/cancel`,
     method: 'POST',
   });
-}
-
-export async function revertIntakeBatch(
-  api: ApiClient,
-  batchId: string,
-): Promise<IntakeRevertResult> {
-  const result = unwrap<Partial<IntakeRevertResult>>(
-    await api.request<unknown>({
-      path: `np/intake/batches/${id(batchId)}/revert`,
-      method: 'POST',
-    }),
-  );
-  return { reverted: result.reverted ?? [], kept: result.kept ?? [] };
 }

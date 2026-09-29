@@ -53,7 +53,6 @@ function common(
     },
     'GET np/labels': { data: [] },
     'GET np/me': { data: { userId: 'u1', name: 'Zhou' } },
-    'GET np/intake/batches': { data: [] },
     'GET np/settings': { data: settings },
   };
 }
@@ -108,6 +107,13 @@ describe('new issue dialog tabs (iteration 4 §D)', () => {
     expect(
       await screen.findByRole('textbox', { name: 'Requirements' }),
     ).toBeVisible();
+    // NP-151: no recent-batches list under the composer, and nothing asks for one.
+    expect(
+      screen.queryByRole('heading', { name: 'My recent batches' }),
+    ).toBeNull();
+    expect(api.request).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'np/intake/batches' }),
+    );
   });
 
   it('works when storage is unavailable', async () => {
