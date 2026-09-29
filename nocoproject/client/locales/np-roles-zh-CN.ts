@@ -10,7 +10,7 @@ const npRolesZhCN: NpRolesResource = {
     },
     title: '岗位',
     description:
-      '岗位决定持有人能进入哪些 NocoProject 页面、使用哪些设置和业务动作。持有"定义岗位"等于可获得 NocoProject 内的任何权限。',
+      '岗位决定持有人能进入哪些 NocoProject 页面、使用哪些设置和业务动作。持有“定义岗位”等于可获得 NocoProject 内的任何权限。',
     new: '新建岗位',
     newTitle: '新建岗位',
     name: '名称',
@@ -51,7 +51,7 @@ const npRolesZhCN: NpRolesResource = {
       business: '业务动作',
     },
     defineRolesNote:
-      '持有"定义岗位"等于可获得 NocoProject 内的任何权限：持有人可以给自己的岗位加上任意权限。',
+      '持有“定义岗位”等于可获得 NocoProject 内的任何权限：持有人可以给自己的岗位加上任意权限。',
     scopeRelated: '领域范围',
     scopeAll: '全部',
     scopeFor: '{{name}} 的数据范围',

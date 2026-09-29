@@ -117,7 +117,7 @@ function BusinessActionRow({
         >
           <SelectTrigger
             size='sm'
-            className='w-48'
+            className='w-72'
             aria-label={t('np.roles.scopeFor', { name: label })}
           >
             <SelectValue />
