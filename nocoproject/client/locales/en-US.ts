@@ -112,7 +112,7 @@ const enUS = {
     themes: { default: 'Spacious', compact: 'Compact' },
   },
   app: {
-    title: 'NocoBase',
+    title: 'NocoProject',
   },
   actions: {
     close: 'Close',
