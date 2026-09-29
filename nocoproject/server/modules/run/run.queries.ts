@@ -135,6 +135,11 @@ export function createRunQueries(deps: { tx: TxRunner }): RunQueries {
       const conn = deps.tx.read();
       const run = await findRun(conn, runId);
       if (!run) throw notFound('Run');
+      const configuration = await conn.query
+        .selectFrom('runs')
+        .select('configurationSnapshot')
+        .where('id', '=', runId)
+        .executeTakeFirst();
       const triggers = await conn.query
         .selectFrom('runTriggers')
         .selectAll()
@@ -149,6 +154,7 @@ export function createRunQueries(deps: { tx: TxRunner }): RunQueries {
       const names = await agentNames(conn, [run.agentId]);
       return {
         ...run,
+        configurationSnapshot: fromJson(configuration?.configurationSnapshot),
         agentName: names.get(run.agentId) ?? run.agentId,
         triggers: triggers.map(mapTrigger),
         usage: usage.map((row) => ({

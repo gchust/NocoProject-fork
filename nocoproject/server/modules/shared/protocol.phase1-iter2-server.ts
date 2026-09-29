@@ -1,8 +1,11 @@
 /**
- * NocoProject 协议类型：Phase 1 迭代 2 的服务端补充形状（docs/phase1/protocol-iteration-2.md）。
+ * NocoProject protocol types: Phase 1 iteration 2 server-only additional shapes
+ * (docs/phase1/protocol-iteration-2.md).
  *
- * 这些类型组合了 protocol.ts "服务端实现补充的响应形状" 段里的迭代 1 类型（IssueV1、AgentListItemV1 等），守护进程
- * 不使用，CLI 不复制（CLI 的 protocol.ts 没有那一段）。契约类型在 protocol.phase1-iter2.ts。
+ * These types compose the iteration 1 types from protocol.ts's "response shapes added by the server
+ * implementation" section (IssueV1, AgentListItemV1, etc.); the daemon does not use them and the CLI
+ * does not copy them (the CLI's protocol.ts has no such section). The contract types are in
+ * protocol.phase1-iter2.ts.
  */
 import type {
   AgentListItemV1,
@@ -34,12 +37,12 @@ export type UpdateIssueRequestV2 = UpdateIssueRequestV1 & {
   readonly executionMode?: ExecutionMode;
 };
 
-/** `POST /np/issues` 追加 `executionMode`（默认 task） */
+/** `POST /np/issues` adds `executionMode` (defaults to task) */
 export type CreateIssueRequestV2 = CreateIssueRequestV1 & {
   readonly executionMode?: ExecutionMode;
 };
 
-/** `GET/PATCH /np/agents` 的行追加 `skillIds`、`skills` */
+/** The `GET/PATCH /np/agents` row adds `skillIds`, `skills` */
 export type AgentListItemV2 = AgentListItemV1 & {
   readonly skillIds: readonly string[];
   readonly skills: readonly SkillRef[];
@@ -60,14 +63,14 @@ export interface IssueDetailV2 extends Omit<
   readonly issue: IssueListItemV2;
   readonly comments: readonly CommentV2[];
   readonly pullRequests: readonly IssuePullRequestView[];
-  /** 未决 + 最近 5 条已决 */
+  /** Pending + the 5 most recently decided */
   readonly approvals: readonly ApprovalRequest[];
-  /** 该任务所有运行的用量合计（key = 任务 id） */
+  /** Total usage across all of this issue's runs (key = issue id) */
   readonly usage: UsageRow;
   readonly queuedRun: QueuedRunRef | null;
 }
 
-/** Agent 视图追加 */
+/** Additions to the agent view */
 export type IssueForAgentV2 = IssueForAgentV1 & {
   readonly executionMode: ExecutionMode;
   readonly pullRequests: readonly ClaimedPullRequest[];

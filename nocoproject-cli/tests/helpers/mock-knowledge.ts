@@ -84,6 +84,7 @@ export class MockKnowledge {
       reason: body.reason,
       isNew: !doc,
       baseVersion: doc?.version ?? null,
+      currentVersion: doc?.version ?? null,
       proposedByAgentId: claimed.agent.id,
       proposedByAgentName: claimed.agent.name,
       sourceRunId: claimed.run.id,

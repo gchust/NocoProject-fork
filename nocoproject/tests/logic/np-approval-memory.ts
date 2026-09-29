@@ -1,6 +1,6 @@
 /**
  * `MemoryApprovalGateway`: an in-memory `ApprovalGateway` standing in for "the official implementation" in the
- * replacement checklist test (方案 §8). It keeps requests in a Map and uses only what the interface and
+ * replacement checklist test (design proposal §8). It keeps requests in a Map and uses only what the interface and
  * `ApprovalHooks` give it, so the business code passing the shared cases with it shows the seam is sufficient.
  * It writes no activities and emits no events (those belong to the implementation, not the interface).
  */

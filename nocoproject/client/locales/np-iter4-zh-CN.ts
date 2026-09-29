@@ -2,6 +2,33 @@ import type { NpIter4Resource } from './np-iter4-en-US.js';
 
 /** Chinese wording for the iteration 4 groups (`docs/phase1/iteration-4-contract.md`); merged into `np` by `zh-CN.ts`. */
 const npIter4ZhCN: NpIter4Resource = {
+  capabilities: {
+    title: '能力授权',
+    hint: '提示词描述工作要求，只有勾选的能力才允许执行相应操作。',
+    preview: '有效指令预览',
+    previewHint:
+      '以下显示 Agent 指令和已授权命令；运行开始时另加入身份、任务上下文和系统规则。',
+    context_read: '读取运行上下文',
+    workspace_read: '查询可见项目',
+    comment_create: '回复与追加备注',
+    knowledge_propose: '提出知识建议',
+    issue_execute: '执行普通任务',
+    subtask_create: '创建子任务',
+    dependency_write: '修改依赖',
+    issue_status_write: '修改任务状态',
+    design_propose: '提交设计方案',
+    checklist_write: '更新检查清单',
+    workflow_propose: '提出流程建议',
+    pullRequest_link: '关联 PR',
+  },
+  entries: {
+    conversation: '对话入口',
+    completion: '任务完成触发',
+    enabled: '启用',
+    name: '显示名称',
+    agent: 'Agent',
+    instructions: '任务要求',
+  },
   agentForm: {
     title: '新建 Agent',
     description: '一个 Agent 在你的某个运行时上使用一种编码工具。',
@@ -51,6 +78,23 @@ const npIter4ZhCN: NpIter4Resource = {
     parse: '整理',
     parsing: '整理中…',
   },
+  intakeRefine: {
+    title: '让 AI 修改',
+    label: '要改什么',
+    placeholder: '说说哪里要改，例如"拆细一点""第 3 条放到第 1 条下面"',
+    submit: '修改',
+    submitting: '修改中…',
+    revised: '已按要求修改草稿',
+    revisedTag: '已修改',
+    undo: '撤销',
+    undone: '已撤销这次修改',
+    undoneTag: '已撤销',
+    history: '修改记录',
+    tooLong: '最多 {{max}} 字。',
+    failed: '修改失败，请重试。',
+    timeout: 'AI 没有及时回复。草稿较多时可以分几次改。',
+    unavailable: 'AI 当前不可用。',
+  },
   process: {
     label: '流程',
     choices: {
@@ -71,14 +115,13 @@ const npIter4ZhCN: NpIter4Resource = {
     tag: '总结',
   },
   pm: {
-    title: '项目经理',
-    description: '跨项目回答进展、任务和度量问题，任务完成后写总结。',
-    emptyTitle: '还没有项目经理',
-    emptyDescription:
-      '项目经理是一个类型为「项目经理」的 Agent，在工作区设置里指定。',
+    title: '对话',
+    description: '与此入口配置的 Agent 对话。',
+    emptyTitle: '尚未配置对话 Agent',
+    emptyDescription: '在工作区设置中启用对话入口，并选择有回复能力的 Agent。',
     openSettings: '前往设置',
-    loadFailed: '无法打开与项目经理的对话',
-    placeholder: '问问项目经理…',
+    loadFailed: '无法打开对话',
+    placeholder: '输入消息…',
   },
   prMerge: {
     merge: '合并',
@@ -102,7 +145,6 @@ const npIter4ZhCN: NpIter4Resource = {
     changed: 'PR 有新提交，请重新确认后再合并。',
     forbiddenToken:
       'GitHub 令牌无法合并：需要 Contents 与 Pull requests 的写权限。',
-    authFailed: 'GitHub 拒绝了已配置的令牌。',
     openSettings: '打开 GitHub 设置',
     blocker: {
       closed: '已关闭',
@@ -230,6 +272,25 @@ const npIter4ZhCN: NpIter4Resource = {
       accountConflict: '这个邮箱已有账号，请直接登录。',
       failed: '出错了，请重试。',
     },
+  },
+  repoWebhook: {
+    open: '{{name}} 的 Webhook 设置',
+    title: '在 GitHub 上添加 Webhook',
+    description:
+      '每个 GitHub 仓库都要单独添加 Webhook，否则 PR 合并后任务状态不会自动更新。',
+    newHint: '添加后，还要在 GitHub 上为这个仓库添加 NocoProject 的 Webhook：',
+    stepOpen: '打开 {{repo}} 的 Webhook 设置。',
+    openSettings: '在 GitHub 打开',
+    stepOpenGeneric:
+      '在 GitHub 打开这个仓库，进入 Settings → Webhooks → Add webhook。',
+    settingsLink: '设置 → GitHub',
+    askAdmin: '在「设置 → GitHub」中，请工作区所有者或管理员提供。',
+    secret: '与 NocoProject 中保存的 Webhook 密钥相同。',
+    secretNotSet: '密钥未设置',
+    events:
+      '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses。',
+    stepSave:
+      '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
   },
 };
 

@@ -8,6 +8,33 @@ import type { LocaleResource } from '@nocobase/i18n';
  * shape derived from this object.
  */
 const npIter4EnUS = {
+  capabilities: {
+    title: 'Capabilities',
+    hint: 'Instructions describe behavior; only granted capabilities permit actions.',
+    preview: 'Instruction preview',
+    previewHint:
+      'Agent instructions and granted commands. Runtime identity, task context and system rules are added when a run starts.',
+    context_read: 'Read run context',
+    workspace_read: 'Search visible projects',
+    comment_create: 'Reply and add notes',
+    knowledge_propose: 'Propose knowledge',
+    issue_execute: 'Execute tasks',
+    subtask_create: 'Create subtasks',
+    dependency_write: 'Change dependencies',
+    issue_status_write: 'Change task status',
+    design_propose: 'Propose designs',
+    checklist_write: 'Update checklists',
+    workflow_propose: 'Propose workflows',
+    pullRequest_link: 'Link pull requests',
+  },
+  entries: {
+    conversation: 'Conversation entry',
+    completion: 'Task completion trigger',
+    enabled: 'Enabled',
+    name: 'Display name',
+    agent: 'Agent',
+    instructions: 'Task instructions',
+  },
   agentForm: {
     title: 'New agent',
     description: 'An agent runs one coding tool on one of your runtimes.',
@@ -59,6 +86,26 @@ const npIter4EnUS = {
     parse: 'Draft issues',
     parsing: 'Drafting…',
   },
+  /** NP-120: revising AI 整理 drafts by an instruction. */
+  intakeRefine: {
+    title: 'Ask AI to revise',
+    label: 'What to change',
+    placeholder:
+      'Say what to change, e.g. "split these finer" or "move row 3 under row 1"',
+    submit: 'Revise',
+    submitting: 'Revising…',
+    revised: 'Drafts revised',
+    revisedTag: 'Revised',
+    undo: 'Undo',
+    undone: 'Revision undone',
+    undoneTag: 'Undone',
+    history: 'Revisions',
+    tooLong: 'Use at most {{max}} characters.',
+    failed: 'Could not revise the drafts. Try again.',
+    timeout:
+      'AI did not answer in time. With many drafts, ask for smaller changes.',
+    unavailable: 'AI is not available.',
+  },
   process: {
     label: 'Process',
     choices: {
@@ -80,15 +127,14 @@ const npIter4EnUS = {
     tag: 'Retrospective',
   },
   pm: {
-    title: 'Project manager',
-    description:
-      'Answers questions about progress, issues and metrics across projects, and writes a retrospective when an issue is done.',
-    emptyTitle: 'No project manager yet',
+    title: 'Conversation',
+    description: 'Talk to the agent configured for this entry.',
+    emptyTitle: 'No conversation agent configured',
     emptyDescription:
-      'The project manager is an agent of the project manager kind, chosen in the workspace settings.',
+      'Enable the conversation entry in workspace settings and choose an agent that can reply.',
     openSettings: 'Open settings',
-    loadFailed: 'Unable to open the conversation with the project manager',
-    placeholder: 'Ask the project manager…',
+    loadFailed: 'Unable to open the conversation',
+    placeholder: 'Write a message…',
   },
   prMerge: {
     merge: 'Merge',
@@ -112,7 +158,6 @@ const npIter4EnUS = {
     changed: 'The pull request has new commits. Check it again before merging.',
     forbiddenToken:
       'The GitHub token cannot merge: it needs write access to Contents and Pull requests.',
-    authFailed: 'GitHub rejected the configured token.',
     openSettings: 'Open GitHub settings',
     blocker: {
       closed: 'Closed',
@@ -248,6 +293,26 @@ const npIter4EnUS = {
         'An account with this email already exists. Sign in instead.',
       failed: 'Something went wrong. Please try again.',
     },
+  },
+  repoWebhook: {
+    open: 'Webhook setup for {{name}}',
+    title: 'Add the webhook on GitHub',
+    description:
+      'Each GitHub repository needs its own webhook. Without it, merged pull requests do not update issues.',
+    newHint:
+      'After adding it, add the NocoProject webhook to this repository on GitHub:',
+    stepOpen: 'Open the webhook settings of {{repo}}.',
+    openSettings: 'Open on GitHub',
+    stepOpenGeneric:
+      'Open the repository on GitHub, then Settings → Webhooks → Add webhook.',
+    settingsLink: 'Settings → GitHub',
+    askAdmin: 'Ask a workspace owner or admin: it is under Settings → GitHub.',
+    secret: 'The webhook secret saved in NocoProject.',
+    secretNotSet: 'Secret not set',
+    events:
+      'Let me select individual events: Pull requests, Check suites, Statuses.',
+    stepSave:
+      'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
   },
 };
 

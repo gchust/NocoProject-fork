@@ -12,7 +12,7 @@ export interface StartConfirmationInput {
 }
 
 /**
- * Whether a change would queue a run for an agent, and therefore asks "start now?" first (§G "确认开始").
+ * Whether a change would queue a run for an agent, and therefore asks "start now?" first (§G "confirm start").
  *
  * It mirrors the two trigger rules a person's edit can fire (protocol §2): setting an agent as executor while the
  * issue is not dormant (`assign`), and moving an issue with an agent executor out of backlog into a non-terminal

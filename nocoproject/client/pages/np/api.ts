@@ -244,6 +244,13 @@ export async function updateAgent(
   return data;
 }
 
+export async function deleteAgent(
+  api: ApiClient,
+  agentId: string,
+): Promise<void> {
+  await api.request({ path: 'np/agents/' + id(agentId), method: 'DELETE' });
+}
+
 export async function fetchRuntimes(api: ApiClient): Promise<Runtime[]> {
   const { data } = await api.request<{ data: Runtime[] }>({
     path: 'np/runtimes',

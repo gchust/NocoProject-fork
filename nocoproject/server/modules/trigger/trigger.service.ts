@@ -14,17 +14,27 @@
  * | Comment starting with `/note`, or agent-authored comment            | nothing                                  |
  * | Any of the above while the issue is blocked (`subtask/blocking.ts`) | nothing; activity `run_deferred_blocked` |
  * | An issue reaches a terminal status                                  | release dependents / next-stage siblings (`trigger/release.ts`) |
- * | Run failed with a retryable reason, attempts left                   | new run, `retryOfRunId`, `retry` (never gated) |
+ * | Run failed with a retryable reason, attempts left                   | new run if still authorized, `retryOfRunId`, `retry` |
  * | A new `blockedBy` dependency leaves the issue blocked               | its queued / deferred runs are withdrawn (cancelled, `blocked`); activity `run_deferred_blocked` |
  * | Design approved; issue enters done (iteration 4)                    | `designApproved` / `retrospective` (`trigger/retrospective.ts`) |
  * | Any status write enters a status with stage actions (Phase 2)       | `stageEntered` and the other effects (`workflow/stage-actions.ts`) |
  *
+ * Owner changes withdraw queued/deferred work of an executor the new owner cannot invoke; dispatched/running work finishes.
+ * Implicit invocations check the invoking user's agent access; unauthorized triggers leave the comment intact.
+ *
  * Comment triggers join an input-capable current run before pending-run coalescing. Other triggers and legacy
- * daemons retain queued delivery. `run.enqueue` and the claim SQL enforce these rules.
+ * daemons retain queued delivery. Coalescing into an existing pending run, and "a running run makes the new one
+ * wait", are enforced by `run.enqueue` and the claim SQL.
  */
+import { forbid } from '../shared/authz.js';
+import {
+  canTriggerAgent,
+  withdrawOnOwnerChange,
+  canRetryAfterHandoff,
+} from './access.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import type { Tx } from '../shared/db.js';
-import { fromJson, str, unique } from '../shared/db.js';
+import { fromJson, str } from '../shared/db.js';
 import type {
   Comment,
   FailureReason,
@@ -55,7 +65,7 @@ export interface IssueChange {
   readonly before: IssueV1 | null;
   readonly after: IssueV1;
   readonly actor: Actor;
-  /** false = 暂不开始: the change must not enqueue `assign` / `statusChange` (default true). */
+  /** false = do not start yet: the change must not enqueue `assign` / `statusChange` (default true). */
   readonly start?: boolean;
   /** The trigger type an executor change records (default `assign`). */
   readonly assignTriggerType?: 'assign' | 'proposalAccepted';
@@ -128,23 +138,8 @@ export interface EnqueueTarget {
   readonly threadScope: string | null;
 }
 
-async function activeAgentIds(
-  tx: Tx,
-  ids: readonly string[],
-): Promise<Set<string>> {
-  const wanted = unique(ids);
-  if (wanted.length === 0) return new Set();
-  const rows = await tx.conn.query
-    .selectFrom('agents')
-    .select('id')
-    .where('id', 'in', wanted)
-    .where('archivedAt', 'is', null)
-    .execute();
-  return new Set(rows.map((row) => String(row.id as string)));
-}
-
 /**
- * Enqueues one run unless the agent is archived or the issue is blocked. A blocked issue gets an activity naming
+ * Enqueues one run unless the caller cannot invoke the agent or the issue is blocked. A blocked issue gets an activity naming
  * the blockers instead of a run; the trigger is not stored (release re-triggers it as `dependencyReleased`).
  */
 export async function enqueueFor(
@@ -154,7 +149,7 @@ export async function enqueueFor(
   trigger: TriggerRecordInput,
 ): Promise<TriggeredRun | null> {
   const { issue, agentId, threadScope, actorUserId } = target;
-  if (!(await activeAgentIds(tx, [agentId])).has(agentId)) return null;
+  if (!(await canTriggerAgent(tx, actorUserId, agentId))) return null;
   const blockers = await blockersOf(tx.conn, deps.workflows, issue as IssueV1);
   if (blockers.length > 0) {
     await deps.activity.record(tx.conn, {
@@ -193,6 +188,7 @@ async function onIssueChanged(
   change: IssueChange,
 ): Promise<TriggeredRun[]> {
   const { before, after, actor } = change;
+  await withdrawOnOwnerChange(deps, tx, change);
   const actorUserId =
     actor.type === 'user' ? actor.id : (change.onBehalfOfUserId ?? null);
   if (actor.type !== 'user' && !change.onBehalfOfUserId) return [];
@@ -297,8 +293,9 @@ async function retryFailedRun(
   reason: FailureReason,
 ): Promise<EnqueueResult | null> {
   if (failed.attempt >= maxAttempts) return null;
-  if (!(await activeAgentIds(tx, [failed.agentId])).has(failed.agentId))
+  if (!(await canTriggerAgent(tx, failed.actorUserId, failed.agentId)))
     return null;
+  if (!(await canRetryAfterHandoff(tx, failed))) return null;
   // Carry the original triggers so the retry sees the same comments, then mark it as a retry.
   const original = await tx.conn.query
     .selectFrom('runTriggers')
@@ -338,6 +335,8 @@ async function manualRetry(
   actor: Actor,
 ): Promise<EnqueueResult> {
   const userId = actor.type === 'user' ? actor.id : null;
+  if (!(await canTriggerAgent(tx, userId, run.agentId)))
+    forbid('You do not have access to this agent.');
   return deps.runs().enqueue(tx, {
     agentId: run.agentId,
     subjectId: run.subjectId,

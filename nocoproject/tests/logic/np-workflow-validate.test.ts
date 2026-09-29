@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Workflow definition validation (NP-77 方案 §5), instruction templates and the compiled `stageActions`; no database.
+ * Workflow definition validation (NP-77 design proposal §5), instruction templates and the compiled `stageActions`; no database.
  */
 import { describe, expect, it } from 'vitest';
 

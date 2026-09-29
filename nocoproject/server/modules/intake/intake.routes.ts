@@ -8,6 +8,7 @@ import type {
   CreateIntakeBatchRequestV4,
   IntakeBatchAttachmentsField,
   PutIntakeDraftsRequest,
+  RefineIntakeDraftsRequest,
 } from '../shared/protocol.js';
 import type { IntakeService } from './intake.service.js';
 
@@ -22,7 +23,7 @@ function optionalBody<T>(text: string): T {
 
 /**
  * `/np/intake/batches` (browser, contract §E). NP-78: the batch's `attachments[].contentUrl` gets the application's
- * base path.
+ * base path. NP-120: `POST /batches/:id/refine` revises the drafts by one instruction.
  */
 export function createIntakeRoutes(
   intake: IntakeService,
@@ -77,6 +78,18 @@ export function createIntakeRoutes(
       },
     });
   });
+  // NP-120: the model answers within 30 seconds (504 AI_TIMEOUT otherwise).
+  routes.post('/batches/:id/refine', async (context) =>
+    context.json({
+      data: {
+        drafts: await intake.refine(
+          sessionActor(context),
+          context.req.param('id'),
+          await readJson<RefineIntakeDraftsRequest>(context),
+        ),
+      },
+    }),
+  );
   routes.post('/batches/:id/confirm', async (context) =>
     context.json({
       data: await intake.confirm(

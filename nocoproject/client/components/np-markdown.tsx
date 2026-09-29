@@ -11,8 +11,8 @@ export interface NpMarkdownProps {
 }
 
 // `mention://agent/<id>` and `mention://user/<id>` are the NocoProject mention links (protocol §2, iteration 2
-// "富文本"). react-markdown's default transform drops unknown schemes, so mentions are let through here and rendered as
-// chips; every other URL keeps the default sanitisation.
+// "rich text"). react-markdown's default transform drops unknown schemes, so mentions are let through here and
+// rendered as chips; every other URL keeps the default sanitisation.
 const MENTION_HREF = /^mention:\/\/(agent|user)\//u;
 
 function urlTransform(url: string): string {

@@ -85,6 +85,11 @@ describe('knowledge base (§B)', () => {
     );
     await renderNp(<KnowledgePage />, { url: '/knowledge?project=workspace' });
 
+    await user.click(
+      await screen.findByRole('button', {
+        name: '1 proposals await a decision',
+      }),
+    );
     const card = await screen.findByRole('article', {
       name: 'Proposal: Testing conventions',
     });
@@ -107,6 +112,99 @@ describe('knowledge base (§B)', () => {
         query: expect.objectContaining({ projectId: 'none' }),
       }),
     );
+  });
+
+  it('warns and confirms before accepting a proposal that fell behind (NP-139)', async () => {
+    const user = userEvent.setup();
+    const staleProposal = { ...PROPOSAL, baseVersion: 2, currentVersion: 3 };
+    const acceptCalls: unknown[] = [];
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': { data: [DOC] },
+        'GET np/knowledge/proposals': { data: [staleProposal] },
+        'POST np/knowledge/proposals/kp1/accept': (options: RequestOptions) => {
+          acceptCalls.push(options.json);
+          if (!(options.json as { confirmStale?: boolean })?.confirmStale) {
+            throw new ApiClientError('conflict', {
+              status: 409,
+              code: 'KNOWLEDGE_PROPOSAL_STALE',
+              method: 'POST',
+              url: '/api/np/knowledge/proposals/kp1/accept',
+              payload: { details: { currentVersion: 3 } },
+            });
+          }
+          return { data: { ...staleProposal, status: 'accepted' } };
+        },
+      }),
+    );
+    await renderNp(<KnowledgePage />, { url: '/knowledge?project=workspace' });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: '1 proposals await a decision',
+      }),
+    );
+    const card = await screen.findByRole('article', {
+      name: 'Proposal: Testing conventions',
+    });
+    expect(within(card).getByText('Based on v2 · currently v3')).toBeVisible();
+    expect(within(card).getByText('Outdated')).toBeVisible();
+
+    await user.click(within(card).getByRole('button', { name: 'Accept' }));
+    expect(
+      await screen.findByText('This proposal is based on an older version'),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Accept anyway' }));
+
+    await waitFor(() =>
+      expect(acceptCalls).toEqual([{}, { confirmStale: true }]),
+    );
+    expect(toast.add).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'success' }),
+    );
+  });
+
+  it('shows a line diff against the current version by default, full text on demand', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'GET np/knowledge': { data: [DOC] },
+        'GET np/knowledge/proposals': { data: [PROPOSAL] },
+        'GET np/knowledge/k1': {
+          data: { doc: DOC, versions: [], proposals: [] },
+        },
+      }),
+    );
+    await renderNp(<KnowledgePage />, { url: '/knowledge?project=workspace' });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: '1 proposals await a decision',
+      }),
+    );
+    const card = await screen.findByRole('article', {
+      name: 'Proposal: Testing conventions',
+    });
+    await user.click(
+      within(card).getByRole('button', { name: 'Show proposed text' }),
+    );
+    expect(
+      await within(card).findByText('Compared with the current version (v3)'),
+    ).toBeVisible();
+    expect(
+      within(card).getByText('Run `pnpm test` before pushing.'),
+    ).toBeVisible();
+    expect(within(card).getByText('Also run lint.')).toBeVisible();
+
+    await user.click(
+      within(card).getByRole('button', { name: 'Show full text' }),
+    );
+    expect(
+      within(card).queryByText('Run `pnpm test` before pushing.'),
+    ).toBeNull();
+    expect(within(card).getByText('Also run lint.')).toBeVisible();
   });
 
   it('shows the document, its history and an old version on demand', async () => {

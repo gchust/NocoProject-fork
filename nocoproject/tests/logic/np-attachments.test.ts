@@ -16,7 +16,9 @@ import {
   BOB,
   CAROL,
   buildServices,
+  createAgent,
   openNpTestDatabase,
+  registerRuntime,
   resetData,
   rows,
   setRole,
@@ -104,8 +106,8 @@ describe.skipIf(!db)('issue attachments (PostgreSQL)', () => {
     expect(
       (await services.issueQueries.forAgent(issue.id)).attachments,
     ).toEqual([
-      { filename: 'spec.txt', mimeType: 'text/plain', size: 1234 },
-      { filename: 'bob.txt', mimeType: 'text/plain', size: 1234 },
+      { id: first, filename: 'spec.txt', mimeType: 'text/plain', size: 1234 },
+      { id: second, filename: 'bob.txt', mimeType: 'text/plain', size: 1234 },
     ]);
     const activities = await rows(db!, 'activities', 'issue_id = ?', [
       issue.id,
@@ -253,5 +255,49 @@ describe.skipIf(!db)('issue attachments (PostgreSQL)', () => {
     await services.intake.cancel(ALICE, cancelled.batch.id);
     expect(await services.attachments.purgeOrphans(later)).toBe(1);
     expect(removed).toEqual([{ disk: 'local', key: `objects/${dropped}.txt` }]);
+  });
+
+  it('hands the claimed run the attachments and serves agentContent only for its files (NP-111)', async () => {
+    const opened: string[] = [];
+    services = buildServices(db!.database, {
+      fileObjects: {
+        remove: async () => undefined,
+        open: async (disk, key) => {
+          opened.push(`${disk}:${key}`);
+          return new Blob([`bytes of ${key}`]).stream();
+        },
+      },
+    }).services;
+    const { runtimeId, daemonId } = await registerRuntime(services, ALICE);
+    const agentId = await createAgent(services, ALICE, runtimeId, 'Reader', 1);
+    const file = await upload(ALICE.id!, 'shot.txt');
+    const issue = await services.issues.create(ALICE, {
+      title: 'Read the screenshot',
+      executor: { type: 'agent', id: agentId },
+      attachmentIds: [file],
+    });
+    const { runs } = await services.claims.claim(
+      ALICE.id!,
+      { daemonId, configurationProtocol: 1, slots: [{ runtimeId, free: 1 }] },
+      'http://test/main',
+    );
+    expect(runs[0]?.issue.attachments).toEqual([
+      { id: file, filename: 'shot.txt', mimeType: 'text/plain', size: 1234 },
+    ]);
+
+    const content = await services.attachments.agentContent(issue.id, file);
+    expect(content.file.filename).toBe('shot.txt');
+    expect(await new Response(content.body).text()).toBe(
+      `bytes of objects/${file}.txt`,
+    );
+    expect(opened).toEqual([`local:objects/${file}.txt`]);
+    const other = await services.issues.create(ALICE, { title: 'Other' });
+    await expect(
+      services.attachments.agentContent(other.id, file),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      services.attachments.agentContent(issue.id, 'not-a-uuid'),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(opened).toHaveLength(1);
   });
 });

@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { AGENT_COMMANDS } from '../shared/protocol.capabilities.js';
+import { capabilitiesOf } from '../agent/capabilities.js';
+import { createSettingsService } from '../system/settings.service.js';
+import { NpError } from '../shared/errors.js';
 /**
  * Batch claim for a daemon (protocol.md §4 `runs/claim`). Iteration 2 adds `agent.env` (decrypted — this payload only
  * travels on the daemon route), `agent.skills`, `issue.executionMode` and `issue.pullRequests`; iteration 3 the
@@ -28,6 +33,7 @@ import {
   PROTOCOL_VERSION,
   type AgentProvider,
   type ClaimedRun,
+  type ClaimedRunAttachmentExtras,
   type ClaimedRunPhase1Extras,
   type ClaimedRunPhase2Extras,
   type ClaimedRunPhase3Extras,
@@ -41,6 +47,7 @@ import {
 } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import { claimEnv } from '../agent/env.service.js';
+import { agentAttachments } from '../attachment/attachment.records.js';
 import type { KnowledgeService } from '../knowledge/knowledge.service.js';
 import { claimedPullRequests } from '../git/git.records.js';
 import { agentKindOf, reasoningEffortOf } from '../agent/agent.fields.js';
@@ -92,9 +99,10 @@ export type ClaimedRunV2 = ClaimedRunV1 & ClaimedRunPhase2Extras;
 export type ClaimedRunV3 = ClaimedRunV2 & ClaimedRunPhase3Extras;
 /** ...and the iteration-4 agent kind, reasoning effort and design state (iteration-4 contract §B, §C). */
 export type ClaimedRunV4 = ClaimedRunV3 & ClaimedRunPhase4Extras;
-/** ...and the Phase 2 checklist and stage instruction (NP-77 §6). */
+/** ...and the Phase 2 checklist and stage instruction (NP-77 §6), and the issue's attachments (NP-111). */
 export type ClaimedRunV5 = ClaimedRunV4 &
-  ClaimedRunWorkflowExtras & {
+  ClaimedRunWorkflowExtras &
+  ClaimedRunAttachmentExtras & {
     readonly triggers: readonly (ClaimedRun['triggers'][number] &
       ClaimedTriggerPhase2Extras)[];
   };
@@ -276,7 +284,56 @@ async function buildClaimedRun(
     subjectType: run.subjectType,
     subjectId: run.subjectId,
   });
-  const fresh = !session || session.poisoned || !session.providerSessionId;
+  const entries = (await createSettingsService().read(conn)).agentEntries;
+  const taskInstructions = triggerRows.some(
+    (row) => row.type === 'retrospective',
+  )
+    ? entries.completion.instructions
+    : issue.originType === 'pm'
+      ? entries.conversation.instructions
+      : '';
+  const skills = await claimSkills(conn, run.agentId);
+  const configurationFingerprint = createHash('sha256')
+    .update(
+      JSON.stringify({
+        instructions: agent.instructions,
+        capabilities: agent.capabilities,
+        skills,
+        taskInstructions,
+      }),
+    )
+    .digest('hex');
+  const snapshot = {
+    configurationFingerprint,
+    configurationRevision: Number(agent.configurationRevision),
+    capabilities: capabilitiesOf(agent.capabilities),
+    instructions: str(agent.instructions) ?? '',
+    taskInstructions,
+    skillIds: skills.map((skill) => skill.id),
+    entryRevision: entries.revision,
+  };
+  const environment = await claimEnv(conn, deps.secrets, run.agentId);
+  const scrub = (text: string) =>
+    Object.values(environment)
+      .filter((secret) => secret.length >= 6)
+      .reduce((text, secret) => text.split(secret).join('[REDACTED]'), text);
+  const storedSnapshot = JSON.stringify({
+    ...snapshot,
+    instructions: scrub(snapshot.instructions),
+    taskInstructions: scrub(taskInstructions),
+  });
+  await conn.query
+    .updateTable('runs')
+    .set({ configurationSnapshot: storedSnapshot })
+    .where('id', '=', run.id)
+    .execute();
+  const fresh =
+    !session ||
+    session.poisoned ||
+    !session.providerSessionId ||
+    session.configurationRevision !== snapshot.configurationRevision ||
+    session.entryRevision !== entries.revision ||
+    session.configurationFingerprint !== configurationFingerprint;
   const view = await deps.workflows.forIssue(conn, issue);
   const parent = issue.parentIssueId
     ? await findIssue(conn, issue.parentIssueId)
@@ -294,12 +351,18 @@ async function buildClaimedRun(
     agent: {
       id: run.agentId,
       name: str(agent.name) ?? '',
-      instructions: str(agent.instructions) ?? '',
+      instructions: snapshot.instructions,
+      capabilities: snapshot.capabilities,
+      configurationRevision: snapshot.configurationRevision,
+      taskInstructions,
+      commandDescriptions: snapshot.capabilities.flatMap(
+        (key) => AGENT_COMMANDS[key],
+      ),
       provider: (str(agent.provider) ?? 'echo') as AgentProvider,
       model: str(agent.model),
       delegationTargets: await delegationTargets(conn, run.agentId),
       env: await claimEnv(conn, deps.secrets, run.agentId),
-      skills: await claimSkills(conn, run.agentId),
+      skills,
       kind: agentKindOf(agent.kind),
       reasoningEffort: reasoningEffortOf(agent.reasoningEffort),
     },
@@ -320,6 +383,7 @@ async function buildClaimedRun(
       designProposal: await latestProposal(conn, issue.id),
       originType: issue.originType,
       checklist: await currentChecklist(conn, deps.users, issue),
+      attachments: await agentAttachments(conn, issue.id),
     },
     project: await claimedProject(conn, issue.projectId),
     statusCatalog: view.catalog,
@@ -353,6 +417,12 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
   return {
     claimOne,
     async claim(ownerUserId, request, serverUrl) {
+      if (request.configurationProtocol !== 1)
+        throw new NpError(
+          'upgradeRequired',
+          'CONFIGURATION_PROTOCOL_REQUIRED',
+          'Upgrade the CLI for configured agents.',
+        );
       const conn = deps.tx.read();
       if (!isPostgres(conn)) {
         throw invalid(

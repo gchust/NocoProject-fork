@@ -38,8 +38,7 @@ import {
 } from './git.records.js';
 import { matchIssueIdentifiers } from './link-rules.js';
 import {
-  onPullRequestClosed,
-  onPullRequestMerged,
+  onPullRequestStateChanged,
   requestReviews,
   type GitFlowDeps,
 } from './merge-flow.js';
@@ -161,11 +160,8 @@ async function handlePullRequest(
   const links = await linksOfPullRequest(tx.conn, pr.id);
   for (const link of links)
     tx.emit({ type: 'issue.changed', issueId: link.issueId });
-  if (pr.state === 'merged' && previous?.state !== 'merged') {
-    await onPullRequestMerged(deps, tx, pr);
-  } else if (pr.state === 'closed' && previous?.state !== 'closed') {
-    await onPullRequestClosed(tx, pr);
-  } else if (pr.state === 'open' && !pr.draft) {
+  await onPullRequestStateChanged(deps, tx, pr, previous);
+  if (pr.state === 'open' && !pr.draft) {
     const reviewIssueIds = REVIEW_ACTIONS.has(payload.action ?? '')
       ? links.map((link) => link.issueId)
       : newlyLinked;

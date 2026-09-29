@@ -247,8 +247,29 @@ describe.skipIf(!db)('pull request links (PostgreSQL)', () => {
     const list = await call('GET', `/issues/${target.id}/pull-requests`);
     expect(list.body.data).toHaveLength(1);
     expect(github.getPullRequest).not.toHaveBeenCalled();
-    expect(await rows(db!, 'inbox_items', "type = 'pr_review'")).toHaveLength(
-      1,
+    // NP-128 / NP-131: the merge card waits for the delivery and its acceptance.
+    expect(await rows(db!, 'inbox_items', "type = 'pr_review'")).toEqual([]);
+    for (const statusKey of ['in_progress', 'in_review'])
+      expect(
+        (await call('POST', `/issues/${target.id}/status`, { statusKey }))
+          .status,
+      ).toBe(200);
+    expect(await rows(db!, 'inbox_items', "type = 'pr_review'")).toEqual([]);
+    await services.deliveries.accept(ALICE, target.id, {});
+    const cards = await rows(
+      db!,
+      'inbox_items',
+      "type IN ('review_requested', 'pr_review') ORDER BY id",
     );
+    expect(
+      cards.map((card) => [card.type, card.user_id, card.resolved_at === null]),
+    ).toEqual([
+      ['review_requested', ALICE.id, false],
+      ['pr_review', ALICE.id, true],
+    ]);
+    const [review, merge] = cards.map((card) =>
+      new Date(String(card.updated_at)).getTime(),
+    );
+    expect(merge).toBeGreaterThanOrEqual(review!);
   });
 });

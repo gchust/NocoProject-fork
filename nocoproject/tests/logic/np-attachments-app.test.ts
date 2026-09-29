@@ -345,7 +345,7 @@ describe('NocoProject issue attachments through the application', () => {
     expect((await member.content(mine.contentUrl)).status).toBe(200);
   });
 
-  it('carries AI 整理 uploads with the batch and attaches them to the issues it creates', async () => {
+  it('carries AI draft uploads with the batch and attaches them to the issues it creates', async () => {
     const storage = mkdtempSync(path.join(tmpdir(), 'np-attachments-store-'));
     cleanups.push(() => rmSync(storage, { recursive: true, force: true }));
     const app = await startNpApp(cleanups, 'nocoproject-attachments-intake-', {
@@ -464,7 +464,7 @@ describe('NocoProject issue attachments through the application', () => {
     ]);
   });
 
-  it('reads an uploaded document for AI 整理 through the Drive-backed reader', async () => {
+  it('reads an uploaded document for AI draft through the Drive-backed reader', async () => {
     const storage = mkdtempSync(path.join(tmpdir(), 'np-attachments-store-'));
     cleanups.push(() => rmSync(storage, { recursive: true, force: true }));
     const app = await startNpApp(cleanups, 'nocoproject-attachments-read-', {

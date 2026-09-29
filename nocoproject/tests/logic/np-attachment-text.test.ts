@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * NP-78: the text the AI 整理 parser gets from attached files — plain text decoded, docx / xlsx / pptx / pdf through
+ * NP-78: the text the AI draft parser gets from attached files — plain text decoded, docx / xlsx / pptx / pdf through
  * officeparser, legacy Office and images not read, broken files reported as failed, and the per-file and total
  * character limits.
  */
@@ -33,7 +33,7 @@ function file(
   };
 }
 
-describe('attachment text for AI 整理', () => {
+describe('attachment text for AI draft', () => {
   it('reads text and Office documents and reports the rest', async () => {
     const reader = createAttachmentTextReader(load);
     const result = await reader.read([

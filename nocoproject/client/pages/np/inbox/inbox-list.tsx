@@ -31,7 +31,7 @@ type PagedQuery = Pick<
 
 /**
  * The inbox's left column (nocosolution/frontend/nocosolution-frontend-standard.md §2): the filter tabs with unread counts, "show archived", and
- * the items as two groups — 待我决定 first, then 通知 — each a labelled list with its own "load more". The keyboard
+ * the items as two groups — "Needs my decision" first, then "Notifications" — each a labelled list with its own "load more". The keyboard
  * hint sits at the bottom.
  */
 export function InboxList({

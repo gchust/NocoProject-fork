@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * Design proposals and decisions (docs/phase1/iteration-4-contract.md §B), each in one transaction:
  *
@@ -90,6 +91,7 @@ async function propose(
   const content = text(input?.content, 'INVALID_CONTENT', true) as string;
   const actor: Actor = { type: 'agent', id: auth.agentId, runId: auth.runId };
   return deps.tx.run(async (tx) => {
+    await requireCapability(tx.conn, auth, 'design.propose');
     const issue = await findIssue(tx.conn, idOrKey);
     if (!issue) throw notFound('Issue');
     if (issue.id !== auth.issueId)

@@ -1,3 +1,7 @@
+import type {
+  AgentConfiguration,
+  ConfigurationSnapshot,
+} from './agent-capabilities.js';
 /**
  * Browser-side types for the NocoProject pages (Phase 0, protocol version 1).
  *
@@ -217,6 +221,7 @@ export interface RunTrigger {
 
 /** A run summary in the issue detail, and `GET /np/runs/:id`. */
 export interface RunSummary {
+  readonly configurationSnapshot?: ConfigurationSnapshot | null;
   readonly id: string;
   readonly agentId: string;
   readonly agentName?: string | null;
@@ -265,7 +270,7 @@ export interface IssueDetail {
   readonly activitiesNextCursor?: string | null;
 }
 
-export interface AgentListItem {
+export interface AgentListItem extends AgentConfiguration {
   readonly id: string;
   readonly name: string;
   readonly description?: string | null;
@@ -391,7 +396,7 @@ export interface CreateCommentResult {
   }[];
 }
 
-export interface CreateAgentInput {
+export interface CreateAgentInput extends AgentConfiguration {
   readonly name: string;
   readonly description?: string;
   readonly instructions: string;
@@ -406,7 +411,7 @@ export interface CreateAgentInput {
 }
 
 /** `PATCH /np/agents/:id` (§H). */
-export interface UpdateAgentInput {
+export interface UpdateAgentInput extends AgentConfiguration {
   readonly name?: string;
   readonly description?: string | null;
   readonly instructions?: string;

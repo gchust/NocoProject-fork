@@ -1,13 +1,14 @@
 /**
- * NocoProject 协议类型（Phase 0，protocolVersion 1）。
+ * NocoProject protocol types (Phase 0, protocolVersion 1).
  *
- * 这是服务端、守护进程 / CLI、前端三方的共同契约。守护进程包里有一份同内容副本
- * （nocoproject-cli/src/protocol.ts）；改这里必须同步改那里，并更新 docs/phase0/protocol.md。
+ * This is the shared contract between the server, the daemon / CLI, and the frontend. The daemon
+ * package keeps an identical copy (nocoproject-cli/src/protocol.ts); a change here must be
+ * mirrored there, and docs/phase0/protocol.md updated.
  */
 
 export const PROTOCOL_VERSION = 1 as const;
 
-// ---------- 状态目录 ----------
+// ---------- Status catalog ----------
 
 export type StatusCategory = 'unstarted' | 'started' | 'done' | 'closed';
 
@@ -37,7 +38,7 @@ export type ExecutorType = 'user' | 'agent' | 'none';
 
 export type ActorType = 'user' | 'agent' | 'system';
 
-// ---------- 运行 ----------
+// ---------- Runs ----------
 
 export type RunStatus =
   | 'queued'
@@ -114,7 +115,7 @@ export interface RunUsageInput {
   readonly cacheWriteTokens?: number;
 }
 
-// ---------- 守护进程接口 ----------
+// ---------- Daemon interface ----------
 
 export type AgentProvider = 'claude' | 'opencode' | 'codex' | 'echo';
 
@@ -152,6 +153,7 @@ export interface DaemonHeartbeatRequest {
 }
 
 export interface DaemonClaimRequest {
+  readonly configurationProtocol?: number;
   readonly daemonId: string;
   readonly slots: readonly {
     readonly runtimeId: string;
@@ -180,6 +182,8 @@ export interface ClaimedRun {
   readonly agent: {
     readonly id: string;
     readonly name: string;
+    readonly capabilities?: readonly import('./protocol.capabilities.js').AgentCapability[];
+    readonly configurationRevision?: number;
     readonly instructions: string;
     readonly provider: AgentProvider;
     readonly model: string | null;
@@ -244,12 +248,12 @@ export interface DaemonFailRequest {
   readonly sessionPoisoned?: boolean;
 }
 
-/** 守护进程订阅的用户主题 `np:daemon` 上的载荷 */
+/** Payload on the per-user topic `np:daemon` that the daemon subscribes to */
 export type DaemonWakeupPayload =
   | { readonly kind: 'workAvailable'; readonly runtimeId: string }
   | { readonly kind: 'cancelRequested'; readonly runId: string };
 
-// ---------- Agent 回写接口 ----------
+// ---------- Agent write-back interface ----------
 
 export interface IssueForAgent {
   readonly id: string;
@@ -282,11 +286,11 @@ export interface AgentContextResponse {
   readonly issue: IssueForAgent;
   readonly statusCatalog: readonly StatusCatalogEntry[];
   readonly agentTransitions: readonly StatusTransition[];
-  /** Phase 1 迭代 1：运行所属任务的项目与仓库资源（服务端总是返回，无项目时为 null） */
+  /** Phase 1 iteration 1: the project and repo resources of the run's issue (server always returns this; null when there is no project) */
   readonly project?: ClaimedProject | null;
 }
 
-// ---------- 浏览器实时主题 ----------
+// ---------- Browser realtime topics ----------
 
 export const REALTIME_TOPICS = {
   issues: 'np:issues',
@@ -304,7 +308,7 @@ export type RunTopicPayload =
   | { readonly kind: 'run.events'; readonly last: number }
   | { readonly kind: 'run.status'; readonly status: RunStatus };
 
-// ---------- 运行令牌 ----------
+// ---------- Run token ----------
 
 export const RUN_TOKEN_PREFIX = 'npr_' as const;
 export const RUN_TOKEN_TTL_SECONDS = 24 * 60 * 60;
@@ -313,7 +317,7 @@ export const RUNTIME_OFFLINE_AFTER_SECONDS = 150;
 export const DISPATCHED_TIMEOUT_SECONDS = 300;
 export const RUNTIME_RECONNECT_GRACE_SECONDS = 3 * 60 * 60;
 
-/** CLI 在这些环境变量存在时自动以运行令牌模式工作 */
+/** The CLI automatically works in run-token mode when these environment variables are present */
 export const RUN_ENV = {
   serverUrl: 'NOCOPROJECT_SERVER_URL',
   token: 'NOCOPROJECT_TOKEN',
@@ -323,9 +327,9 @@ export const RUN_ENV = {
   issueKey: 'NOCOPROJECT_ISSUE_KEY',
 } as const;
 
-// ---------- 界面接口（浏览器，protocol.md 第 3 节） ----------
+// ---------- UI interface (browser, protocol.md §3) ----------
 //
-// 服务端 Phase 0 实现时补充的响应形状（只增不改）。守护进程不使用这些类型。
+// Response shapes added during the server's Phase 0 implementation (additive only). The daemon does not use these types.
 
 export type AgentAccess = 'ownerOnly' | 'everyone';
 export type RuntimeKind = 'personal' | 'server';
@@ -333,7 +337,7 @@ export type RuntimeVisibility = 'private' | 'public';
 export type RuntimeStatus = 'online' | 'offline';
 export type CommentKind = 'comment' | 'system';
 
-/** 失败响应体：`{ code, message }` 与相应 HTTP 状态码 */
+/** Failure response body: `{ code, message }` with the corresponding HTTP status code */
 export interface ApiErrorBody {
   readonly code: string;
   readonly message: string;
@@ -382,7 +386,7 @@ export interface Issue {
 export interface IssueListItem extends Issue {
   readonly ownerName: string | null;
   readonly executorName: string | null;
-  /** dispatched | running 的运行数 */
+  /** Count of runs in dispatched | running */
   readonly activeRunCount: number;
 }
 
@@ -395,14 +399,14 @@ export interface Comment {
   readonly content: string;
   readonly kind: CommentKind;
   readonly parentId: string | null;
-  /** 线程根评论 id（顶层评论为自身 id） */
+  /** The thread's root comment id (a top-level comment's own id) */
   readonly rootId: string;
   readonly sourceRunId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
 
-/** @temporary(nocobase-official): 待替换为 NocoBase 官方 活动流与变更事件 */
+/** @temporary(nocobase-official): to be replaced by NocoBase's official activity feed and change events */
 export interface Activity {
   readonly id: string;
   readonly issueId: string;
@@ -418,7 +422,7 @@ export interface RunSummary {
   readonly id: string;
   readonly agentId: string;
   readonly agentName: string;
-  /** 第一条触发的类型 */
+  /** Type of the first trigger */
   readonly triggerType: RunTriggerType | null;
   readonly status: RunStatus;
   readonly attempt: number;
@@ -427,14 +431,14 @@ export interface RunSummary {
   readonly createdAt: string;
   readonly startedAt: string | null;
   readonly finishedAt: string | null;
-  /** Phase 1：Agent 工作分支（守护进程回报），无 checkout 时为 null */
+  /** Phase 1: the agent's working branch (reported by the daemon); null when there was no checkout */
   readonly branchName: string | null;
   readonly repoUrl: string | null;
 }
 
 export interface IssueDetail {
   readonly issue: IssueListItem;
-  /** 扁平列表，按 createdAt 升序；线程由 parentId / rootId 组织 */
+  /** Flat list ordered by createdAt ascending; threads are organized via parentId / rootId */
   readonly comments: readonly Comment[];
   readonly activities: readonly Activity[];
   readonly runs: readonly RunSummary[];
@@ -446,10 +450,10 @@ export interface CreateIssueRequest {
   readonly description?: string;
   readonly priority?: IssuePriority;
   readonly projectId?: string | null;
-  /** 默认当前用户 */
+  /** Defaults to the current user */
   readonly ownerUserId?: string | null;
   readonly executor?: ExecutorInput;
-  /** 默认 todo（服务端补充的可选字段） */
+  /** Defaults to todo (an optional field added by the server implementation) */
   readonly statusKey?: string;
 }
 
@@ -497,7 +501,7 @@ export interface Agent {
 export interface AgentListItem extends Agent {
   readonly runtimeName: string | null;
   readonly runtimeOnline: boolean;
-  /** dispatched | running 的运行数 */
+  /** Count of runs in dispatched | running */
   readonly activeRunCount: number;
 }
 
@@ -521,7 +525,7 @@ export interface UpdateAgentRequest {
   readonly model?: string | null;
   readonly maxConcurrentRuns?: number;
   readonly access?: AgentAccess;
-  /** true 归档，false 取消归档 */
+  /** true archives it, false unarchives it */
   readonly archived?: boolean;
 }
 
@@ -535,7 +539,7 @@ export interface Runtime {
   readonly ownerName: string | null;
   readonly visibility: RuntimeVisibility;
   readonly status: RuntimeStatus;
-  /** status === 'online' 且 lastSeenAt 在 150 秒内 */
+  /** status === 'online' and lastSeenAt is within the last 150 seconds */
   readonly online: boolean;
   readonly lastSeenAt: string | null;
   readonly version: string | null;
@@ -586,6 +590,8 @@ export interface RunTriggerItem {
 }
 
 export interface RunDetail extends Run {
+  readonly configurationSnapshot?:
+    import('./protocol.capabilities.js').ConfigurationSnapshot | null;
   readonly agentName: string;
   readonly triggers: readonly RunTriggerItem[];
   readonly usage: readonly RunUsageInput[];
@@ -604,25 +610,25 @@ export interface RunEvent {
   readonly at: string;
 }
 
-/** GET /np/runs/:id/events 的完整响应体（`last` 与 `data` 同级） */
+/** Full response body of GET /np/runs/:id/events (`last` is a sibling of `data`) */
 export interface RunEventsResponse {
   readonly data: readonly RunEvent[];
   readonly last: number;
 }
 
-/** POST /np/daemon/runs/:id/events 的响应 */
+/** Response of POST /np/daemon/runs/:id/events */
 export interface DaemonEventsResponse {
   readonly accepted: number;
   readonly last: number;
 }
 
-/** 每批事件上限与单条正文上限（超出截断并 truncated=true） */
+/** Max events per batch and max body size per event (exceeding it truncates and sets truncated=true) */
 export const RUN_EVENTS_MAX_BATCH = 200;
 export const RUN_EVENT_MAX_CONTENT_BYTES = 64 * 1024;
 
-// ---------- Phase 1 迭代 1（docs/phase1/iteration-1-contract.md） ----------
+// ---------- Phase 1 iteration 1 (docs/phase1/iteration-1-contract.md) ----------
 //
-// 只增不改。守护进程的副本 nocoproject-cli/src/protocol.ts 必须同步。
+// Additive only. The daemon's copy nocoproject-cli/src/protocol.ts must be kept in sync.
 
 export type MemberRole = 'owner' | 'admin' | 'member';
 export type ProjectVisibility = 'everyone' | 'members';
@@ -652,7 +658,7 @@ export type InboxItemType =
 export type AgentAccessLevel = 'ownerOnly' | 'specificUsers' | 'everyone';
 export type TransitionActor = 'user' | 'agent' | 'system';
 
-/** 迭代 1 新增的触发类型；与 RunTriggerType 合并使用 */
+/** Trigger types added in iteration 1; used merged with RunTriggerType */
 export type Phase1RunTriggerType =
   RunTriggerType | 'dependencyReleased' | 'childBatchDone' | 'proposalAccepted';
 
@@ -665,7 +671,7 @@ export interface WorkflowStatusDefinition {
 }
 
 export interface WorkflowTransitionDefinition {
-  /** '*' 表示任意 */
+  /** '*' means any */
   readonly from: string;
   readonly to: string;
   readonly actors: readonly TransitionActor[];
@@ -771,7 +777,7 @@ export interface SubtaskSummary {
   readonly blockedCount: number;
 }
 
-/** Agent 回写接口：POST /np/agent/issues */
+/** Agent write-back interface: POST /np/agent/issues */
 export interface AgentCreateIssueRequest {
   readonly title: string;
   readonly description?: string;
@@ -794,7 +800,7 @@ export interface ClaimedProject {
   }[];
 }
 
-/** ClaimedRun 在迭代 1 追加的字段（服务端合并进 ClaimedRun；守护进程按可选读取） */
+/** Fields added to ClaimedRun in iteration 1 (the server merges these into ClaimedRun; the daemon reads them as optional) */
 export interface ClaimedRunPhase1Extras {
   readonly project: ClaimedProject | null;
   readonly issue: {
@@ -826,7 +832,7 @@ export interface CheckoutRecord {
   readonly path: string;
 }
 
-/** DaemonCompleteRequest / DaemonFailRequest 在迭代 1 追加的可选字段 */
+/** Optional fields added to DaemonCompleteRequest / DaemonFailRequest in iteration 1 */
 export interface DaemonReportPhase1Extras {
   readonly branchName?: string;
   readonly repoUrl?: string;
@@ -842,12 +848,13 @@ export const REALTIME_TOPICS_PHASE1 = {
   inbox: 'np:inbox',
 } as const;
 
-// ---------- Phase 1 迭代 1：服务端实现补充的响应形状（docs/phase1/protocol-iteration-1.md） ----------
+// ---------- Phase 1 iteration 1: response shapes added by the server implementation (docs/phase1/protocol-iteration-1.md) ----------
 //
-// 只增不改。上面 "Phase 1 迭代 1" 段是契约给出的类型；这里是服务端实现时补充的请求 / 响应形状。
-// 守护进程只用到 AgentCreateIssueResponse、IssueForAgentV1、AgentContextResponseV1、AgentDependencyRequest。
+// Additive only. The "Phase 1 iteration 1" section above holds the types given by the contract; this section
+// holds the request / response shapes added during the server implementation.
+// The daemon only uses AgentCreateIssueResponse, IssueForAgentV1, AgentContextResponseV1, AgentDependencyRequest.
 
-/** 迭代 1 给任务追加的列（`startDate` / `dueDate` 为 `YYYY-MM-DD`） */
+/** Columns added to issues in iteration 1 (`startDate` / `dueDate` are `YYYY-MM-DD`) */
 export interface IssuePhase1Fields {
   readonly stage: number | null;
   readonly startDate: string | null;
@@ -868,11 +875,11 @@ export interface IssueListItemV1 extends IssueListItem, IssuePhase1Fields {
   readonly labels: readonly Label[];
   readonly projectName: string | null;
   readonly subtaskCount: number;
-  /** 未到终态的 blockedBy 前置 + 更小批次里未到终态的兄弟 */
+  /** Non-terminal blockedBy predecessors + non-terminal siblings in an earlier stage */
   readonly blockedCount: number;
 }
 
-/** 阻塞原因：未完成的 blockedBy 前置，或同父任务下更小 stage 的未完成兄弟 */
+/** Blocking reason: an unfinished blockedBy predecessor, or an unfinished sibling in an earlier stage under the same parent issue */
 export interface Blocker {
   readonly issueId: string;
   readonly identifier: string;
@@ -894,7 +901,7 @@ export interface IssueDetailV1 extends IssueDetail {
   readonly blockedBy: readonly IssueDependency[];
   readonly blocks: readonly IssueDependency[];
   readonly blockers: readonly Blocker[];
-  /** 本任务及其直接子任务上的建议（父任务详情据此"全部确认"） */
+  /** Proposals on this issue and its direct sub-issues (the parent issue's detail uses these for "accept all") */
   readonly proposals: readonly ExecutorProposal[];
   readonly subscribers: readonly IssueSubscriber[];
   readonly labels: readonly Label[];
@@ -907,7 +914,7 @@ export interface IssueBoardGroup {
   readonly issues: readonly IssueListItemV1[];
 }
 
-/** `GET /np/issues?view=board` 的 data */
+/** The data of `GET /np/issues?view=board` */
 export interface IssueBoardResponse {
   readonly groups: readonly IssueBoardGroup[];
 }
@@ -919,13 +926,13 @@ export interface IssuePhase1Input {
   readonly labelIds?: readonly string[];
   readonly autoExecuteSubtasks?: boolean;
   readonly parentIssueId?: string | null;
-  /** false = 暂不开始：只改字段，不入队（默认 true） */
+  /** false = don't start yet: only update fields, don't enqueue (defaults to true) */
   readonly start?: boolean;
 }
 
 export interface CreateIssueRequestV1
   extends CreateIssueRequest, IssuePhase1Input {
-  /** 前置任务 id 或编号 */
+  /** Predecessor issue id or number */
   readonly blockedBy?: readonly string[];
 }
 
@@ -964,7 +971,7 @@ export interface ProjectV1 extends Project {
 
 export interface ProjectIssueCounts {
   readonly total: number;
-  /** 状态分类为 done 的任务数 */
+  /** Count of issues whose status category is done */
   readonly done: number;
   readonly byStatus: Readonly<Record<string, number>>;
 }
@@ -1056,9 +1063,9 @@ export type AgentV1 = Omit<Agent, 'access'> & {
 
 export type AgentListItemV1 = Omit<AgentListItem, 'access'> & {
   readonly access: AgentAccessLevel;
-  /** 当前用户能否分配、@ 或确认建议给这个 Agent */
+  /** Whether the current user can assign, @-mention, or accept a proposal to this agent */
   readonly canInvoke: boolean;
-  /** 当前用户能否编辑它（所有者或 owner/admin） */
+  /** Whether the current user can edit it (the owner, or an owner/admin) */
   readonly canEdit: boolean;
   readonly ownerName: string | null;
   readonly delegationTargets: readonly AgentNameRef[];
@@ -1086,12 +1093,12 @@ export interface InboxUnreadCounts {
   readonly info: number;
 }
 
-/** `GET /np/inbox/pending-count`：仍等当前用户决定的项（未解决、未归档，已读也算），导航收件箱角标用 */
+/** `GET /np/inbox/pending-count`: items still awaiting the current user's decision (unresolved, unarchived, read or not) — used for the nav inbox badge */
 export interface InboxPendingCounts {
   readonly decision: number;
 }
 
-/** `GET /np/inbox` 的完整响应体（`unread`、`nextCursor` 与 `data` 同级） */
+/** Full response body of `GET /np/inbox` (`unread` and `nextCursor` are siblings of `data`) */
 export interface InboxListResponse {
   readonly data: readonly InboxItem[];
   readonly unread: InboxUnreadCounts;
@@ -1100,7 +1107,7 @@ export interface InboxListResponse {
 
 export type InboxTopicPayload = { readonly kind: 'inbox.changed' };
 
-/** Agent 回写接口里的任务视图（`GET /np/agent/issues/:id`、`/context`） */
+/** Issue view in the agent write-back interface (`GET /np/agent/issues/:id`, `/context`) */
 export interface IssueForAgentV1 extends IssueForAgent {
   readonly parentIssueId: string | null;
   readonly parent: IssueRef | null;
@@ -1116,20 +1123,20 @@ export interface AgentContextResponseV1 extends AgentContextResponse {
   readonly project: ClaimedProject | null;
 }
 
-/** POST /np/agent/issues 的响应（`issue` 是完整任务行合并 Agent 视图） */
+/** Response of POST /np/agent/issues (`issue` is the full issue row merged with the agent view) */
 export interface AgentCreateIssueResponse {
   readonly issue: IssueV1 & IssueForAgentV1;
-  /** executor 指向需要确认的 Agent 时的建议；自动接受时 status = autoAccepted */
+  /** The proposal when executor points at an agent that needs confirmation; status = autoAccepted when auto-accepted */
   readonly proposal: ExecutorProposal | null;
   readonly triggered: readonly TriggeredRun[];
-  /** 创建时已被阻塞（入队被推迟） */
+  /** Already blocked at creation (enqueueing deferred) */
   readonly blocked: boolean;
 }
 
 /**
- * POST /np/agent/issues/:id/dependencies：`dependsOnIssueId`（CLI 用法）或 `blockedBy`，id 或编号均可。
- * 删除：`DELETE /np/agent/issues/:id/dependencies?dependsOnIssueId=<id>&type=blockedBy`，
- * 或 `DELETE /np/agent/issues/:id/dependencies/:dependencyIdOrIssue`。
+ * POST /np/agent/issues/:id/dependencies: `dependsOnIssueId` (CLI usage) or `blockedBy`; either an id or a number works.
+ * Delete: `DELETE /np/agent/issues/:id/dependencies?dependsOnIssueId=<id>&type=blockedBy`,
+ * or `DELETE /np/agent/issues/:id/dependencies/:dependencyIdOrIssue`.
  */
 export interface AgentDependencyRequest {
   readonly blockedBy?: string;
@@ -1137,35 +1144,37 @@ export interface AgentDependencyRequest {
   readonly type?: DependencyType;
 }
 
-// ---------- Phase 1 迭代 2（docs/phase1/iteration-2-contract.md §M） ----------
+// ---------- Phase 1 iteration 2 (docs/phase1/iteration-2-contract.md §M) ----------
 
 export * from './protocol.phase1-iter2.js';
-// 服务端补充形状（CLI 不复制）
+// Server-only additional shapes (not copied by the CLI)
 export * from './protocol.phase1-iter2-server.js';
 
-// ---------- Phase 1 迭代 3（docs/phase1/iteration-3-contract.md §J） ----------
+// ---------- Phase 1 iteration 3 (docs/phase1/iteration-3-contract.md §J) ----------
 
 export * from './protocol.phase1-iter3.js';
-// 服务端专用的组合类型（CLI 的 sync-protocol 去掉这一行）
+// Server-only composite types (the CLI's sync-protocol drops this line)
 export * from './protocol.phase1-iter3-server.js';
 
-// ---------- Phase 1 迭代 4（docs/phase1/iteration-4-contract.md） ----------
+// ---------- Phase 1 iteration 4 (docs/phase1/iteration-4-contract.md) ----------
 
 export * from './protocol.phase1-iter4.js';
-// 服务端专用的组合类型（CLI 的 sync-protocol 去掉这一行）
+// Server-only composite types (the CLI's sync-protocol drops this line)
 export * from './protocol.phase1-iter4-server.js';
 
-// ---------- Phase 2 工作流阶段动作（NP-77） ----------
+// ---------- Phase 2 workflow stage actions (NP-77) ----------
 
 export * from './protocol.phase2-workflow.js';
-// 服务端专用的组合类型（CLI 的 sync-protocol 去掉这一行）
+// Server-only composite types (the CLI's sync-protocol drops this line)
 export * from './protocol.phase2-workflow-server.js';
 
-// ---------- Phase 2 工作流模板提议（NP-77 stage 2） ----------
+// ---------- Phase 2 workflow template proposals (NP-77 stage 2) ----------
 
 export * from './protocol.phase2-workflow-proposals.js';
 
-// ---------- 邮箱邀请（NP-88） ----------
+// ---------- Email invitations (NP-88) ----------
 
-// 服务端与浏览器专用（CLI 的 sync-protocol 去掉这一行）
+// Server- and browser-only (the CLI's sync-protocol drops this line)
 export * from './protocol.invitations-server.js';
+
+export * from './protocol.capabilities.js';

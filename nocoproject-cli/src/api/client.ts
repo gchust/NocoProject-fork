@@ -100,17 +100,34 @@ export class HttpClient {
 
   /** Like `raw`, but also returns the HTTP status (for 2xx codes that mean different things, e.g. 202). */
   async request<T = unknown>(method: string, path: string, opts: RequestOptions = {}): Promise<{ status: number; json: T }> {
+    const response = await this.send(method, path, opts, 'application/json');
+    const text = await response.text();
+    const json = parseJson(text);
+    if (!response.ok) throw httpError(response, text, json, method, path);
+    return { status: response.status, json: json as T };
+  }
+
+  /** `GET` of a binary body (NP-111 attachment content); errors carry the JSON envelope like `request`. */
+  async bytes(path: string, opts: RequestOptions = {}): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+    const response = await this.send('GET', path, opts, '*/*');
+    if (!response.ok) {
+      const text = await response.text();
+      throw httpError(response, text, parseJson(text), 'GET', path);
+    }
+    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType: response.headers.get('content-type') };
+  }
+
+  private async send(method: string, path: string, opts: RequestOptions, accept: string): Promise<Response> {
     const url = new URL(`${this.apiBase}${path}`);
     for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
-    const headers: Record<string, string> = { ...this.extraHeaders, accept: 'application/json' };
+    const headers: Record<string, string> = { ...this.extraHeaders, accept };
     if (this.credentials.kind === 'apiKey') headers['x-api-key'] = this.credentials.apiKey;
     else headers.authorization = `Bearer ${this.credentials.token}`;
     if (opts.body !== undefined) headers['content-type'] = 'application/json';
     const timeout = AbortSignal.timeout(opts.timeoutMs ?? this.defaultTimeoutMs);
     const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
-    let response: Response;
     try {
-      response = await fetch(url, {
+      return await fetch(url, {
         method,
         headers,
         body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
@@ -121,24 +138,6 @@ export class HttpClient {
       const detail = cause?.code ?? cause?.message ?? (error as Error).message;
       throw new NetworkError(redactText(String(detail)), method, path);
     }
-    const text = await response.text();
-    let json: unknown = undefined;
-    if (text) {
-      try {
-        json = JSON.parse(text);
-      } catch {
-        json = undefined;
-      }
-    }
-    if (!response.ok) {
-      const body = (json ?? {}) as { code?: unknown; message?: unknown; error?: unknown; details?: unknown };
-      const code = typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
-      const message =
-        typeof body.message === 'string' ? body.message : typeof body.error === 'string' ? body.error : text.slice(0, 300);
-      const details = body.details && typeof body.details === 'object' ? (body.details as Record<string, unknown>) : undefined;
-      throw new HttpError(response.status, code, redactText(message || response.statusText), method, path, details);
-    }
-    return { status: response.status, json: json as T };
   }
 
   async data<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
@@ -147,6 +146,23 @@ export class HttpClient {
 }
 
 const enc = encodeURIComponent;
+
+function parseJson(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function httpError(response: Response, text: string, json: unknown, method: string, path: string): HttpError {
+  const body = (json ?? {}) as { code?: unknown; message?: unknown; error?: unknown; details?: unknown };
+  const code = typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+  const message = typeof body.message === 'string' ? body.message : typeof body.error === 'string' ? body.error : text.slice(0, 300);
+  const details = body.details && typeof body.details === 'object' ? (body.details as Record<string, unknown>) : undefined;
+  return new HttpError(response.status, code, redactText(message || response.statusText), method, path, details);
+}
 
 const unwrap = <T>(envelope: unknown): T =>
   (envelope && typeof envelope === 'object' && 'data' in envelope ? (envelope as { data: T }).data : envelope) as T;
@@ -231,6 +247,10 @@ export class AgentApi {
   }
   issue(id: string): Promise<IssueForAgent> {
     return this.http.data('GET', `/np/agent/issues/${enc(id)}`);
+  }
+  /** NP-111: one attachment's bytes (`id` from the issue view's `attachments`); downloads get two minutes. */
+  attachmentContent(issueId: string, fileId: string): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+    return this.http.bytes(`/np/agent/issues/${enc(issueId)}/attachments/${enc(fileId)}/content`, { timeoutMs: 120_000 });
   }
   comments(id: string, q: CommentListQuery = {}): Promise<CommentForAgent[]> {
     return this.http.data('GET', `/np/agent/issues/${enc(id)}/comments`, {

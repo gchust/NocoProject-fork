@@ -214,16 +214,16 @@ describe.skipIf(!db)('run input (PostgreSQL)', () => {
       packageName: 'nocoproject',
     });
     while ((await migrator.rollback()).rolledBack.length > 0);
-    await migrator.upTo('2026100600001_np_member_preferences');
+    await migrator.upTo('2026100700002_np_agent_configuration');
     expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(
       false,
     );
     expect((await migrator.latest()).executed).toEqual([
-      '2026100700001_np_run_input',
+      '2026100800001_np_run_input',
     ]);
     expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(true);
     expect((await migrator.rollback()).rolledBack).toEqual([
-      '2026100700001_np_run_input',
+      '2026100800001_np_run_input',
     ]);
     expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(
       false,

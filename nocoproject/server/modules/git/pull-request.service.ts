@@ -1,3 +1,4 @@
+import { requireActorCapability } from '../agent/capabilities.js';
 /**
  * Linking pull requests to issues by hand (browser) and from an agent's run (docs/phase1/iteration-2-contract.md §C).
  *
@@ -5,7 +6,7 @@
  * `GITHUB_NOT_CONFIGURED` without one); unlinking keeps the PR row. Agent: writes only to its run's issue; without a
  * token (or when GitHub cannot be read) a minimal open row is stored for the webhook to complete.
  */
-import type { Actor, ActivityRecorder } from '../shared/activity.js';
+import type { Actor } from '../shared/activity.js';
 import {
   canMergePullRequest,
   requireVisibleIssue,
@@ -39,10 +40,13 @@ import {
   findPullRequestById,
   linkPullRequest,
   pullRequestsForIssue,
-  upsertPullRequest,
 } from './git.records.js';
 import { parsePullRequestUrl, type PullRequestRef } from './link-rules.js';
-import { requestReviews } from './merge-flow.js';
+import {
+  requestReviews,
+  storeSnapshot,
+  type GitFlowDeps,
+} from './merge-flow.js';
 
 export interface PullRequestService {
   list(actor: Actor, issueIdOrKey: string): Promise<IssuePullRequestView[]>;
@@ -76,11 +80,10 @@ export interface PullRequestService {
   forIssue(issueId: string): Promise<IssuePullRequestView[]>;
 }
 
-export interface PullRequestDeps {
+export interface PullRequestDeps extends GitFlowDeps {
   readonly tx: TxRunner;
   readonly ids: IdSource;
   readonly users: UserDirectory;
-  readonly activity: ActivityRecorder;
   readonly secrets: SecretBox;
   readonly github: GitHubClient;
 }
@@ -193,15 +196,9 @@ async function agentLink(
   // No token, or GitHub could not be read: keep a minimal row; the webhook fills it in.
   const fetched = await fetchSnapshot(deps, ref).catch(() => null);
   return deps.tx.run(async (tx) => {
+    await requireActorCapability(tx.conn, actor, 'pullRequest.link', issue.id);
     const pr: PullRequest = fetched
-      ? (
-          await upsertPullRequest(
-            tx,
-            deps.ids,
-            fetched.snapshot,
-            fetched.connectionId,
-          )
-        ).pr
+      ? await storeSnapshot(deps, tx, fetched.snapshot, fetched.connectionId)
       : await ensurePullRequest(tx, deps.ids, ref);
     const created = await linkPullRequest(tx, deps, {
       issue,
@@ -252,9 +249,9 @@ export function createPullRequestService(
       const fetched = await fetchSnapshot(deps, ref);
       return deps.tx.run(async (tx) => {
         const issue = await visible(tx, actor, idOrKey);
-        const { pr } = await upsertPullRequest(
+        const pr = await storeSnapshot(
+          deps,
           tx,
-          deps.ids,
           fetched.snapshot,
           fetched.connectionId,
         );
@@ -317,13 +314,8 @@ export function createPullRequestService(
       return deps.tx.run(async (tx) => {
         const issue = await visible(tx, actor, idOrKey);
         await requireLink(tx, issue.id, pullRequestId);
-        await upsertPullRequest(
-          tx,
-          deps.ids,
-          fetched.snapshot,
-          fetched.connectionId,
-          { keepOpenState: true },
-        );
+        // Merged or closed on GitHub without a webhook delivery: runs what the webhook would have (NP-122).
+        await storeSnapshot(deps, tx, fetched.snapshot, fetched.connectionId);
         tx.emit({ type: 'issue.changed', issueId: issue.id });
         return viewOf(deps, tx, issue, pullRequestId, actor);
       });

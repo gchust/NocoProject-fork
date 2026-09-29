@@ -39,8 +39,16 @@ const npIter2EnUS = {
     refresh: 'Refresh',
     invalidUrl:
       'Enter a pull request URL such as https://github.com/owner/repo/pull/123.',
-    notConfigured:
-      'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
+    githubError: {
+      notConfigured:
+        'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
+      authFailed:
+        'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to Pull requests, Checks or Commit statuses. Ask an admin to check it in Settings → GitHub.',
+      notFound:
+        'GitHub cannot find this pull request, or the token has no access to its repository. Ask an admin to check which repositories the token can access in Settings → GitHub.',
+      requestFailed:
+        'Could not reach GitHub. Try again later; if it keeps failing, ask an admin to check the connection in Settings → GitHub.',
+    },
     lines: 'Lines changed',
     files: 'Files',
     ci: 'CI',
@@ -90,7 +98,7 @@ const npIter2EnUS = {
       'Use the same secret in the repository’s webhook settings. Stored encrypted and never shown again.',
     webhookUrl: 'Webhook URL',
     webhookUrlHint:
-      'Add a webhook with this URL (content type application/json) for pull request, check suite and status events.',
+      'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite and status events. A project’s repository list has the steps for each repository.',
     lastEvent: 'Last delivery {{time}}.',
     noEvents: 'No delivery received yet.',
     set: 'Set',
@@ -157,14 +165,13 @@ const npIter2EnUS = {
     rowProblems: 'Problems in row {{position}}',
     addRow: 'Add row',
     batchOwner: 'Owner of the new issues',
-    defaultExecutor: 'Executor for rows without one',
+    defaultExecutor: 'Executor for issues without one',
     discard: 'Discard batch',
     save: 'Save drafts',
     confirm: 'Create {{count}} issues',
     created: '{{count}} issues created',
     fixProblems: 'Fix the problems shown in the table first.',
     stateChanged: 'This batch was already confirmed or cancelled.',
-    newBatch: 'Start another batch',
     notFound: 'This batch does not exist.',
     recentTitle: 'My recent batches',
     recentEmpty: 'No batches yet.',
@@ -300,14 +307,18 @@ const npIter2EnUS = {
       'Shown to agents in the brief to decide when to read the skill.',
     content: 'SKILL.md',
     contentHint: 'Markdown. Front matter is kept as written.',
+    emptyContent: 'This skill has no content yet.',
     created: 'Skill {{name}} created',
     saved: 'Skill saved.',
     deleted: 'Skill {{name}} deleted.',
     duplicate: 'A skill with this name exists.',
+    edit: 'Edit',
     delete: 'Delete skill',
     deleteTitle: 'Delete {{name}}?',
     deleteDescription: 'The skill is removed from every agent that uses it.',
     readOnly: 'Only the creator and workspace admins can change this skill.',
+    mountedAgents: 'Mounted on',
+    noAgents: 'Not mounted on any agent yet.',
     files: 'Files',
     noFiles: 'No files.',
     addFile: 'Add file',

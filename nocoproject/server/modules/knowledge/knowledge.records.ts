@@ -288,12 +288,15 @@ export async function mapProposals(
   const docs = docIds.length
     ? await conn.query
         .selectFrom('knowledgeDocs')
-        .select(['id', 'title'])
+        .select(['id', 'title', 'version'])
         .where('id', 'in', docIds)
         .execute()
     : [];
   const docTitles = new Map(
     docs.map((row) => [str(row.id) ?? '', str(row.title) ?? '']),
+  );
+  const docVersions = new Map(
+    docs.map((row) => [str(row.id) ?? '', num(row.version, 1)]),
   );
   const projects = await projectNames(
     conn,
@@ -343,6 +346,7 @@ export async function mapProposals(
         baseVersion === null || baseVersion === undefined
           ? null
           : num(baseVersion),
+      currentVersion: docId ? (docVersions.get(docId) ?? null) : null,
       proposedByAgentId: agentId,
       proposedByAgentName: agents.get(agentId) ?? null,
       sourceRunId: str(row.sourceRunId),

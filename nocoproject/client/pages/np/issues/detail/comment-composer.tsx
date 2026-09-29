@@ -41,10 +41,12 @@ export interface CommentComposerProps {
   /** A line shown above the trigger preview (the session panel's "sent after this turn"). */
   readonly notice?: ReactElement | null;
   readonly placeholder?: string;
+  /** Called with the posted comment once it is in the issue detail cache (NP-132: the page brings it into view). */
+  readonly onSent?: (comment: IssueComment) => void;
 }
 
 /**
- * The comment box under the activity, in the rich text editor (iteration 2 "富文本"): Markdown out, with `@` for
+ * The comment box under the activity, in the rich text editor (iteration 2 "rich text"): Markdown out, with `@` for
  * members and agents and `/note` for a comment that triggers nobody. A reply posts with `parentId` set to the comment
  * being answered. The line under the box previews which agents the comment will trigger, from the same rules the
  * server applies (protocol §2).
@@ -60,6 +62,7 @@ export function CommentComposer({
   editorRef,
   notice,
   placeholder,
+  onSent,
 }: CommentComposerProps): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -73,7 +76,7 @@ export function CommentComposer({
   });
   const candidates = useMentionCandidates(agents, members.data);
 
-  // "备注" posts the comment as a `/note`, which wakes nobody (nocosolution/frontend/nocosolution-frontend-standard.md §3).
+  // "Note" posts the comment as a `/note`, which wakes nobody (nocosolution/frontend/nocosolution-frontend-standard.md §3).
   const outgoing =
     mode === 'note' && content.trim() && !/^\s*\/note\b/u.test(content)
       ? `/note ${content}`
@@ -103,6 +106,7 @@ export function CommentComposer({
       queryClient.setQueryData<IssueDetail>(npKeys.issue(issueId), (detail) =>
         detail ? withComment(detail, comment) : detail,
       );
+      onSent?.(comment);
       void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
       void queryClient.invalidateQueries({ queryKey: npKeys.issues });
     } catch (error: unknown) {

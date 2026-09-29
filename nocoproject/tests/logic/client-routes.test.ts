@@ -95,6 +95,7 @@ describe('app client routes', () => {
     // pages each check their own page grant; their overlays and the issue detail inherit it.
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
+      { name: 'profile', authorizedAs: null },
       // Iteration 2's standalone pages are redirects now (no menu entry, so they sort before the ordered menu); the
       // page they forward to checks its own grant.
       { name: 'np-intake-redirect', authorizedAs: null },
@@ -141,8 +142,8 @@ describe('app client routes', () => {
   });
 
   it('groups the NocoProject menu as the product plan §3.1 lays it out', () => {
-    // Iteration 3 §G: 收件箱 and 我的任务 on top — with 项目经理 under them since iteration 4 §C — the 工作 and Agent 团队
-    // groups, then 报表 and 设置, in that order.
+    // Iteration 3 §G: Inbox and My issues on top — with Project manager under them since iteration 4 §C — the Work and
+    // Agent team groups, then Reports and Settings, in that order.
     expect(menuTree(resolveRoutes().routes)).toEqual([
       'navigation.inbox',
       'navigation.myIssues',
@@ -187,7 +188,7 @@ describe('app client routes', () => {
   });
 
   it('turns batch entry into redirects to the new issue dialog', async () => {
-    // Iteration 4 §D: one "新建任务" dialog creates one issue or many; the iteration 3 drawer routes keep their names
+    // Iteration 4 §D: one "New issue" dialog creates one issue or many; the iteration 3 drawer routes keep their names
     // (and grants) but load the redirect that /intake loads, and nothing is in the menu for batch entry.
     const flat = flatten(resolveRoutes().routes);
     const loaded = async (path: string) =>

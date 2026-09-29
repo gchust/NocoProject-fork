@@ -103,7 +103,7 @@ function Column({
       >
         <div
           ref={setNodeRef}
-          className='flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2'
+          className='flex min-h-24 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto px-2 pb-2'
         >
           {column.issues.length === 0 ? (
             <p className='flex flex-1 items-center justify-center rounded-lg border border-dashed p-4 text-xs text-muted-foreground'>

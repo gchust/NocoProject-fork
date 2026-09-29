@@ -1,9 +1,12 @@
+import { hasCapability } from '../agent/capabilities.js';
 /**
  * Field validation and change computation for issue writes, including the authorization rules that depend on which
  * field changes (owner, terminal status, agent executor, project, parent). See `shared/authz.ts` for the rule table.
  */
 import {
   canChangeOwner,
+  canInvokeAgent,
+  loadAgentAccess,
   canSeeProject,
   canWriteTerminal,
   forbid,
@@ -50,13 +53,13 @@ export interface ActivityEntry {
 
 /**
  * The executor of an issue. Iteration 4: a project manager agent (`kind = 'manager'`) only executes project manager
- * conversations and retrospectives (400 `MANAGER_NOT_EXECUTOR` unless `allowManager`).
+ * conversations and retrospectives (400 `MANAGER_NOT_EXECUTOR` unless `allowConversation`).
  */
 export async function resolveExecutor(
   conn: Conn,
   users: UserDirectory,
   input: ExecutorInput,
-  options: { readonly allowManager?: boolean } = {},
+  options: { readonly allowConversation?: boolean } = {},
 ): Promise<ResolvedExecutor> {
   if (!input || typeof input !== 'object')
     throw invalid('INVALID_EXECUTOR', 'executor must be { type, id }.');
@@ -71,10 +74,13 @@ export async function resolveExecutor(
       .executeTakeFirst();
     if (!agent || agent.archivedAt)
       throw invalid('INVALID_EXECUTOR', 'executor agent does not exist.');
-    if (agent.kind === 'manager' && !options.allowManager)
+    if (
+      !options.allowConversation &&
+      !(await hasCapability(conn, id, 'issue.execute'))
+    )
       throw invalid(
-        'MANAGER_NOT_EXECUTOR',
-        'A project manager agent cannot execute issues.',
+        'CAPABILITY_DENIED',
+        'The agent needs issue.execute to execute issues.',
       );
     return { executorType: 'agent', executorId: id };
   }
@@ -275,7 +281,7 @@ async function coreChanges(
     );
   if (patch.executor !== undefined) {
     const next = await resolveExecutor(conn, users, patch.executor, {
-      allowManager: before.originType === 'pm',
+      allowConversation: before.originType === 'pm',
     });
     if (
       next.executorType !== before.executorType ||
@@ -362,5 +368,34 @@ export async function computeChanges(
   processChange(ctx.before, patch.process, values, activities);
   designSkip(ctx.before, values, activities);
   await authorizeChanges(ctx, values);
+  // Changing ownership must not hand a private agent to someone who cannot use it.
+  if ('ownerUserId' in values) {
+    const executorType = values.executorType ?? ctx.before.executorType;
+    const executorId = values.executorId ?? ctx.before.executorId;
+    if (executorType === 'agent' && typeof executorId === 'string') {
+      const agent = await loadAgentAccess(ctx.conn, executorId);
+      if (
+        !agent ||
+        typeof values.ownerUserId !== 'string' ||
+        !(await canInvokeAgent(ctx.conn, values.ownerUserId, agent))
+      ) {
+        values.executorType = 'none';
+        values.executorId = null;
+        // Report the final change once, including when the request also supplied an executor.
+        const index = activities.findIndex(
+          (entry) => entry.action === 'executor_changed',
+        );
+        if (index >= 0) activities.splice(index, 1);
+        activities.push({
+          action: 'executor_changed',
+          details: {
+            from: { type: ctx.before.executorType, id: ctx.before.executorId },
+            to: { type: 'none', id: null },
+            reason: 'ownerCannotInvoke',
+          },
+        });
+      }
+    }
+  }
   return { values, activities, labelIds };
 }

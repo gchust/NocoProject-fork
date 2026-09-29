@@ -105,7 +105,7 @@ describe('process and agent kind readers', () => {
 
   it('keeps project managers out of executor pickers unless already chosen', () => {
     const agents = [
-      agent({ id: 'a1' }),
+      agent({ id: 'a1', capabilities: ['issue.execute'] }),
       agent({ id: 'pm', name: 'PM', kind: 'manager' }),
     ];
     expect(executorCandidates(agents).map((item) => item.id)).toEqual(['a1']);
@@ -336,7 +336,7 @@ describe('project manager conversation', () => {
   });
 
   it('round-trips the settings fields with the contract defaults', () => {
-    expect(pmSettingsDraft({})).toEqual({
+    expect(pmSettingsDraft({})).toMatchObject({
       defaultProcess: 'auto',
       pmAgentId: null,
       retrospectiveOnDone: true,
@@ -348,8 +348,7 @@ describe('project manager conversation', () => {
     });
     expect(pmSettingsInput(draft)).toEqual({
       defaultProcess: 'design_first',
-      pmAgentId: 'pm',
-      retrospectiveOnDone: false,
+      agentEntries: draft.agentEntries,
     });
   });
 });

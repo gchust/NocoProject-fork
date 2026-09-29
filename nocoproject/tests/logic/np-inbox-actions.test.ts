@@ -184,7 +184,21 @@ async function delivered(
     executor: { type: 'agent', id: agentId },
     ...(projectId ? { projectId } : {}),
   });
-  const [run] = await runRows(db!, `subject_id = '${issue.id}'`);
+  const claimed = await services.claims.claim(
+    ALICE.id!,
+    {
+      daemonId: 'daemon-1',
+      configurationProtocol: 1,
+      slots: [
+        {
+          runtimeId: (await services.agents.get(ALICE, agentId)).runtimeId!,
+          free: 32,
+        },
+      ],
+    },
+    'http://test',
+  );
+  const run = claimed.runs.find((run) => run.issue.id === issue.id)!.run;
   const agent: Actor = { type: 'agent', id: agentId, runId: String(run?.id) };
   await services.issues.agentSetStatus(agent, issue.id, 'in_progress');
   await services.issues.agentSetStatus(agent, issue.id, target);

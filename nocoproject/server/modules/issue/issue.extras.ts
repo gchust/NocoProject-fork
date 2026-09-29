@@ -1,3 +1,4 @@
+import { requireCapability } from '../agent/capabilities.js';
 /**
  * Iteration 2 read-model pieces for issues (docs/phase1/iteration-2-contract.md §C, §D, §I, §J, §K): the extra
  * detail sections, the queued run shown in session mode, and the agent read scope.
@@ -84,6 +85,7 @@ export async function agentReadableIssue(
   auth: RunAuth,
   idOrKey: string,
 ): Promise<IssueV4> {
+  await requireCapability(conn, auth, 'context.read');
   const target = await findIssue(conn, idOrKey);
   if (!target) throw notFound('Issue');
   if (target.id === auth.issueId) return target;

@@ -25,7 +25,7 @@ export interface FileRow {
   readonly size: number;
   readonly uploadedById: string | null;
   readonly issueId: string | null;
-  /** Set while the file travels with an intake batch (AI 整理 tab). */
+  /** Set while the file travels with an intake batch (AI draft tab / np.newIssue.tabs.ai). */
   readonly intakeBatchId: string | null;
   /** What the AI intake parser read of the file. */
   readonly intakeReadStatus: IntakeAttachmentReadStatus | null;
@@ -104,6 +104,7 @@ export async function agentAttachments(
   issueId: string,
 ): Promise<AgentAttachmentInfo[]> {
   return (await filesOfIssue(conn, issueId)).map((file) => ({
+    id: file.id,
     filename: file.filename,
     mimeType: file.mimeType,
     size: file.size,

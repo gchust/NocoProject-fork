@@ -11,7 +11,7 @@ import { formatCost, formatTokens, usageForIssue } from '../../usage-model.js';
 import { PropertyRow } from './property-fields.js';
 
 /**
- * "用量" in the issue's right column (iteration 2 §I): every run of this issue added up. The detail carries it when
+ * "Usage" in the issue's right column (iteration 2 §I): every run of this issue added up. The detail carries it when
  * the server includes it; otherwise the issue-grouped usage from the issue's creation day to today is asked for.
  */
 export function IssueUsage({

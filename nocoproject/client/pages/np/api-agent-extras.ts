@@ -103,7 +103,7 @@ export async function fetchSkills(
   return unwrapList(await api.request<unknown>({ path: 'np/skills', signal }));
 }
 
-/** `{ skill, files }`, with or without the envelope; a bare skill row reads as a skill without files. */
+/** `{ skill, files, agents }`, with or without the envelope; a bare skill row reads as a skill without files or agents. */
 export function normalizeSkillDetail(body: unknown): SkillDetail {
   const inner = unwrap<Partial<SkillDetail> & Partial<Skill>>(body);
   const skill = (inner.skill ?? inner) as Skill;
@@ -112,7 +112,24 @@ export function normalizeSkillDetail(body: unknown): SkillDetail {
     files: [...(inner.files ?? [])].sort((a, b) =>
       a.path.localeCompare(b.path),
     ),
+    agents: [...(inner.agents ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
   };
+}
+
+/**
+ * Strips a leading YAML front matter block (`---` … `---`, as written by the daemon's `skillMarkdown` in
+ * `nocoproject-cli/src/daemon/skills.ts`) so the reading view renders the body, not the raw header. Front matter is
+ * detected only when it opens the content; a body that merely contains a `---` rule elsewhere is left alone.
+ */
+export function stripSkillFrontMatter(content: string): string {
+  const opening = /^---\r?\n/u.exec(content);
+  if (!opening) return content;
+  const rest = content.slice(opening[0].length);
+  const closing = /\r?\n---[ \t]*\r?\n?/u.exec(rest);
+  if (!closing) return content;
+  return rest.slice(closing.index + closing[0].length);
 }
 
 export async function fetchSkill(

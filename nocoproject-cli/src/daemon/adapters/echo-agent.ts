@@ -32,7 +32,7 @@
  *   [echo:pm=<question>] run `pm issues --json` and write `PM <question>: <n> issues` into the reply (§C)
  *
  * In session mode (`issue.executionMode` in context.json) the agent never moves the issue to in_review; a
- * manager agent (`agent.kind = 'manager'`) never changes the status at all.
+ * agent without `issue.status.write` never changes the status.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -127,7 +127,7 @@ function workDir(): string {
 
 interface EchoContext {
   readonly issue?: { readonly executionMode?: string; readonly designApprovedAt?: string | null };
-  readonly agent?: { readonly kind?: string };
+  readonly agent?: { readonly kind?: string; readonly capabilities?: readonly string[] };
 }
 
 /** The daemon's context.json (`{}` when missing or unreadable). */
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
   }
 
   const ctx = runContext();
-  const manager = ctx.agent?.kind === 'manager';
+  const manager = !ctx.agent?.capabilities?.includes('issue.status.write');
   let status = issue.statusKey;
   if (text.includes('[echo:design]') && !ctx.issue?.designApprovedAt) {
     const commentId = proposeDesign(issueKey, issue.title ?? '', status);

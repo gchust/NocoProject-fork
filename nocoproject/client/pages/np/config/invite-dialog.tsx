@@ -41,7 +41,7 @@ export interface InviteProjectOption {
 }
 
 /**
- * "邀请成员" (NP-88): several addresses at once (one per line, or separated by commas or spaces) and the projects the
+ * "Invite members" (NP-88): several addresses at once (one per line, or separated by commas or spaces) and the projects the
  * invitees join as members. Owner/admin may leave the projects empty; a project lead chooses among the projects they
  * lead (`projects` is already narrowed to those). After sending, the dialog shows each address's outcome; an address
  * whose email could not be sent shows its link to copy and forward.

@@ -44,6 +44,7 @@ export function runTokenAuth(
         401,
       );
     }
+    await tokens.authorize(auth, context.req.method, context.req.path);
     context.set('runAuth', auth);
     await next();
   };

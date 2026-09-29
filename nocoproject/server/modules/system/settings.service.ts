@@ -1,3 +1,5 @@
+import type { AgentEntryBindings } from '../shared/protocol.capabilities.js';
+import { EMPTY_ENTRIES } from './agent-entries.js';
 /**
  * The single `systemSettings` row: the issue prefix, the issue counter and (iteration 1) the `settings` json.
  * Iteration 2 adds `modelPrices` and `intakeParser` to the json, iteration 3 `metricThresholds`, iteration 4
@@ -37,6 +39,7 @@ export interface AllocatedIssueNumber {
 
 /** `systemSettings.settings` (contract §A); missing keys take these defaults. */
 export interface WorkspaceSettings {
+  readonly agentEntries: AgentEntryBindings;
   readonly autoExecuteSubtasksDefault: boolean;
   /** PR merged → this status; `'none'` leaves the status alone (iteration 2). */
   readonly prMergedStatus: string;
@@ -56,6 +59,7 @@ export interface WorkspaceSettings {
 }
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
+  agentEntries: EMPTY_ENTRIES,
   autoExecuteSubtasksDefault: false,
   prMergedStatus: 'done',
   modelPrices: [],
@@ -140,6 +144,7 @@ async function incrementPortable(conn: Conn): Promise<CounterRow | undefined> {
 
 function normalize(stored: Partial<WorkspaceSettings>): WorkspaceSettings {
   return {
+    agentEntries: stored.agentEntries ?? EMPTY_ENTRIES,
     autoExecuteSubtasksDefault:
       typeof stored.autoExecuteSubtasksDefault === 'boolean'
         ? stored.autoExecuteSubtasksDefault
@@ -195,7 +200,39 @@ export function createSettingsService(): SettingsService {
       return normalize(await readStored(conn));
     },
     async write(conn, patch) {
-      const next = { ...(await readStored(conn)), ...patch };
+      const current = await readStored(conn);
+      let entries = patch.agentEntries;
+      if (
+        !entries &&
+        (patch.pmAgentId !== undefined ||
+          patch.retrospectiveOnDone !== undefined)
+      ) {
+        const previous = current.agentEntries ?? EMPTY_ENTRIES;
+        entries = {
+          ...previous,
+          revision: previous.revision + 1,
+          conversation: {
+            ...previous.conversation,
+            ...(patch.pmAgentId !== undefined
+              ? { agentId: patch.pmAgentId }
+              : {}),
+          },
+          completion: {
+            ...previous.completion,
+            ...(patch.pmAgentId !== undefined
+              ? { agentId: patch.pmAgentId }
+              : {}),
+            ...(patch.retrospectiveOnDone !== undefined
+              ? { enabled: patch.retrospectiveOnDone }
+              : {}),
+          },
+        };
+      }
+      const next = {
+        ...current,
+        ...patch,
+        ...(entries ? { agentEntries: entries } : {}),
+      };
       await conn.query
         .updateTable('systemSettings')
         .set({ settings: toJson(next), updatedAt: new Date() })

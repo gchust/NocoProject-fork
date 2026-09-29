@@ -1,9 +1,15 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Outlet, Route } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import NewIssuePage from '../../client/pages/np/issues/new.js';
-import { answer, type RequestOptions, renderNp } from './np-harness.js';
+import {
+  answer,
+  type RequestOptions,
+  renderNp,
+  renderNpRoutes,
+} from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
 // NP-78: the file repository manager the attachment field resolves.
@@ -156,7 +162,7 @@ describe('new issue dialog: AI draft tab (iteration 4 §D)', () => {
     );
   });
 
-  it('validates rows, indents to set the parent, then saves and creates the issues', async () => {
+  it('validates rows, indents to set the parent, then saves, creates the issues and closes (NP-124)', async () => {
     const user = userEvent.setup();
     const saved: unknown[] = [];
     api.request.mockImplementation(
@@ -183,10 +189,21 @@ describe('new issue dialog: AI draft tab (iteration 4 §D)', () => {
         },
       }),
     );
-    await renderNp(<NewIssuePage />, {
-      url: '/issues/new?batch=b1',
-      path: '/issues/new',
-    });
+    // The dialog is a child route of the list, as in `client/routes.ts`, so closing lands on the list.
+    await renderNpRoutes(
+      <Route
+        path='/issues'
+        element={
+          <>
+            <p>Issue list</p>
+            <Outlet />
+          </>
+        }
+      >
+        <Route path='new' element={<NewIssuePage />} />
+      </Route>,
+      { url: '/issues/new?batch=b1' },
+    );
 
     const problems = await screen.findByRole('list', {
       name: 'Problems in row 2',
@@ -222,9 +239,10 @@ describe('new issue dialog: AI draft tab (iteration 4 §D)', () => {
         ],
       ]),
     );
-    expect(await screen.findByRole('link', { name: /NP-201/ })).toHaveAttribute(
-      'href',
-      '/issues/201',
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('Issue list')).toBeInTheDocument();
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'np/intake/batches/b1/confirm' }),
     );
   });
 
@@ -396,7 +414,7 @@ describe('AI draft tab attachments (NP-78)', () => {
       url: '/issues/new?batch=b1',
       path: '/issues/new',
     });
-    // What AI 整理 read of the file is shown beside it.
+    // What AI draft read of the file is shown beside it.
     expect(
       await screen.findByText(/Not read: format not supported/u),
     ).toBeVisible();
@@ -464,5 +482,45 @@ describe('AI draft tab attachments (NP-78)', () => {
     await user.click(draft);
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toMatchObject({ rawContent: '', attachmentIds: ['f1'] });
+  });
+});
+
+describe('draft title (NP-123)', () => {
+  it('shows the whole title in a growing box and keeps it on one line', async () => {
+    const user = userEvent.setup();
+    const long =
+      'Let the owner reassign a running issue to another agent without losing the branch, the linked pull request or the comments';
+    api.request.mockImplementation(
+      answer({
+        ...COMMON,
+        'POST np/intake/batches': {
+          data: {
+            batch: BATCH,
+            parser: 'heuristic',
+            drafts: [
+              { position: 1, parentPosition: null, fields: { title: long } },
+            ],
+          },
+        },
+      }),
+    );
+    await renderNp(<NewIssuePage />, {
+      url: '/issues/new?project=p1',
+      path: '/issues/new',
+    });
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Requirements' }),
+      '- x',
+    );
+    await user.click(screen.getByRole('button', { name: 'Draft issues' }));
+    const title = await screen.findByRole('textbox', { name: 'Row 1 Title' });
+    expect(title.tagName).toBe('TEXTAREA');
+    expect(title).toHaveValue(long);
+
+    await user.clear(title);
+    await user.type(title, 'Login{Enter}page');
+    expect(title).toHaveValue('Loginpage');
+    fireEvent.change(title, { target: { value: 'Login\n  page' } });
+    expect(title).toHaveValue('Login page');
   });
 });

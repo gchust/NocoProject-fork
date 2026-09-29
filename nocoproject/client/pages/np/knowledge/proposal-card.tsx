@@ -1,35 +1,55 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { Link } from 'react-router';
 
 import { NpActorAvatar } from '@/components/np-actor-avatar';
-import { NpMarkdown } from '@/components/np-markdown';
 import { NpTag } from '@/components/np-tag';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
 
 import {
   decideKnowledgeProposal,
+  fetchKnowledgeDetail,
+  staleVersionOfError,
   type KnowledgeProposalDecision,
 } from '../api-knowledge.js';
 import { npKeys } from '../constants.js';
 import { useNpFormatters } from '../format.js';
 import type { KnowledgeProposal } from '../types-iter3.js';
+import { KnowledgeContentBlock, KnowledgeDiff } from './knowledge-diff.js';
+
+interface DecideVariables {
+  readonly decision: KnowledgeProposalDecision;
+  readonly confirmStale?: boolean;
+}
 
 /**
- * One pending agent proposal (§B): who proposed it and why, the source issue, the proposed text behind a disclosure,
- * and accept / reject. Rejecting opens a note field (optional); accepting applies the text as a new version or a new
- * document. The card is shown only to people who may decide (the list endpoint already filters).
+ * One pending agent proposal (§B, NP-139): who proposed it and why, the source issue, the version it is based on
+ * against the document's current version (flagged stale once the document moved on), the proposed text behind a
+ * disclosure — a line diff against the current version by default, the full text on demand — and accept / reject.
+ * Accepting a stale proposal asks for confirmation first; the card is shown only to people who may decide (the list
+ * endpoint already filters).
  */
 export function KnowledgeProposalCard({
   proposal,
@@ -41,30 +61,60 @@ export function KnowledgeProposalCard({
   const queryClient = useQueryClient();
   const format = useNpFormatters();
   const [rejecting, setRejecting] = useState(false);
+  const [contentOpen, setContentOpen] = useState(false);
+  const [full, setFull] = useState(false);
+  const [staleVersion, setStaleVersion] = useState<number | null>(null);
   // An update proposal has an empty `title` (= keep the title); the document's title names it.
   const name = proposal.docTitle || proposal.title;
   const [comment, setComment] = useState('');
 
+  const isStale =
+    proposal.docId !== null &&
+    typeof proposal.baseVersion === 'number' &&
+    typeof proposal.currentVersion === 'number' &&
+    proposal.currentVersion > proposal.baseVersion;
+
+  const doc = useQuery({
+    queryKey: npKeys.knowledgeDoc(proposal.docId ?? ''),
+    queryFn: ({ signal }) =>
+      fetchKnowledgeDetail(api, proposal.docId ?? '', signal),
+    enabled: contentOpen && proposal.docId !== null,
+  });
+
   const decide = useMutation({
-    mutationFn: (decision: KnowledgeProposalDecision) =>
+    mutationFn: ({ decision, confirmStale }: DecideVariables) =>
       decideKnowledgeProposal(
         api,
         proposal.id,
         decision,
         comment.trim() || undefined,
+        confirmStale,
       ),
-    onSuccess: (_, decision) => {
+    onSuccess: (_, variables) => {
       toast.add({
         type: 'success',
         title:
-          decision === 'accept'
+          variables.decision === 'accept'
             ? t('np.knowledge.proposals.accepted', { title: name })
             : t('np.knowledge.proposals.rejected', { title: name }),
       });
       setRejecting(false);
       setComment('');
+      setStaleVersion(null);
     },
-    onError: (error: unknown) =>
+    onError: (error: unknown, variables) => {
+      const stale =
+        variables.decision === 'accept' &&
+        !variables.confirmStale &&
+        error instanceof ApiClientError &&
+        error.status === 409 &&
+        error.code === 'KNOWLEDGE_PROPOSAL_STALE'
+          ? staleVersionOfError(error.payload)
+          : null;
+      if (stale !== null) {
+        setStaleVersion(stale);
+        return;
+      }
       toast.add({
         type: 'error',
         priority: 'high',
@@ -74,7 +124,8 @@ export function KnowledgeProposalCard({
             : error instanceof ApiClientError && error.status === 409
               ? t('np.knowledge.proposals.alreadyDecided')
               : t('np.common.requestFailed'),
-      }),
+      });
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: npKeys.knowledge });
       void queryClient.invalidateQueries({ queryKey: npKeys.inbox });
@@ -99,9 +150,21 @@ export function KnowledgeProposalCard({
             : t('np.knowledge.proposals.proposesNew')}
         </span>
         <span className='font-medium'>{name}</span>
-        {proposal.docId ? null : (
+        {proposal.docId ? (
+          typeof proposal.baseVersion === 'number' ? (
+            <span className='font-mono text-xs text-muted-foreground'>
+              {t('np.knowledge.proposals.versionRange', {
+                base: proposal.baseVersion,
+                current: proposal.currentVersion ?? proposal.baseVersion,
+              })}
+            </span>
+          ) : null
+        ) : (
           <NpTag tone='blue'>{t('np.knowledge.proposals.new')}</NpTag>
         )}
+        {isStale ? (
+          <NpTag tone='amber'>{t('np.knowledge.proposals.stale')}</NpTag>
+        ) : null}
         <time
           className='ml-auto text-xs text-muted-foreground'
           dateTime={proposal.createdAt}
@@ -124,7 +187,7 @@ export function KnowledgeProposalCard({
         ) : null}
         {proposal.summary ? <span>{proposal.summary}</span> : null}
       </div>
-      <Collapsible>
+      <Collapsible open={contentOpen} onOpenChange={setContentOpen}>
         <CollapsibleTrigger
           render={<Button variant='ghost' size='sm' className='group/button' />}
         >
@@ -135,8 +198,41 @@ export function KnowledgeProposalCard({
           {t('np.knowledge.proposals.showContent')}
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className='mt-2 max-h-80 overflow-y-auto rounded-md border bg-muted/30 p-3'>
-            <NpMarkdown content={proposal.content} />
+          <div className='mt-2 space-y-2'>
+            {proposal.docId ? (
+              doc.data ? (
+                <>
+                  <div className='flex items-center justify-between gap-2'>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('np.decision.knowledge.against', {
+                        version: doc.data.doc.version,
+                      })}
+                    </p>
+                    <Button
+                      variant='ghost'
+                      size='xs'
+                      onClick={() => setFull((value) => !value)}
+                    >
+                      {full
+                        ? t('np.decision.knowledge.showDiff')
+                        : t('np.decision.knowledge.showFull')}
+                    </Button>
+                  </div>
+                  {full ? (
+                    <KnowledgeContentBlock content={proposal.content} />
+                  ) : (
+                    <KnowledgeDiff
+                      before={doc.data.doc.content}
+                      after={proposal.content}
+                    />
+                  )}
+                </>
+              ) : (
+                <Skeleton className='h-32 w-full' />
+              )
+            ) : (
+              <KnowledgeContentBlock content={proposal.content} />
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -165,7 +261,7 @@ export function KnowledgeProposalCard({
               variant='destructive'
               size='sm'
               disabled={decide.isPending}
-              onClick={() => decide.mutate('reject')}
+              onClick={() => decide.mutate({ decision: 'reject' })}
             >
               {decide.isPending ? <Spinner data-icon='inline-start' /> : null}
               {t('np.knowledge.proposals.confirmReject')}
@@ -186,7 +282,7 @@ export function KnowledgeProposalCard({
           <Button
             size='sm'
             disabled={decide.isPending}
-            onClick={() => decide.mutate('accept')}
+            onClick={() => decide.mutate({ decision: 'accept' })}
           >
             {decide.isPending ? (
               <Spinner data-icon='inline-start' />
@@ -197,6 +293,38 @@ export function KnowledgeProposalCard({
           </Button>
         </div>
       )}
+      <AlertDialog
+        open={staleVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setStaleVersion(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('np.knowledge.proposals.staleTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('np.knowledge.proposals.staleDescription', {
+                base: proposal.baseVersion,
+                current: staleVersion,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('actions.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={decide.isPending}
+              onClick={() =>
+                decide.mutate({ decision: 'accept', confirmStale: true })
+              }
+            >
+              {decide.isPending ? <Spinner data-icon='inline-start' /> : null}
+              {t('np.knowledge.proposals.acceptAnyway')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   );
 }

@@ -71,6 +71,7 @@ export function createIteration4Services(
       github,
       settings,
       workflows,
+      issues: () => services.issues,
     }),
     design: createDesignService({
       tx,

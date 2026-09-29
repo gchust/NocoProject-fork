@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -45,7 +46,9 @@ it.each(panels)(
     const user = userEvent.setup();
     render(
       <AppThemeProvider>
-        <Component />
+        <MemoryRouter>
+          <Component />
+        </MemoryRouter>
       </AppThemeProvider>,
     );
     const trigger = screen.getByRole('button', { name: label });
@@ -72,7 +75,9 @@ it.each(panels)(
     const user = userEvent.setup();
     render(
       <AppThemeProvider>
-        <Component />
+        <MemoryRouter>
+          <Component />
+        </MemoryRouter>
       </AppThemeProvider>,
     );
     const trigger = screen.getByRole('button', { name: label });

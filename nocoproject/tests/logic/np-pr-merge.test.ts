@@ -433,7 +433,11 @@ describe.skipIf(!db)('merging a pull request (PostgreSQL)', () => {
       },
     });
 
-    // A refresh that already sees the merge keeps the row open, so the webhook still sees the transition.
+    // The webhook completes the issue; a later refresh finds nothing left to do (NP-122 covers the missing webhook).
+    expect(await merged()).toBe(200);
+    detail = await services.issueQueries.detail(BOB, issue.id);
+    expect(detail.issue.statusKey).toBe('done');
+    expect(detail.pullRequests[0]?.state).toBe('merged');
     github.getPullRequest.mockImplementation(async () =>
       prPayload({
         state: 'closed',
@@ -445,13 +449,9 @@ describe.skipIf(!db)('merging a pull request (PostgreSQL)', () => {
     await expect(
       services.pullRequestMerges.preflight(BOB, issue.id, pr.id),
     ).resolves.toMatchObject({ blocker: 'merged' });
-    expect((await services.pullRequests.list(BOB, issue.id))[0]?.state).toBe(
-      'open',
+    expect(await rows(db!, 'activities', "action = 'pr_merged'")).toHaveLength(
+      1,
     );
-    expect(await merged()).toBe(200);
-    detail = await services.issueQueries.detail(BOB, issue.id);
-    expect(detail.issue.statusKey).toBe('done');
-    expect(detail.pullRequests[0]?.state).toBe('merged');
   });
 
   it('tells what merging does to the issue', async () => {
@@ -561,6 +561,8 @@ describe.skipIf(!db)('merging a pull request (PostgreSQL)', () => {
       repository: { full_name: 'acme/app' },
       pull_request: prPayload({ title: `${issue.identifier}: login` }),
     });
+    // NP-131: the card arrives once the delivery is accepted.
+    await services.deliveries.accept(BOB, issue.id, {});
     const [pr] = await services.pullRequests.list(BOB, issue.id);
     await services.pullRequests.refresh(BOB, issue.id, pr!.id);
     const card = async (user: Actor) =>

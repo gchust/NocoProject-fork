@@ -27,7 +27,7 @@ export function isWorkspaceAdmin(viewer: Viewer | null): boolean {
   return viewer?.role === 'owner' || viewer?.role === 'admin';
 }
 
-/** 改负责人 and 写 done / cancelled: the issue owner, the project lead, owner/admin. */
+/** Change owner and write done / cancelled: the issue owner, the project lead, owner/admin. */
 export function canActAsIssueOwner(
   viewer: Viewer | null,
   issue: { readonly ownerUserId: string | null },
@@ -41,7 +41,7 @@ export function canActAsIssueOwner(
   );
 }
 
-/** 改项目、项目成员、资源: the project lead, owner/admin. */
+/** Edit the project, project members, resources: the project lead, owner/admin. */
 export function canEditProject(
   viewer: Viewer | null,
   project: { readonly leadUserId?: string | null },
@@ -50,12 +50,12 @@ export function canEditProject(
   return isWorkspaceAdmin(viewer) || project.leadUserId === viewer.userId;
 }
 
-/** 删项目: owner/admin. */
+/** Delete project: owner/admin. */
 export function canDeleteProject(viewer: Viewer | null): boolean {
   return isWorkspaceAdmin(viewer);
 }
 
-/** 改 Agent、访问范围、委派名单: the agent's owner, owner/admin. */
+/** Edit the agent, access scope, delegation list: the agent's owner, owner/admin. */
 export function canEditAgent(
   viewer: Viewer | null,
   agent: { readonly ownerUserId?: string | null },
@@ -72,7 +72,7 @@ export interface RoleOption {
 }
 
 /**
- * The role choices `viewer` has for `target` (成员角色, §B): owner/admin change admin and member; only an owner grants
+ * The role choices `viewer` has for `target` (member roles, §B): owner/admin change admin and member; only an owner grants
  * or revokes owner; the last owner cannot be demoted. The target's current role is always listed and enabled so the
  * select can show it.
  */

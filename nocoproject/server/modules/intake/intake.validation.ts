@@ -1,3 +1,4 @@
+import { hasCapability } from '../agent/capabilities.js';
 /**
  * Draft validation for intake batches (docs/phase1/iteration-2-contract.md §E).
  *
@@ -43,7 +44,8 @@ export interface DraftContext {
   readonly underIssue: boolean;
 }
 
-function structure(value: unknown): IntakeDraftInput[] {
+/** The structural check alone (400 `INVALID_DRAFTS`); NP-120's refine runs it before asking the model. */
+export function draftStructure(value: unknown): IntakeDraftInput[] {
   if (!isArrayValue(value) || (value as unknown[]).length > MAX_DRAFTS)
     throw invalid(
       'INVALID_DRAFTS',
@@ -152,8 +154,8 @@ async function referenceErrors(
       errors.push('the executor agent does not exist');
     else if (!(await canInvokeAgent(ctx.conn, ctx.creatorId, agent)))
       errors.push('you do not have access to the executor agent');
-    else if (await isManagerAgent(ctx.conn, agent.id))
-      errors.push('a project manager agent cannot execute issues');
+    else if (!(await hasCapability(ctx.conn, agent.id, 'issue.execute')))
+      errors.push('the agent needs issue.execute');
   } else if (executor && executor.type === 'user') {
     if (
       typeof executor.id !== 'string' ||
@@ -173,21 +175,12 @@ async function referenceErrors(
   return errors;
 }
 
-async function isManagerAgent(conn: Conn, agentId: string): Promise<boolean> {
-  const row = await conn.query
-    .selectFrom('agents')
-    .select('kind')
-    .where('id', '=', agentId)
-    .executeTakeFirst();
-  return row?.kind === 'manager';
-}
-
 /** Validates a whole draft list; see the file comment for what is structural and what is per draft. */
 export async function validateDrafts(
   ctx: DraftContext,
   value: unknown,
 ): Promise<ValidatedDraft[]> {
-  const drafts = structure(value).sort((a, b) => a.position - b.position);
+  const drafts = draftStructure(value).sort((a, b) => a.position - b.position);
   const positions = new Set(drafts.map((draft) => draft.position));
   const result: ValidatedDraft[] = [];
   for (const draft of drafts) {

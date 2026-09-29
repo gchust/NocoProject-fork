@@ -1,3 +1,4 @@
+import type { AgentEntryBindings } from './agent-capabilities.js';
 /**
  * Browser-side types for Phase 1 iteration 2 (`docs/phase1/iteration-2-contract.md` §C–§K, §M).
  *
@@ -181,9 +182,16 @@ export interface SkillFile {
   readonly content: string;
 }
 
+/** An agent the skill is mounted on, visible to every member. */
+export interface SkillAgentRef {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface SkillDetail {
   readonly skill: Skill;
   readonly files: readonly SkillFile[];
+  readonly agents: readonly SkillAgentRef[];
 }
 
 export interface SkillInput {
@@ -252,7 +260,7 @@ export interface IntakeBatchAttachment {
   readonly size: number;
   readonly contentUrl: string;
   readonly issueId: string | null;
-  /** What AI 整理 read of the file; null on batches from before it was recorded. */
+  /** What AI draft read of the file; null on batches from before it was recorded. */
   readonly readStatus?: {
     readonly state:
       | 'read'
@@ -271,6 +279,8 @@ export interface IntakeBatchDetail {
   readonly drafts: readonly IntakeDraft[];
   readonly parser?: IntakeParserKind;
   readonly attachments?: readonly IntakeBatchAttachment[];
+  /** NP-120: the drafts can be revised by AI (an LLM is configured and the setting is auto). */
+  readonly aiRefine?: boolean;
 }
 
 export interface IntakeConfirmInput {
@@ -327,6 +337,7 @@ export type IntakeParserSetting = 'auto' | 'heuristic';
 
 /** `GET /np/settings`. Only the fields the settings page edits are typed; the rest is carried through untouched. */
 export interface WorkspaceSettings {
+  readonly agentEntries?: AgentEntryBindings;
   readonly prMergedStatus?: string;
   readonly autoExecuteSubtasksDefault?: boolean;
   readonly intakeParser?: IntakeParserSetting;
@@ -352,6 +363,7 @@ export type WorkspaceSettingsInput = Partial<
     | 'modelPrices'
     | 'metricThresholds'
     | 'defaultProcess'
+    | 'agentEntries'
     | 'pmAgentId'
     | 'retrospectiveOnDone'
   >

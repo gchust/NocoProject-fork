@@ -32,7 +32,7 @@ export interface ThreadContext {
   readonly userName: (userId: string) => string;
   readonly replyingToId: string | null;
   readonly onReply: (comment: IssueComment) => void;
-  /** Iteration 4: the "方案" / "总结" tag of a proposal or retrospective comment. */
+  /** Iteration 4: the "Proposal" / "Retrospective" tag of a proposal or retrospective comment. */
   readonly commentTag?: (comment: IssueComment) => CommentTag;
 }
 
@@ -195,6 +195,7 @@ function CommentBlock({
   const tag = context.commentTag?.(comment) ?? null;
   return (
     <div
+      data-comment-id={comment.id}
       data-comment-kind={tag ?? undefined}
       className={cn(
         'group space-y-1.5 p-3',

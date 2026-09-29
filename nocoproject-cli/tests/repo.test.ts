@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CliError } from '../src/cli/output.js';
 import { AGENT_GIT_EMAIL, AGENT_GIT_NAME, checkoutRepo, findAllowedResource } from '../src/repo/checkout.js';
-import { agentSlug, branchNameFor, normalizeRepoUrl, repoCachePath, repoNameFromUrl, runKey } from '../src/repo/naming.js';
+import { branchNameFor, normalizeRepoUrl, repoCachePath, repoNameFromUrl, runKey } from '../src/repo/naming.js';
 import { readCheckoutRecord, type RunContextFile, writeRunContext } from '../src/run-context.js';
 import { commitIn, createRemote, pushUpstream, type Remote, runContext, sh } from './helpers/git-fixture.js';
 
@@ -53,13 +53,12 @@ function checkout(workDir: string, context: RunContextFile, extra: { fresh?: boo
 const log = (path: string) => sh(['log', '--format=%s'], path).split('\n');
 
 describe('repo naming', () => {
-  it('normalizes URLs, names repos, slugs agents and builds branch names', () => {
+  it('normalizes URLs, names repos and builds branch names', () => {
     expect(normalizeRepoUrl('HTTPS://GitHub.com/Org/Repo.git/')).toBe('https://github.com/org/repo');
     expect(repoNameFromUrl('git@github.com:org/my-repo.git')).toBe('my-repo');
     expect(repoNameFromUrl('https://github.com/org/my-repo')).toBe('my-repo');
-    expect(agentSlug('Échο Bot #1 !!')).toBe('ch-bot-1');
-    expect(agentSlug('***')).toBe('agent');
-    expect(branchNameFor('Echo Bot', 'NP-12')).toBe('agent/echo-bot/np-12');
+    expect(branchNameFor('NP-12')).toBe('agent/np-12');
+    expect(branchNameFor('***')).toBe('agent/issue');
     expect(runKey('7301234567890123')).toBe('67890123');
     expect(repoCachePath('/h', 'https://x/y.git')).toBe(repoCachePath('/h', 'HTTPS://X/Y'));
     expect(repoCachePath('/h', 'https://x/y.git')).toMatch(/^\/h\/repos\/[0-9a-f]{40}\.git$/);
@@ -71,10 +70,10 @@ describe('repo checkout', () => {
     const workDir = newWorkDir();
     const { record } = checkout(workDir, runContext(remote.url));
     const path = join(workDir, 'demo-repo');
-    expect(record).toEqual({ url: remote.url, ref: 'main', branchName: 'agent/echo-bot/np-12', path });
+    expect(record).toEqual({ url: remote.url, ref: 'main', branchName: 'agent/np-12', path });
     expect(readCheckoutRecord(workDir)).toEqual(record);
     expect(statSync(join(workDir, '.nocoproject', 'checkout.json')).mode & 0o777).toBe(0o600);
-    expect(sh(['symbolic-ref', '--short', 'HEAD'], path)).toBe('agent/echo-bot/np-12');
+    expect(sh(['symbolic-ref', '--short', 'HEAD'], path)).toBe('agent/np-12');
     expect(existsSync(join(path, 'README.md'))).toBe(true);
     expect(statSync(join(path, '.git')).isFile()).toBe(true);
     expect(sh(['config', 'user.name'], path)).toBe(AGENT_GIT_NAME);
@@ -92,7 +91,7 @@ describe('repo checkout', () => {
     checkout(workDir, runContext(remote.url));
     pushUpstream(remote, 'upstream.txt');
     const { record, notes } = checkout(workDir, runContext(remote.url));
-    expect(record.branchName).toBe('agent/echo-bot/np-12');
+    expect(record.branchName).toBe('agent/np-12');
     expect(existsSync(join(record.path, 'upstream.txt'))).toBe(true);
     expect(notes.join('\n')).toContain('reusing the existing checkout');
     commitIn(record.path, 'mine.txt');
@@ -109,7 +108,7 @@ describe('repo checkout', () => {
     const second = newWorkDir();
     const ctx = runContext(remote.url, { session: { branchName: record.branchName, repoUrl: `${remote.url.toUpperCase()}/` } });
     const resumed = checkout(second, ctx);
-    expect(resumed.record.branchName).toBe('agent/echo-bot/np-12');
+    expect(resumed.record.branchName).toBe('agent/np-12');
     expect(resumed.record.path).toBe(join(second, 'demo-repo'));
     expect(log(resumed.record.path)[0]).toBe('add progress.txt');
     expect(existsSync(join(record.path, 'progress.txt'))).toBe(true);
@@ -121,9 +120,16 @@ describe('repo checkout', () => {
     checkout(first, runContext(remote.url));
     const second = newWorkDir();
     const { record, notes } = checkout(second, runContext(remote.url), { runId: '7301234567899999' });
-    expect(record.branchName).toBe('agent/echo-bot/np-12-67899999');
+    expect(record.branchName).toBe('agent/np-12-67899999');
     expect(notes.join('\n')).toContain('already exists');
-    expect(sh(['symbolic-ref', '--short', 'HEAD'], record.path)).toBe('agent/echo-bot/np-12-67899999');
+    expect(sh(['symbolic-ref', '--short', 'HEAD'], record.path)).toBe('agent/np-12-67899999');
+  });
+
+  it('appends a run key when another machine already pushed the same branch to origin', () => {
+    sh(['push', '--quiet', 'origin', 'main:agent/np-12'], remote.seed);
+    const { record, notes } = checkout(newWorkDir(), runContext(remote.url), { runId: '7301234567899999' });
+    expect(record.branchName).toBe('agent/np-12-67899999');
+    expect(notes.join('\n')).toContain('already exists');
   });
 
   it('--fresh recreates the checkout and resets the branch to the base ref', () => {
@@ -132,7 +138,7 @@ describe('repo checkout', () => {
     commitIn(record.path, 'discard-me.txt');
     writeFileSync(join(record.path, 'untracked.txt'), 'x');
     const fresh = checkout(workDir, runContext(remote.url), { fresh: true });
-    expect(fresh.record.branchName).toBe('agent/echo-bot/np-12');
+    expect(fresh.record.branchName).toBe('agent/np-12');
     expect(existsSync(join(fresh.record.path, 'discard-me.txt'))).toBe(false);
     expect(existsSync(join(fresh.record.path, 'untracked.txt'))).toBe(false);
     expect(log(fresh.record.path)).toEqual(['initial']);
@@ -185,7 +191,7 @@ describe('repo checkout CLI', () => {
     });
     const ok = cli(['repo', 'checkout', remote.url, '--json'], workDir);
     expect(ok.code).toBe(0);
-    expect(JSON.parse(ok.out)).toEqual({ url: remote.url, ref: 'main', branchName: 'agent/echo-bot/np-12', path: join(workDir, 'demo-repo') });
+    expect(JSON.parse(ok.out)).toEqual({ url: remote.url, ref: 'main', branchName: 'agent/np-12', path: join(workDir, 'demo-repo') });
     const text = cli(['repo', 'checkout', remote.url], workDir);
     expect(text.out.trim()).toBe(join(workDir, 'demo-repo'));
     const bad = cli(['repo', 'checkout', 'https://example.com/x.git', '--json'], workDir);

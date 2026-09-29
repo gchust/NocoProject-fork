@@ -2,7 +2,7 @@
 import { defineMigration, type MigrationDefinition } from '@nocobase/db';
 
 const migration: MigrationDefinition = defineMigration({
-  name: '2026100700001_np_run_input',
+  name: '2026100800001_np_run_input',
   async up({ builder }) {
     await builder.alterCollection('runs', (table) => {
       table.boolean('acceptsInput').notNull().defaultTo(false);

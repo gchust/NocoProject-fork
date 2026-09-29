@@ -19,7 +19,7 @@ export interface IntakeParseInput {
   } | null;
   /** Names of the labels that exist. */
   readonly labels: readonly string[];
-  /** NP-78: text of the files attached on the AI 整理 tab (only the AI parser reads it). */
+  /** NP-78: text of the files attached on the AI draft tab (np.newIssue.tabs.ai; only the AI parser reads it). */
   readonly attachments?: {
     readonly documents: readonly {
       readonly filename: string;
@@ -28,6 +28,21 @@ export interface IntakeParseInput {
     }[];
     readonly unreadNames: readonly string[];
   };
+}
+
+/** NP-120: what the AI gets to revise a batch's drafts by one instruction. */
+export interface IntakeRefineInput extends IntakeParseInput {
+  readonly drafts: readonly IntakeDraftInput[];
+  readonly instruction: string;
+  /** Names of the batch's files (their text is not read again). */
+  readonly attachmentNames: readonly string[];
+  /** The batch splits an issue: every draft is a sub-task of it. */
+  readonly underIssue: boolean;
+}
+
+/** NP-120: a revised draft and the position of the draft it keeps or rewrites (null = new). */
+export interface RefinedDraft extends IntakeDraftInput {
+  readonly from: number | null;
 }
 
 export interface IntakeParser {

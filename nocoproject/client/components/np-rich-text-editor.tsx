@@ -113,7 +113,7 @@ const CONTENT_CLASS = cn(
 );
 
 /**
- * The one rich text editor of NocoProject (iteration 2 "富文本"): TipTap with StarterKit, task lists and tables,
+ * The one rich text editor of NocoProject (iteration 2 "rich text"): TipTap with StarterKit, task lists and tables,
  * reading and writing Markdown, so descriptions and comments stay Markdown on the wire.
  *
  * Typing `@` (at the start or after whitespace) opens a list of members and agents filtered by what follows. Arrow
