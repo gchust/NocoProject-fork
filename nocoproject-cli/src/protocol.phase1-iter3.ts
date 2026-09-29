@@ -71,6 +71,11 @@ export interface KnowledgeDocSummary {
   readonly canEdit: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /**
+   * A short window of the body around the first hit, when `q` matched the content and not the title, slug or
+   * summary (those are already visible on the row); absent otherwise (NP-142).
+   */
+  readonly matchExcerpt?: string;
 }
 
 /** Includes the Markdown body */

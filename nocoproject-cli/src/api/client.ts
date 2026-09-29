@@ -274,9 +274,12 @@ export class AgentApi {
   pullRequests(id: string): Promise<IssuePullRequestView[]> {
     return this.http.data('GET', `/np/agent/issues/${enc(id)}/pull-requests`);
   }
-  /** GET /np/agent/knowledge → the run's project documents plus system-level ones (iteration 3 §B). */
-  knowledgeList(): Promise<KnowledgeDocSummary[]> {
-    return this.http.data('GET', '/np/agent/knowledge');
+  /**
+   * GET /np/agent/knowledge → the run's project documents plus system-level ones (iteration 3 §B). `q` matches the
+   * title, slug, summary and content (NP-142); a content-only hit carries `matchExcerpt`.
+   */
+  knowledgeList(q?: string): Promise<KnowledgeDocSummary[]> {
+    return this.http.data('GET', '/np/agent/knowledge', { query: { q } });
   }
   /** GET /np/agent/knowledge/:idOrSlug → `{ doc }` with its Markdown content. */
   async knowledgeDoc(idOrSlug: string): Promise<KnowledgeDoc> {

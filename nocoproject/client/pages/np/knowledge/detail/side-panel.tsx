@@ -1,35 +1,55 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { HistoryIcon } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { NpActorAvatar } from '@/components/np-actor-avatar';
+import type { TocHeading } from '@/components/np-markdown-toc';
 import { NpTag } from '@/components/np-tag';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { cn } from '@/lib/utils';
 
 import { useNpFormatters } from '../../format.js';
 import { PropertyRow } from '../../issues/detail/property-fields.js';
 import type { KnowledgeDetail } from '../../types-iter3.js';
+import { KnowledgeToc } from './toc.js';
 
 /**
- * The knowledge document's right-hand column: where it lives, its slug and version, who changed it last, and the
- * version history — newest first, each version a button that shows that version in the main column.
+ * The knowledge document's right-hand column: a table of contents for the current body (§3, ≥3 headings), where it
+ * lives, its slug and version, who changed it last, and the version history — newest first. Clicking a past version
+ * compares it with the one right before it; the picker below compares any two versions directly (NP-142).
  */
 export function KnowledgeSidePanel({
   detail,
   projectName,
-  viewing,
-  onView,
+  headings,
+  highlightedVersion,
+  onSelectVersion,
+  onCompareVersions,
 }: {
   readonly detail: KnowledgeDetail;
   readonly projectName: string;
-  readonly viewing: number;
-  readonly onView: (version: number) => void;
+  readonly headings: readonly TocHeading[];
+  /** The version the main column is currently showing (the later side while comparing). */
+  readonly highlightedVersion: number;
+  readonly onSelectVersion: (version: number) => void;
+  readonly onCompareVersions: (from: number, to: number) => void;
 }): ReactElement {
   const { t } = useTranslation();
   const format = useNpFormatters();
   const { doc, versions } = detail;
+  const [from, setFrom] = useState<number | null>(null);
+  const [to, setTo] = useState<number | null>(null);
+  const olderVersions = versions.filter((v) => v.version !== doc.version);
+  const canPickCompare = versions.length >= 2;
+  const fromValue = from ?? olderVersions[0]?.version ?? doc.version;
+  const toValue = to ?? doc.version;
   return (
     <div className='space-y-6 p-4 md:p-6'>
+      <KnowledgeToc headings={headings} className='hidden lg:block' />
       <section className='space-y-3' aria-labelledby='np-knowledge-details'>
         <h2 id='np-knowledge-details' className='text-sm font-semibold'>
           {t('np.properties.details')}
@@ -78,12 +98,12 @@ export function KnowledgeSidePanel({
                 <button
                   type='button'
                   aria-current={
-                    version.version === viewing ? 'true' : undefined
+                    version.version === highlightedVersion ? 'true' : undefined
                   }
-                  onClick={() => onView(version.version)}
+                  onClick={() => onSelectVersion(version.version)}
                   className={cn(
                     'flex w-full flex-col gap-1 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                    version.version === viewing && 'bg-muted',
+                    version.version === highlightedVersion && 'bg-muted',
                   )}
                 >
                   <span className='flex items-center gap-2'>
@@ -122,6 +142,56 @@ export function KnowledgeSidePanel({
             ))}
           </ol>
         )}
+        {canPickCompare ? (
+          <div className='space-y-1.5 border-t pt-3'>
+            <p className='text-xs text-muted-foreground'>
+              {t('np.knowledge.compareVersions')}
+            </p>
+            <div className='flex items-center gap-1.5'>
+              <NativeSelect
+                size='sm'
+                aria-label={t('np.knowledge.compareFrom')}
+                value={fromValue}
+                onChange={(event) => setFrom(Number(event.target.value))}
+              >
+                {versions.map((version) => (
+                  <NativeSelectOption
+                    key={version.version}
+                    value={version.version}
+                  >
+                    v{version.version}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <span aria-hidden='true' className='text-muted-foreground'>
+                {t('np.knowledge.compareArrow')}
+              </span>
+              <NativeSelect
+                size='sm'
+                aria-label={t('np.knowledge.compareTo')}
+                value={toValue}
+                onChange={(event) => setTo(Number(event.target.value))}
+              >
+                {versions.map((version) => (
+                  <NativeSelectOption
+                    key={version.version}
+                    value={version.version}
+                  >
+                    v{version.version}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={fromValue === toValue}
+              onClick={() => onCompareVersions(fromValue, toValue)}
+            >
+              {t('np.knowledge.compare')}
+            </Button>
+          </div>
+        ) : null}
       </section>
     </div>
   );

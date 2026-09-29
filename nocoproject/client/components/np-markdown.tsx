@@ -5,9 +5,17 @@ import remarkGfm from 'remark-gfm';
 
 import { cn } from '@/lib/utils';
 
+import type { TocHeading } from './np-markdown-toc.js';
+
 export interface NpMarkdownProps {
   readonly content: string;
   readonly className?: string;
+  /**
+   * `extractMarkdownHeadings(content)` (`np-markdown-toc.ts`), to give the rendered `h1`/`h2`/`h3` elements matching
+   * `id`s (§3, table of contents) so a page can scroll to them. Ids are consumed in document order, one per heading
+   * rendered; omit to render headings without ids (the default, for comments and descriptions).
+   */
+  readonly headings?: readonly TocHeading[];
 }
 
 // `mention://agent/<id>` and `mention://user/<id>` are the NocoProject mention links (protocol §2, iteration 2
@@ -53,19 +61,10 @@ function MentionOrLink({
 
 // Compact prose for comments and descriptions: the Typography primitives are sized for long-form pages, which would
 // make every comment look like an article. Only tokens and the Tailwind scale are used.
-const components: Components = {
+const baseComponents: Components = {
   a: MentionOrLink,
   p: ({ node: _node, ...props }) => (
     <p className='leading-6 not-first:mt-2' {...props} />
-  ),
-  h1: ({ node: _node, ...props }) => (
-    <h1 className='mt-4 mb-2 text-lg font-semibold first:mt-0' {...props} />
-  ),
-  h2: ({ node: _node, ...props }) => (
-    <h2 className='mt-4 mb-2 text-base font-semibold first:mt-0' {...props} />
-  ),
-  h3: ({ node: _node, ...props }) => (
-    <h3 className='mt-3 mb-1.5 text-sm font-semibold first:mt-0' {...props} />
   ),
   ul: ({ node: _node, ...props }) => (
     <ul className='my-2 ml-5 list-disc space-y-1' {...props} />
@@ -108,11 +107,49 @@ const components: Components = {
   hr: ({ node: _node, ...props }) => <hr className='my-3' {...props} />,
 };
 
+/**
+ * `h1`/`h2`/`h3` renderers that hand out `headings[]`'s ids in document order, one per heading rendered. Built fresh
+ * on every `NpMarkdown` render (not memoized) so the counter starts over each time; react-markdown re-invokes every
+ * component on every render regardless, so memoizing this object would only leave the counter stuck past the end
+ * of `headings` after the first render.
+ */
+function headingComponents(
+  headings?: readonly TocHeading[],
+): Pick<Components, 'h1' | 'h2' | 'h3'> {
+  let index = 0;
+  const nextId = (): string | undefined => headings?.[index++]?.id;
+  return {
+    h1: ({ node: _node, ...props }) => (
+      <h1
+        id={nextId()}
+        className='mt-4 mb-2 text-lg font-semibold first:mt-0'
+        {...props}
+      />
+    ),
+    h2: ({ node: _node, ...props }) => (
+      <h2
+        id={nextId()}
+        className='mt-4 mb-2 text-base font-semibold first:mt-0'
+        {...props}
+      />
+    ),
+    h3: ({ node: _node, ...props }) => (
+      <h3
+        id={nextId()}
+        className='mt-3 mb-1.5 text-sm font-semibold first:mt-0'
+        {...props}
+      />
+    ),
+  };
+}
+
 /** Markdown for issue descriptions and comments, with agent and member mentions shown as chips. */
 export function NpMarkdown({
   content,
   className,
+  headings,
 }: NpMarkdownProps): ReactElement {
+  const components = { ...baseComponents, ...headingComponents(headings) };
   return (
     <div className={cn('min-w-0 text-sm wrap-anywhere', className)}>
       <Markdown
