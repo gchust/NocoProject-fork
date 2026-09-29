@@ -13,7 +13,7 @@ export interface NpActorAvatarProps {
   readonly name?: string | null;
   /** `xs` sits inline with text (16px), `sm` in lists (24px), `default` in headers (32px). */
   readonly size?: 'xs' | 'sm' | 'default';
-  /** Renders the name beside the avatar. */
+  /** Renders the name beside the avatar; a long name truncates to the available width and shows in full on hover. */
   readonly showName?: boolean;
   /**
    * An avatar next to a visible name is decorative (the default). A standalone avatar sets `false` and is announced
@@ -87,9 +87,16 @@ export function NpActorAvatar({
   );
   if (!showName) return avatar;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5', className)}>
+    <span
+      className={cn(
+        'inline-flex max-w-full min-w-0 items-center gap-1.5',
+        className,
+      )}
+    >
       {avatar}
-      <span className='truncate'>{name ?? '—'}</span>
+      <span className='truncate' title={name ?? undefined}>
+        {name ?? '—'}
+      </span>
       <span className='sr-only'>{`(${label})`}</span>
     </span>
   );
