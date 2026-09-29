@@ -105,7 +105,7 @@ export function BoardCardFace({
             decorative={false}
           />
         ) : null}
-        <span className='min-w-0 flex-1'>
+        <span className='flex min-w-0 flex-1'>
           <NpExecutor
             type={issue.executorType}
             name={issue.executorName}
