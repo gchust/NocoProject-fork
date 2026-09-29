@@ -71,6 +71,15 @@ import {
   type InvitationService,
 } from './member/invitation.service.js';
 import {
+  createDaemonWakeups,
+  type DaemonWakeups,
+} from './runtime/daemon-wakeups.js';
+import {
+  createComputerService,
+  type ComputerKeys,
+  type ComputerService,
+} from './computer/computer.service.js';
+import {
   unconfiguredMailer,
   type InvitationMailer,
 } from './member/invitation.mail.js';
@@ -207,6 +216,9 @@ export interface NpServices {
   readonly attachments: AttachmentService;
   // NP-88.
   readonly invitations: InvitationService;
+  // NP-150.
+  readonly computers: ComputerService;
+  readonly daemonWakeups: DaemonWakeups;
 }
 
 /** What an alternative approval gateway gets to build itself (tests: the in-memory double). */
@@ -237,6 +249,8 @@ export interface NpServiceDeps {
   /** NP-88: invitation email and account creation; absent = no email is sent, no account can be created. */
   readonly mailer?: () => InvitationMailer;
   readonly accounts?: () => InvitationAccounts | null;
+  /** NP-150: the computer credential store; the provider backs it with the API Keys plugin. Absent = none can be issued. */
+  readonly computerKeys?: () => ComputerKeys;
   /**
    * NP-117: where member roles are stored. The provider backs it with the built-in permission sets; the service tests
    * pass a double over `members.role`.
@@ -403,7 +417,28 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       accounts: deps.accounts ?? (() => null),
       roles: deps.roles,
     }),
+    daemonWakeups: createDaemonWakeups(bus),
+    computers: createComputerService({
+      tx,
+      ids,
+      users,
+      keys: lazyComputerKeys(deps.computerKeys),
+    }),
   } satisfies NpServices);
 
   return services;
+}
+
+/** Resolves the key store at request time (the plugin is registered after this service is built). */
+function lazyComputerKeys(factory: (() => ComputerKeys) | undefined): ComputerKeys {
+  const store = (): ComputerKeys => {
+    if (!factory)
+      throw new Error('Computer credentials are not configured.');
+    return factory();
+  };
+  return {
+    create: (conn, input) => store().create(conn, input),
+    verify: (secret) => store().verify(secret),
+    disable: (conn, keyId) => store().disable(conn, keyId),
+  };
 }

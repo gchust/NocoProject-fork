@@ -18,6 +18,7 @@ import {
   PROTOCOL_VERSION,
   type DaemonCompatibility,
   type DaemonCompatibilityResponse,
+  type DaemonCredential,
   type DaemonHeartbeatRequest,
   type DaemonHeartbeatRequestV2,
   type DaemonRegisterRequest,
@@ -30,6 +31,7 @@ import {
   deviceNameOf,
   evaluateDaemon,
   markDaemonSeen,
+  storedCredential,
   storedIdentity,
   type DaemonRow,
 } from './daemon-compat.js';
@@ -55,6 +57,7 @@ export interface RuntimeService {
   register(
     ownerUserId: string,
     request: RegisterRequest,
+    credential?: DaemonCredential,
   ): Promise<RegisterResponse>;
   heartbeat(
     ownerUserId: string,
@@ -106,10 +109,11 @@ async function registerRuntimes(
   deps: RuntimeDeps,
   ownerUserId: string,
   request: RegisterRequest,
+  credential: DaemonCredential | null,
 ): Promise<RegisterResponse> {
   validateRegister(request);
   const compatibility = evaluateDaemon(request);
-  const deviceInfo = daemonDeviceInfo(request, compatibility);
+  const deviceInfo = daemonDeviceInfo(request, compatibility, credential);
   const result = await deps.tx.run(async (tx) => {
     const registered: {
       id: string;
@@ -261,7 +265,11 @@ async function heartbeat(
       })),
       compatibility,
       deviceInfo: reported
-        ? daemonDeviceInfo({ ...identity, deviceName }, compatibility)
+        ? daemonDeviceInfo(
+            { ...identity, deviceName },
+            compatibility,
+            storedCredential(before[0]?.deviceInfo),
+          )
         : undefined,
     });
     return { count: before.length, compatibility };
@@ -364,8 +372,8 @@ async function runAccess(
 
 export function createRuntimeService(deps: RuntimeDeps): RuntimeService {
   return {
-    register: (ownerUserId, request) =>
-      registerRuntimes(deps, ownerUserId, request),
+    register: (ownerUserId, request, credential) =>
+      registerRuntimes(deps, ownerUserId, request, credential ?? null),
     heartbeat: (ownerUserId, request) => heartbeat(deps, ownerUserId, request),
     deregister: (ownerUserId, daemonId) =>
       deregister(deps, ownerUserId, daemonId),

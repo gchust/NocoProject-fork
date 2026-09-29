@@ -102,6 +102,9 @@ export const NP_ATTACHMENT_TABLES = ['np_files'] as const;
 /** NP-88: email invitations (`2026100500001_np_invitations`). */
 export const NP_INVITATION_TABLES = ['np_invitations'] as const;
 
+/** Tables of the computer credentials migration (NP-150). */
+export const NP_COMPUTER_TABLES = ['np_computers'] as const;
+
 /** Tables of the Phase 2 workflow proposals migration (NP-77 stage 2). */
 export const NP_PHASE2_PROPOSAL_TABLES = [
   'workflow_template_revisions',
@@ -266,7 +269,7 @@ export function buildServices(
 /** Empties every NocoProject table (keeping the seeded workflow template) and restores the settings row. */
 export async function resetData(db: NpTestDatabase): Promise<void> {
   await db.knex.raw(
-    `TRUNCATE ${[...NP_TABLES, ...NP_PHASE1_TABLES, ...NP_PHASE1_ITER2_TABLES, ...NP_PHASE1_ITER3_TABLES, ...NP_PHASE2_WORKFLOW_TABLES, ...NP_ATTACHMENT_TABLES, ...NP_INVITATION_TABLES, ...NP_PHASE2_PROPOSAL_TABLES].map((table) => `"${db.schema}"."${table}"`).join(', ')}`,
+    `TRUNCATE ${[...NP_TABLES, ...NP_PHASE1_TABLES, ...NP_PHASE1_ITER2_TABLES, ...NP_PHASE1_ITER3_TABLES, ...NP_PHASE2_WORKFLOW_TABLES, ...NP_ATTACHMENT_TABLES, ...NP_INVITATION_TABLES, ...NP_PHASE2_PROPOSAL_TABLES, ...NP_COMPUTER_TABLES].map((table) => `"${db.schema}"."${table}"`).join(', ')}`,
   );
   await db.knex.raw(
     `INSERT INTO "${db.schema}".system_settings (id, issue_prefix, issue_counter) VALUES ('default', 'NP', 0)`,

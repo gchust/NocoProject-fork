@@ -14,6 +14,7 @@ import {
   SUPPORTED_PROTOCOLS,
   type DaemonCompatibility,
   type DaemonCompatibilityInfo,
+  type DaemonCredential,
   type RuntimeDaemonInfo,
 } from '../shared/protocol.js';
 
@@ -91,9 +92,11 @@ export function liveStatus(
 export function daemonDeviceInfo(
   identity: DaemonIdentity & { readonly deviceName?: unknown },
   compatibility: DaemonCompatibility,
+  credential: DaemonCredential | null = null,
 ): Record<string, unknown> {
   return {
     deviceName: versionOf(identity.deviceName),
+    ...(credential ? { credential } : {}),
     daemonVersion: versionOf(identity.version),
     protocolVersion: protocolOf(identity.protocolVersion, 1),
     minProtocolVersion: protocolOf(
@@ -132,7 +135,17 @@ export function runtimeDaemonInfo(
     reason: compatibility.reason,
     updateAvailable: compatibility.updateAvailable,
     latestVersion: compatibility.latestVersion,
+    credential:
+      info.credential === 'computer' || info.credential === 'personalKey'
+        ? info.credential
+        : null,
   };
+}
+
+/** The credential a runtime row's daemon last used (kept by heartbeats that rewrite `deviceInfo`). */
+export function storedCredential(deviceInfo: unknown): DaemonCredential | null {
+  const value = fromJson<Record<string, unknown>>(deviceInfo)?.credential;
+  return value === 'computer' || value === 'personalKey' ? value : null;
 }
 
 export interface DaemonRow {

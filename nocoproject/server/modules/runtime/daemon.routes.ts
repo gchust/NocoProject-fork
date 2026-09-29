@@ -2,8 +2,11 @@ import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Hono } from 'hono';
 
 import type { ClaimService } from '../run/claim.service.js';
+import { daemonCaller } from '../computer/computer.guard.js';
+import type { DaemonWakeups } from './daemon-wakeups.js';
 import {
   npRouter,
+  queryInt,
   readJson,
   serverUrlOf,
   sessionUserId,
@@ -23,6 +26,7 @@ import type {
 export function createDaemonRoutes(deps: {
   runtimes: RuntimeService;
   claims: ClaimService;
+  wakeups: DaemonWakeups;
   publicBasePath?: string;
 }): Hono<AuthEnv> {
   const routes = npRouter<AuthEnv>();
@@ -31,6 +35,7 @@ export function createDaemonRoutes(deps: {
       data: await deps.runtimes.register(
         sessionUserId(context),
         await readJson<RegisterRequest>(context),
+        daemonCaller(context).credential,
       ),
     }),
   );
@@ -46,6 +51,19 @@ export function createDaemonRoutes(deps: {
           ? { compatibility: result.compatibility }
           : {}),
       },
+    });
+  });
+  // Long-poll wakeups for daemons without a WebSocket session (computer credentials, NP-150).
+  routes.get('/wakeups', async (context) => {
+    const after = queryInt(context, 'after');
+    const timeout = queryInt(context, 'timeout') ?? 25;
+    return context.json({
+      data: await deps.wakeups.wait(
+        sessionUserId(context),
+        after,
+        timeout * 1000,
+        context.req.raw.signal,
+      ),
     });
   });
   routes.get('/compatibility', (context) =>

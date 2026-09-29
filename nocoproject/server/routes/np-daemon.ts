@@ -1,6 +1,8 @@
 /**
- * NocoProject daemon API (protocol.md §4): `/api/np/daemon/*`, authenticated by the runtime owner's API key through
- * `auth.required()`. `runs/:id/*` additionally requires the caller to own the run's runtime. Run tokens get 403.
+ * NocoProject daemon API (protocol.md §4): `/api/np/daemon/*`, authenticated by a computer credential
+ * (`x-np-computer-key`, NP-150, bound to one daemon) or, for older CLIs, the runtime owner's personal API key through
+ * `auth.required()` (`computer/computer.guard.ts`). `runs/:id/*` additionally requires the caller to own the run's
+ * runtime. Run tokens get 403.
  */
 import { authenticationToken } from '@nocobase/app-plugin-authentication';
 import type { Application } from '@nocobase/app-server/application';
@@ -13,9 +15,12 @@ import { Hono } from 'hono';
 import { createDaemonRunRoutes } from '../modules/run/daemon-run.routes.js';
 import { ensureMember } from '../modules/member/member.routes.js';
 import { createDaemonRoutes } from '../modules/runtime/daemon.routes.js';
+import { daemonAuthentication } from '../modules/computer/computer.guard.js';
 import { guarded, rejectRunTokens } from '../modules/shared/http.js';
 import {
   npClaimServiceToken,
+  npComputerServiceToken,
+  npServicesToken,
   npMemberServiceToken,
   npRunEventServiceToken,
   npRunRecoveryServiceToken,
@@ -34,12 +39,16 @@ export const npDaemonRoutes: AppApiRouteContribution<Application> =
       guarded(
         [
           rejectRunTokens(),
-          auth.required(),
+          daemonAuthentication(
+            auth.required(),
+            container.resolve(npComputerServiceToken),
+          ),
           ensureMember(container.resolve(npMemberServiceToken)),
         ],
         createDaemonRoutes({
           runtimes,
           claims: container.resolve(npClaimServiceToken),
+          wakeups: container.resolve(npServicesToken).daemonWakeups,
           publicBasePath: app.publicBasePath,
         }),
         createDaemonRunRoutes({
