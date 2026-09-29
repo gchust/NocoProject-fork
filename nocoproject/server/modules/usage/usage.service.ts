@@ -8,7 +8,7 @@
  * count `pricedRuns`. Visibility: members see usage of issues they can see; owner/admin see everything.
  */
 import type { Actor } from '../shared/activity.js';
-import { hiddenProjectIds, viewerOf } from '../shared/authz.js';
+import { reportHiddenProjectIds, viewerOf } from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
 import { iso, num, str, unique } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
@@ -336,7 +336,7 @@ export function createUsageService(deps: {
       const { from, to } = dateRange(query);
       const conn = deps.tx.read();
       const hidden = new Set(
-        await hiddenProjectIds(conn, await viewerOf(conn, actor)),
+        await reportHiddenProjectIds(conn, await viewerOf(conn, actor)),
       );
       const records = (await usageRecords(conn, { from, to })).filter(
         (record) =>

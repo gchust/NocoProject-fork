@@ -309,6 +309,7 @@ describe.skipIf(!db)('NocoProject migrations (PostgreSQL)', () => {
         '2026100100003_np_iter4_page_grants',
         '2026100400003_np_api_keys_page_grant',
         '2026100800002_np_role_permission_sets',
+        '2026101000001_np_business_grants',
       ]),
     );
     const workflows = (await db!.knex.raw(

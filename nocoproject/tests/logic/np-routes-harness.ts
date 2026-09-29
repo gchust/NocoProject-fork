@@ -89,6 +89,8 @@ const testAuthz = {
     context.set('authz', {
       identity: { principal: { type: 'user', id: auth?.user.id ?? '' } },
       can: async () => false,
+      // NP-153: `npAccess` resolves the business scopes up front; every action is denied here.
+      authorize: async () => ({ effect: 'deny', reasons: [] }),
     });
     await next();
   },

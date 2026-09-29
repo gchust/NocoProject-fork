@@ -21,6 +21,7 @@ import {
   authenticationToken,
   type AuthEnv,
 } from '@nocobase/app-plugin-authentication';
+import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
 import { defineFileRepositoryApiRoutes } from '@nocobase/app-plugin-file/server';
 import type { Application } from '@nocobase/app-server/application';
 import {
@@ -46,6 +47,7 @@ import {
   npAttachmentServiceToken,
   npMemberServiceToken,
 } from '../providers/np.js';
+import { npAccess } from '../providers/np-authorization.js';
 
 export const FILE_RESOURCE = 'npFiles';
 const DEFAULT_MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -132,23 +134,31 @@ export const npFileRoutes: readonly AppRouteContribution<Application>[] = [
   // Guards first, on exactly the paths the plugin routes below own.
   defineApiRoutes((app) => {
     const auth = app.container.resolve(authenticationToken);
+    const authz = app.container.resolve(authorizationToken);
     const members = app.container.resolve(npMemberServiceToken);
     const router = new Hono<AuthEnv>();
     router.use(
       `/${FILE_RESOURCE}:uploadOne`,
       rejectRunTokens(),
       auth.required(),
+      // The same authorization context and `ActorAccess` as every browser prefix (NP-153).
+      authz.middleware(),
+      npAccess(authz),
       ensureMember(members),
     );
     return router as unknown as Hono;
   }),
   defineRootRoutes((app) => {
     const auth = app.container.resolve(authenticationToken);
+    const authz = app.container.resolve(authorizationToken);
     const router = new Hono<AuthEnv>();
     router.use(
       `${FILE_ACCESS_PATH}/:file`,
       rejectRunTokens(),
       auth.required(),
+      // `canRead` follows the caller's `issues/view` scope (NP-153).
+      authz.middleware(),
+      npAccess(authz),
       contentAccess(app),
     );
     return router as unknown as Hono;

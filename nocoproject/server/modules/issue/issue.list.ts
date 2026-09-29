@@ -9,7 +9,8 @@
  * Cursors carry millisecond timestamps, which is what the application writes.
  */
 import type { Viewer } from '../shared/authz.js';
-import { hiddenProjectIds } from '../shared/authz.js';
+import { NP_BUSINESS } from '../shared/access.js';
+import { hiddenProjectIds, scopeIn } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
 import { iso, num, str, unique } from '../shared/db.js';
 import { decodeCursor, encodeCursor, pageLimit } from '../shared/pagination.js';
@@ -131,13 +132,18 @@ export async function withNames(
   }));
 }
 
-/** The filtered, visible issues as a query (null when the label filter matches nothing). */
+/**
+ * The filtered, visible issues as a query (null when nothing can match: the label filter matches nothing, or the
+ * viewer's `issues/view` is `none`). `issues/view` at `related` hides the projects the viewer may not see.
+ */
 async function filteredQuery(
   conn: Conn,
   viewer: Viewer,
   filter: IssueListFilter,
 ) {
-  const hidden = await hiddenProjectIds(conn, viewer);
+  const view = scopeIn(viewer, NP_BUSINESS.issues, 'view');
+  if (view === 'none') return null;
+  const hidden = await hiddenProjectIds(conn, viewer, view);
   let query = conn.query
     .selectFrom('issues')
     .selectAll()

@@ -5,12 +5,14 @@
  * of the computer's first register. Revoking disables the key, marks the row and takes the computer's runtimes
  * offline, in one transaction.
  *
- * Only the owner lists, names and revokes their computers; owner/admin see and revoke everyone's.
+ * Only the owner lists, names and revokes their computers; whoever holds `agents/manage` on every agent (NP-153: the
+ * computers run the agents' runtimes) sees and revokes everyone's.
  */
 import { createHash } from 'node:crypto';
 
 import type { Actor } from '../shared/activity.js';
-import { forbid, isAdmin, viewerOf } from '../shared/authz.js';
+import { NP_BUSINESS } from '../shared/access.js';
+import { forbid, scopeIn, viewerOf } from '../shared/authz.js';
 import type { Conn, TxRunner } from '../shared/db.js';
 import { iso, isoOrNull, now, str, toDate } from '../shared/db.js';
 import { invalid, notFound, NpError } from '../shared/errors.js';
@@ -136,7 +138,10 @@ async function viewerFacts(
 ): Promise<{ userId: string; admin: boolean }> {
   // Before any transaction: an authorization check reads through the application's own connection.
   const viewer = await viewerOf(deps.tx.read(), actor);
-  return { userId: viewer.userId, admin: isAdmin(viewer) };
+  return {
+    userId: viewer.userId,
+    admin: scopeIn(viewer, NP_BUSINESS.agents, 'manage') === 'all',
+  };
 }
 
 async function findComputer(

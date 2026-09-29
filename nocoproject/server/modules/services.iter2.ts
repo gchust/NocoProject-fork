@@ -108,12 +108,14 @@ export function createIteration2Services(
 
 /** The iteration 3 modules (knowledge, acceptance metrics, delivery decisions). */
 export function createIteration3Services(
-  input: Omit<Iteration2Inputs, 'deps' | 'secrets' | 'github'>,
+  input: Omit<Iteration2Inputs, 'deps' | 'secrets' | 'github'> & {
+    readonly roles: NpServiceDeps['roles'];
+  },
   services: NpServices,
 ) {
-  const { tx, ids, users, activity, settings, workflows } = input;
+  const { tx, ids, users, activity, settings, workflows, roles } = input;
   return {
-    knowledge: createKnowledgeService({ tx, ids, users, activity }),
+    knowledge: createKnowledgeService({ tx, ids, users, activity, roles }),
     metrics: createMetricsService({
       tx,
       settings,

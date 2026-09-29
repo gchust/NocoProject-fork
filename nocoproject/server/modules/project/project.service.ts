@@ -4,12 +4,14 @@
  * A project's lead is `leadUserId`; a `projectMembers` row with role `lead` also counts as lead. The creator becomes
  * a member and, unless another lead is named, the lead. Deleting a project unlinks its issues (they keep existing).
  */
+import { NP_BUSINESS } from '../shared/access.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   forbid,
   hiddenProjectIds,
-  isAdmin,
   projectAccess,
+  requireAction,
+  scopeIn,
   requireProjectManager,
   viewerOf,
   type Viewer,
@@ -320,6 +322,12 @@ async function projectCreate(
   const id = deps.ids.next();
   await deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
+    requireAction(
+      viewer,
+      NP_BUSINESS.projects,
+      'create',
+      'You may not create projects.',
+    );
     const values = await projectValues(tx.conn, deps.users, {
       ...input,
       workflowId: undefined,
@@ -389,7 +397,7 @@ async function projectRemove(
   await deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
     if (!(await findProjectRow(tx.conn, id))) throw notFound('Project');
-    if (!isAdmin(viewer))
+    if (scopeIn(viewer, NP_BUSINESS.projects, 'delete') !== 'all')
       forbid('Only an owner or admin may delete a project.');
     const issues = await tx.conn.query
       .selectFrom('issues')

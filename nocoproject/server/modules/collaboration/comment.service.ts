@@ -7,6 +7,7 @@ import { requireActorCapability } from '../agent/capabilities.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   requireInvokeAgent,
+  requireEditIssues,
   requireVisibleIssue,
   viewerOf,
 } from '../shared/authz.js';
@@ -207,6 +208,7 @@ async function create(
       // Members see and comment on visible issues; mentioning an agent needs access to it (contract §B).
       const viewer = await viewerOf(tx.conn, actor);
       issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
+      requireEditIssues(viewer);
       if (!isNote(content))
         for (const agentId of parseMentions(content))
           await requireInvokeAgent(tx.conn, viewer.userId, agentId);
