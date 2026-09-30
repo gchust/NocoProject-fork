@@ -134,26 +134,35 @@ export function NpPulse({
   );
 }
 
-/** Online/offline with a dot and a word, so the state is not carried by color alone. */
+/**
+ * Online/offline as a tag: online is green with a solid dot, offline grey with a hollow ring, so the two differ in
+ * hue, fill and shape and the word keeps the state readable without colour (NP-165).
+ */
 export function NpOnlineState({
   online,
+  className,
 }: {
   readonly online: boolean;
+  readonly className?: string;
 }): ReactElement {
   const { t } = useTranslation();
   return (
-    <span className='inline-flex items-center gap-1.5 text-sm'>
-      <span
-        aria-hidden='true'
-        className={cn(
-          'size-2 shrink-0 rounded-full',
-          online ? 'bg-success' : 'bg-muted-foreground/40',
-        )}
-      />
-      <span className={online ? undefined : 'text-muted-foreground'}>
-        {online ? t('np.common.online') : t('np.common.offline')}
-      </span>
-    </span>
+    <NpTag
+      tone={online ? 'green' : 'grey'}
+      data-online={online ? 'true' : 'false'}
+      className={className}
+      icon={
+        <span
+          aria-hidden='true'
+          className={cn(
+            'size-1.5 shrink-0 rounded-full',
+            online ? 'bg-current' : 'border border-current',
+          )}
+        />
+      }
+    >
+      {online ? t('np.common.online') : t('np.common.offline')}
+    </NpTag>
   );
 }
 
