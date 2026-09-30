@@ -62,7 +62,7 @@ export function AppLayout({
     // The shell owns the business route tree used by its pages and navigation.
     <RouteTreeProvider routes={routes}>
       <PmAssistantProvider available={pmAvailable}>
-        <div className='flex h-svh bg-background'>
+        <div className='flex h-svh bg-background' data-np-shell=''>
           <LayoutSidebar
             aria-label={t('navigation.label', {
               defaultValue: 'Application navigation',
@@ -158,10 +158,10 @@ export function AppLayout({
                 showDev={import.meta.env.DEV}
               />
             </LayoutHeader>
-            {/* NocoProject: main and the project manager drawer share this row; the docked drawer narrows main, the
-          floating and expanded forms lie over it. */}
+            {/* NocoProject: main and the project manager drawer share this row; the docked drawer narrows main (pages
+          answer to main's width, container queries); the expanded and full-screen forms lie over it. */}
             <div className='relative flex min-h-0 flex-1'>
-              <main className='relative min-w-0 flex-1 overflow-hidden'>
+              <main className='@container relative min-w-0 flex-1 overflow-hidden'>
                 {/* main only positions; the page scrolls in here, so a child page layer laid over main is neither
               moved by the page's scrolling nor stretched by its height. */}
                 <div className='h-full overflow-y-auto'>

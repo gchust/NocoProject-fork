@@ -1,5 +1,11 @@
 import { ApiClientError } from '@nocobase/app-client';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -672,6 +678,7 @@ describe('drawer', () => {
   });
 
   it('opens from ?pm= on a conversation, expanded', async () => {
+    stubMatchMedia(true);
     api.request.mockImplementation(
       respond({
         'GET np/pm/conversations/c1': { data: conversation() },
@@ -692,6 +699,128 @@ describe('drawer', () => {
     const drawer = await screen.findByTestId('np-pm-drawer');
     expect(drawer).toHaveAttribute('data-mode', 'expanded');
     expect(await within(drawer).findByText('Plan the release')).toBeVisible();
+  });
+
+  it('docks from 1024px, resizes within its limits and keeps the width', async () => {
+    stubMatchMedia(true);
+    api.request.mockImplementation(respond({}));
+    await renderNpRoutes(
+      <Route
+        path='*'
+        element={
+          <PmAssistantProvider available>
+            <PmDrawer />
+          </PmAssistantProvider>
+        }
+      />,
+      { url: '/issues?pm=new' },
+    );
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(drawer).toHaveAttribute('data-mode', 'docked');
+    const handle = within(drawer).getByRole('separator');
+    expect(handle).toHaveAttribute('aria-valuenow', '420');
+    expect(drawer.style.getPropertyValue('--np-pm-drawer-width')).toBe('420px');
+
+    // Dragging the left edge to the left widens it; the limits hold at both ends.
+    Object.defineProperty(drawer, 'offsetWidth', {
+      configurable: true,
+      value: 420,
+    });
+    fireEvent.pointerDown(handle, { button: 0, clientX: 1000, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 900, pointerId: 1 });
+    expect(drawer.style.getPropertyValue('--np-pm-drawer-width')).toBe('520px');
+    fireEvent.pointerMove(handle, { clientX: 100, pointerId: 1 });
+    expect(drawer.style.getPropertyValue('--np-pm-drawer-width')).toBe('640px');
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+    expect(handle).toHaveAttribute('aria-valuenow', '640');
+    expect(
+      JSON.parse(window.sessionStorage.getItem('nocoproject:pm-drawer') ?? '{}')
+        .width,
+    ).toBe(640);
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(handle).toHaveAttribute('aria-valuenow', '624');
+    for (let i = 0; i < 40; i += 1) {
+      fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    }
+    expect(handle).toHaveAttribute('aria-valuenow', '360');
+    fireEvent.keyDown(handle, { key: 'Home' });
+    expect(handle).toHaveAttribute('aria-valuenow', '420');
+  });
+
+  it('restores the stored width after a reload', async () => {
+    stubMatchMedia(true);
+    window.sessionStorage.setItem(
+      'nocoproject:pm-drawer',
+      JSON.stringify({ open: true, mode: 'docked', view: 'chat', width: 500 }),
+    );
+    api.request.mockImplementation(respond({}));
+    await renderNpRoutes(
+      <Route
+        path='*'
+        element={
+          <PmAssistantProvider available>
+            <PmDrawer />
+          </PmAssistantProvider>
+        }
+      />,
+      { url: '/issues' },
+    );
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(drawer.style.getPropertyValue('--np-pm-drawer-width')).toBe('500px');
+  });
+
+  it('is a full-screen overlay below 1024px and keeps the draft across the switch', async () => {
+    const listeners = new Set<() => void>();
+    let docks = false;
+    vi.stubGlobal('matchMedia', () => ({
+      get matches() {
+        return docks;
+      },
+      addEventListener: (_: string, listener: () => void) =>
+        listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) =>
+        listeners.delete(listener),
+    }));
+    api.request.mockImplementation(respond({}));
+    await renderNpRoutes(
+      <Route
+        path='*'
+        element={
+          <div data-np-shell=''>
+            <main>
+              <button type='button'>Page button</button>
+            </main>
+            <PmAssistantProvider available>
+              <PmDrawer />
+            </PmAssistantProvider>
+          </div>
+        }
+      />,
+      { url: '/issues?pm=new' },
+    );
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(drawer).toHaveAttribute('data-mode', 'overlay');
+    expect(within(drawer).queryByRole('separator')).toBeNull();
+    expect(screen.getByRole('main')).toHaveAttribute('inert');
+
+    const box = within(drawer).getByRole('textbox', {
+      name: 'Message to the project manager',
+    });
+    fireEvent.change(box, { target: { value: 'half a thought' } });
+
+    docks = true;
+    act(() => listeners.forEach((listener) => listener()));
+    await waitFor(() => expect(drawer).toHaveAttribute('data-mode', 'docked'));
+    // The same element and the same composer, not a remount.
+    expect(screen.getByTestId('np-pm-drawer')).toBe(drawer);
+    expect(
+      within(drawer).getByRole('textbox', {
+        name: 'Message to the project manager',
+      }),
+    ).toBe(box);
+    expect(box).toHaveValue('half a thought');
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert');
   });
 
   it('opens the history from its header button and returns to a conversation', async () => {

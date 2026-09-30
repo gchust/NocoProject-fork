@@ -38,7 +38,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 
 ## 3. Detail pages
 
-- A record's page is a covering `RouteChildPage`. The issue and knowledge details use `NpDetailLayout` (main column `flex-1 min-w-0`, side column fixed `20rem` holding small cards, sticky below the page header from `lg` up unless taller than the viewport, one column below `lg`); the project detail is a header, `NpTabBar` and the tab's content.
+- A record's page is a covering `RouteChildPage`. The issue and knowledge details use `NpDetailLayout` (main column `flex-1 min-w-0`, side column fixed `20rem` holding small cards, sticky below the page header from `@3xl` up unless taller than the viewport, one column below `@3xl`; container queries on `<main>`, so the docked project manager drawer (NP-203) narrows the page into its one-column layout instead of overflowing); the project detail is a header, `NpTabBar` and the tab's content.
 - **One scroll container.** The covering page scrolls as a whole; neither column scrolls on its own. The issue composer is `sticky bottom-0` inside the main column.
 - The main column starts with `Breadcrumbs` and the record's `text-2xl` title, then one meta line (identifier, status, project, and `NpLiveRun` while a run is active). Blocks are bordered cards (`rounded-lg border bg-card p-4`) headed by `NpSectionHeading`, `space-y-6` apart.
 - **Empty sections take no room.** No description is one muted row with "edit"; empty sub-issues fold into one dashed row with its actions; attachments (right under the description, NP-78), pull requests and dependencies render only with content or once revealed from the "Add" chips under the description; approvals and proposals render only when pending.
@@ -113,3 +113,8 @@ NocoProject-specific reference material that doesn't belong in the two shared de
   - Theme presets (`client/theme/themes/{compact,default}.css`, identical except density): cool-toned neutrals, `--primary` indigo, `--chart-1..5` fixed hues, an independent sidebar background, selected nav text in the body color.
   - App semantic colours (`client/np-tones.css`): `--agent`, `--attention` / `--attention-foreground`, `--success`, `--np-tint-*` / `--np-ink-*` (eight hues), plus the `badge-text` and `np-live-ring` utilities (the latter in `client/styles.css`).
   - Flat sidebar sections: `client/layouts/components/navigation-sections.tsx` (the template's `navigation-tree.tsx` only gained the entry row styling and `relative`, and still owns the collapsible tree for Settings/Dev and for any group whose entry count needs it — see the best-practices doc §2.1 for when to switch).
+
+## Breakpoints and the project manager drawer (NP-203)
+
+- The shell's `<main>` is a container (`@container`). A page layout that changes with the space the page has (columns folding, a side column) uses container variants (`@3xl:`, `@5xl:`), not `lg:`/`xl:`: from 1024px the project manager drawer docks beside the page and takes 22.5–40rem of the window, so the window's width says nothing about the page's. `@3xl` (48rem) is where `lg` (64rem) sat with the expanded sidebar (16rem) beside the page. Dialogs are outside `<main>` and keep viewport variants.
+- Below 1024px the drawer is a full-screen overlay (`data-mode='overlay'`), the page behind it inert.

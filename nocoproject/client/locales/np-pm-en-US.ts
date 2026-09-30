@@ -15,6 +15,7 @@ const npPmEnUS = {
     close: 'Close',
     expand: 'Expand',
     restoreSize: 'Restore size',
+    resize: 'Resize the project manager',
     more: 'More',
     newConversation: 'New conversation',
     conversationCrumb: 'Conversation',

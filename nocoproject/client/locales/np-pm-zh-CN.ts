@@ -11,6 +11,7 @@ const npPmZhCN: NpPmResource = {
     close: '关闭',
     expand: '展开',
     restoreSize: '恢复宽度',
+    resize: '调整项目经理宽度',
     more: '更多',
     newConversation: '新对话',
     conversationCrumb: '对话',

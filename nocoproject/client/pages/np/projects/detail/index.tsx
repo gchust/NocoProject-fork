@@ -245,7 +245,7 @@ function ProjectLayout({
     <div className='w-full space-y-6 px-6 py-6 md:px-8'>
       <div className='space-y-4'>
         <Breadcrumbs />
-        <header className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
+        <header className='flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:justify-between'>
           <div className='flex min-w-0 items-start gap-4'>
             <NpProgressRing
               percent={progress.percent}

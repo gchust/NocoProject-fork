@@ -50,11 +50,11 @@ export function ProjectOverview({
   ] as const;
 
   return (
-    <div className='flex flex-col gap-6 xl:flex-row xl:items-start'>
+    <div className='flex flex-col gap-6 @5xl:flex-row @5xl:items-start'>
       <div className='min-w-0 flex-1 space-y-6'>
         <section
           aria-label={t('np.projectPage.numbers')}
-          className='grid grid-cols-2 gap-3 md:grid-cols-4'
+          className='grid grid-cols-2 gap-3 @2xl:grid-cols-4'
         >
           {stats.map((stat) => (
             <div
@@ -98,7 +98,7 @@ export function ProjectOverview({
       </div>
       <aside
         aria-label={t('np.projects.sidePanel')}
-        className='space-y-3 xl:w-[20rem] xl:shrink-0'
+        className='space-y-3 @5xl:w-[20rem] @5xl:shrink-0'
       >
         <ProjectProperties
           project={project}
