@@ -1188,3 +1188,11 @@ export * from './protocol.capabilities.js';
 
 export * from './protocol.daemon-compat.js';
 // Server- and browser-only (the CLI's sync-protocol drops this line)
+
+// ---------- Business roles in /config/members (NP-153) ----------
+
+// Server- and browser-only (the CLI's sync-protocol drops this line)
+
+// ---------- Project manager assistant (NP-181 / NP-183) ----------
+
+export * from './protocol.phase2-pm-assistant.js';

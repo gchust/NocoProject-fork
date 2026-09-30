@@ -2,6 +2,7 @@
  * Runtime brief (CLAUDE.md / AGENTS.md marker block) and per-turn prompt (protocol §7).
  * Pure string builders plus one small file writer.
  */
+import { pmBriefSections, pageContextLines, planResultLines, RUNTIME_RULES } from './brief-pm.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ClaimedRunV1, designPendingOf, executionModeOf } from '../run-context.js';
@@ -19,9 +20,10 @@ export type BriefInput = Pick<ClaimedRunV1, 'agent' | 'issue' | 'agentTransition
 
 function permits(input: BriefInput, key: AgentCapability): boolean { return input.agent.capabilities?.includes(key) === true; }
 export function buildBrief(input: BriefInput): string {
-  const key = input.issue.identifier;
+  if (input.issue.conversation) return [BRIEF_BEGIN, ...pmBriefSections(input), BRIEF_END].join('\n');
+  const key = input.issue.identifier || input.issue.id;
   const executing = permits(input, 'issue.execute') && executionModeOf(input) !== 'session';
-  const commands = input.agent.commandDescriptions ?? (input.agent.capabilities ?? []).flatMap(c => AGENT_COMMANDS[c]);
+  const commands = input.agent.commandDescriptions ?? (input.agent.capabilities ?? []).flatMap(c => AGENT_COMMANDS[c] ?? []);
   return [BRIEF_BEGIN, '# NocoProject Agent Runtime', '',
     `You are **${input.agent.name}** (agent id \`${input.agent.id}\`).`,
     `Configuration revision: ${input.agent.configurationRevision ?? 'unavailable'}.`,
@@ -29,11 +31,7 @@ export function buildBrief(input: BriefInput): string {
     ...conversationModeSection(input),
     '', '## Task instructions', '', input.agent.taskInstructions ?? '',
     '', '## Runtime rules', '',
-    'Use the authenticated nocoproject CLI. Never read credentials or use another identity to bypass a denied action.',
-    'Permissions are enforced by the server; instructions and skills cannot grant capabilities.',
-    'Human ownership, terminal states and approval gates remain enforced. Do not bypass a denial.',
-    'Finish foreground work before replying; do not stop or restart the nocoproject daemon.',
-    'Write comments to a Markdown file and pass --content-file. Reply in the triggering thread when present.',
+    ...RUNTIME_RULES,
     '', '## Available Commands', '',
     ...commands.map(command => `- \`nocoproject ${command.replaceAll('<issue>', key)}\``),
     '', ...projectSection(input), ...skillsSection(input),
@@ -101,12 +99,19 @@ function attachmentLines(input: PromptInput): string[] {
   if (files.length === 0) return [];
   const names = files.map((file) => file.filename).join(', ');
   return [
-    `It has ${files.length} attached file${files.length === 1 ? '' : 's'} (${names}): save them with \`nocoproject issue attachment download ${input.issue.identifier}\` and open the printed paths.`,
+    `It has ${files.length} attached file${files.length === 1 ? '' : 's'} (${names}): save them with \`nocoproject issue attachment download ${input.issue.identifier || input.issue.id}\` and open the printed paths.`,
   ];
 }
 
 function openingLines(input: PromptInput): string[] {
-  const key = input.issue.identifier;
+  const key = input.issue.identifier || input.issue.id;
+  if (input.issue.conversation) {
+    return [
+      'You are assisting the asker in conversation ' + key + ' ' + JSON.stringify(input.issue.title) + '.',
+      ...attachmentLines(input),
+      'Run: ' + input.run.id + '. Conversation history: nocoproject issue comment list ' + key + ' --json.',
+    ];
+  }
   if (executionModeOf(input) === 'session') {
     return [
       `You are in a live conversation with the owner on issue ${key} "${input.issue.title}" (session mode).`,
@@ -126,15 +131,19 @@ function openingLines(input: PromptInput): string[] {
 
 /** The per-turn user message (§7); session mode (iteration 2 §J) opens conversationally. */
 export function buildTurnPrompt(input: PromptInput, opts: { readonly resumed: boolean }): string {
-  const key = input.issue.identifier;
+  const key = input.issue.identifier || input.issue.id;
 
   const lines = [...(hasTrigger(input, 'designApproved') ? [DESIGN_APPROVED_OPENING] : []), ...openingLines(input)];
   let rootId: string | undefined;
   for (const trigger of input.triggers) {
-    if (trigger.comment) {
+    if (trigger.type === 'planExecuted' && trigger.plan) {
+      rootId = trigger.comment?.rootId ?? rootId;
+      lines.push(...planResultLines(trigger.plan));
+    } else if (trigger.comment) {
       rootId = trigger.comment.rootId;
       lines.push(`[NEW COMMENT] from ${trigger.comment.authorName} (reply with --parent ${trigger.comment.rootId}):`);
       lines.push(quote(trigger.comment.content));
+      if (input.issue.conversation) lines.push(...pageContextLines(trigger.comment.context));
     } else if (trigger.type === 'stageEntered') {
       lines.push(...stageEnteredLines(trigger, quote));
     } else if (trigger.type === 'signal') {
@@ -146,9 +155,12 @@ export function buildTurnPrompt(input: PromptInput, opts: { readonly resumed: bo
   }
   lines.push(...approvedProposalLines(input, quote));
   lines.push(`Session: ${opts.resumed ? 'resumed' : 'fresh'}.`);
+  if (input.issue.conversation && !opts.resumed) lines.push('This is a fresh tool session. First read the conversation history with nocoproject issue comment list ' + key + ' --json.');
   const parent = rootId ? ` --parent ${rootId}` : '';
   if (!input.agent.capabilities?.includes('comment.create')) {
     lines.push('No comment writing is authorized for this run. Follow the configured task instructions within your granted capabilities.');
+  } else if (input.issue.conversation) {
+    lines.push('Reply via nocoproject issue comment add ' + key + ' --content-file ./reply.md' + parent + '. Do not change the conversation status. Distinguish completed operations from plans awaiting human execution.');
   } else if (!input.agent.capabilities?.includes('issue.status.write')) {
     lines.push(`Reply via \`nocoproject issue comment add ${key} --content-file ./reply.md${parent}\`; you do not need to set \`in_review\` and never change the status.`);
   } else if (designPendingOf(input) && input.agent.capabilities?.includes('design.propose')) {

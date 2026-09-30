@@ -1,6 +1,6 @@
 {
   "name": "nocoproject-cli",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "NocoProject local daemon and agent CLI: runs coding agents (Claude Code, OpenCode) for NocoProject issues.",
   "type": "module",
   "license": "UNLICENSED",

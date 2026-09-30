@@ -4,6 +4,7 @@
  * the server requires explicit `workspace.read` (otherwise 403 `CAPABILITY_DENIED`, exit 3)
  * and filters everything by what the run's asker (`actorUserId`) can see.
  */
+import { registerPmAssistantCommands } from './pm-assistant.js';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { HttpError } from '../api/client.js';
@@ -112,7 +113,8 @@ function printKnowledge(docs: readonly KnowledgeDocSummary[]): void {
 }
 
 export function registerPmCommands(program: Command): void {
-  const pm = program.command('pm').description('Project-manager reads across projects (run-token mode, manager agents only)');
+  const pm = program.command('pm').description('Read and act as the asker through the authorized run token');
+  registerPmAssistantCommands(pm);
   const out = <T>(opts: JsonOpt, data: T, text: (d: T) => void): void => (opts.json ? printJson(data) : text(data));
 
   pm.command('projects')

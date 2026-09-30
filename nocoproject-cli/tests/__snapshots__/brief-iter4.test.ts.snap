@@ -54,6 +54,10 @@ Write comments to a Markdown file and pass --content-file. Reply in the triggeri
 - \`nocoproject pm inbox --json\`
 - \`nocoproject pm metrics --json\`
 - \`nocoproject pm knowledge --json\`
+- \`nocoproject pm agents --json\`
+- \`nocoproject pm runs NP-12 --json\`
+- \`nocoproject pm run <runId> --events --json\`
+- \`nocoproject pm prs NP-12 --json\`
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
 - \`nocoproject kb propose --title <title> [--parent <slug|id>] --content-file ./kb.md --reason <reason>\`
 - \`nocoproject repo checkout <url> --json\`
