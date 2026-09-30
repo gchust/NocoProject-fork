@@ -20,7 +20,9 @@ import {
 } from './pm-assistant.js';
 import { PmDrawerHeader } from './pm-drawer-header.js';
 
-const WIDE_QUERY = '(min-width: 1280px)';
+// Docking beside the content needs room for the issue page's two columns next to it: at 1360px (the screenshot
+// width) a docked drawer pushed the issue header's actions off the main column, so it docks from 1536px only.
+const WIDE_QUERY = '(min-width: 1536px)';
 
 function subscribeWide(onChange: () => void): () => void {
   if (typeof window === 'undefined' || !window.matchMedia) return () => {};
@@ -41,8 +43,8 @@ function useWide(): boolean {
 
 /**
  * The project manager drawer (NP-185), a sibling of `<main>` in `AppLayout` so it survives page changes. From
- * 1280px it docks beside the content (26.25rem, i.e. 420px, fixed in rem because the compact preset shrinks the
- * spacing scale); between `md` and 1280px it floats over the right of the content (25rem); "expand" covers the
+ * 1536px it docks beside the content (26.25rem, i.e. 420px, fixed in rem because the compact preset shrinks the
+ * spacing scale); between `md` and 1536px it floats over the right of the content (25rem); "expand" covers the
  * content area. Neither form is a dialog (`role="dialog"` would silence the `C` shortcut) and neither traps focus;
  * Escape restores the width, then closes. Below `md` it is a full-screen modal dialog. Once opened it stays
  * mounted while closed, so the conversation's subscriptions and a streaming turn carry on.

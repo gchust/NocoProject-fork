@@ -39,7 +39,13 @@ export async function fetchPmConversations(
     signal,
   });
   return {
-    data: body.data,
+    // Only a list is a page of conversations (an older server answers this path with something else).
+    data: Array.isArray(body.data)
+      ? (body.data as readonly unknown[]).filter(
+          (item): item is PmConversationPage['data'][number] =>
+            typeof (item as { id?: unknown } | null)?.id === 'string',
+        )
+      : [],
     nextCursor:
       typeof body.nextCursor === 'string' && body.nextCursor
         ? body.nextCursor
