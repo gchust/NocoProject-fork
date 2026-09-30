@@ -22,7 +22,10 @@ export function isSearchShortcut(
 
 /** ⌘J on macOS, Ctrl+J elsewhere: opens, focuses or closes the project manager drawer (NP-185), also while typing. */
 export function isAssistantShortcut(
-  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
+  event: Pick<
+    KeyboardEvent,
+    'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'
+  >,
 ): boolean {
   return (
     (event.metaKey || event.ctrlKey) &&

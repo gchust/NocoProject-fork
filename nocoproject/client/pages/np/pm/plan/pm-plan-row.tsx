@@ -17,8 +17,9 @@ import { cn } from '@/lib/utils';
 
 import type { PmPlanRowFlag } from '../../types-pm.js';
 import { PmDecisionRow } from './pm-plan-decision.js';
-import { EDITABLE_TYPES, PmRowEditor } from './pm-plan-editor.js';
+import { PmRowEditor } from './pm-plan-editor.js';
 import {
+  EDITABLE_TYPES,
   isIssueRef,
   issueRefLabel,
   type PmRowView,
@@ -36,7 +37,10 @@ const FLAG_TONE: Readonly<Record<PmPlanRowFlag, 'amber' | 'red' | 'violet'>> = {
 };
 
 /** Where a finished row's object lives, when the browser has a page for it. */
-function resultLink(type: string | undefined, id: string | undefined): string | null {
+function resultLink(
+  type: string | undefined,
+  id: string | undefined,
+): string | null {
   if (!id) return null;
   if (type === 'issue') return `/issues/${encodeURIComponent(id)}`;
   if (type === 'project') return `/projects/${encodeURIComponent(id)}`;
@@ -143,7 +147,10 @@ export function PmPlanRowItem({
         ) : null}
       </div>
       {row.flags.length > 0 || row.preview.length > 0 ? (
-        <ul className='flex flex-wrap gap-1' aria-label={t('np.pmAssistant.plan.flags')}>
+        <ul
+          className='flex flex-wrap gap-1'
+          aria-label={t('np.pmAssistant.plan.flags')}
+        >
           {row.preview.map((preview) => (
             <li key={`${preview.agentId}:${preview.issueId ?? ''}`}>
               <NpTag tone='violet'>
@@ -171,11 +178,20 @@ export function PmPlanRowItem({
         <RowDetails view={view} views={views} lookup={lookup} />
       )}
       {!row.ok && !removed && (row.errorCode || row.errorMessage) ? (
-        <p className='flex items-start gap-1 text-xs text-destructive' role='alert'>
-          <AlertTriangleIcon className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
+        <p
+          className='flex items-start gap-1 text-xs text-destructive'
+          role='alert'
+        >
+          <AlertTriangleIcon
+            className='mt-0.5 size-3.5 shrink-0'
+            aria-hidden='true'
+          />
           <span className='wrap-anywhere'>
             {errorKey
-              ? t(errorKey, { title, defaultValue: row.errorMessage ?? row.errorCode })
+              ? t(errorKey, {
+                  title,
+                  defaultValue: row.errorMessage ?? row.errorCode,
+                })
               : (row.errorMessage ?? row.errorCode)}
           </span>
         </p>
@@ -193,7 +209,9 @@ export function PmPlanRowItem({
         </p>
       ) : null}
       {removed ? (
-        <p className='text-xs text-muted-foreground'>{t('np.pmAssistant.plan.removed')}</p>
+        <p className='text-xs text-muted-foreground'>
+          {t('np.pmAssistant.plan.removed')}
+        </p>
       ) : null}
     </li>
   );
@@ -296,14 +314,22 @@ function RowDetails({
       const blockedBy = Array.isArray(params.blockedBy) ? params.blockedBy : [];
       return (
         <dl className='space-y-0.5'>
-          {CREATE_FIELDS.filter((field) => params[field] !== undefined).map((field) => (
-            <Line key={field} label={t(`np.pmAssistant.plan.fields.${field}`)}>
-              {text(field, params[field])}
-            </Line>
-          ))}
+          {CREATE_FIELDS.filter((field) => params[field] !== undefined).map(
+            (field) => (
+              <Line
+                key={field}
+                label={t(`np.pmAssistant.plan.fields.${field}`)}
+              >
+                {text(field, params[field])}
+              </Line>
+            ),
+          )}
           {blockedBy.length > 0 ? (
             <Line label={t('np.pmAssistant.plan.fields.blockedBy')}>
-              {blockedBy.filter(isIssueRef).map((ref) => issueRefLabel(ref, views)).join(', ')}
+              {blockedBy
+                .filter(isIssueRef)
+                .map((ref) => issueRefLabel(ref, views))
+                .join(', ')}
             </Line>
           ) : null}
           {typeof params.description === 'string' && params.description ? (
@@ -323,13 +349,22 @@ function RowDetails({
       return (
         <dl className='space-y-0.5'>
           {updateChanges(view).map((change) => (
-            <Line key={change.field} label={t(`np.pmAssistant.plan.fields.${change.field}`, { defaultValue: change.field })}>
+            <Line
+              key={change.field}
+              label={t(`np.pmAssistant.plan.fields.${change.field}`, {
+                defaultValue: change.field,
+              })}
+            >
               <span className='text-muted-foreground line-through'>
                 {text(change.field, change.from)}
               </span>
               <span aria-hidden='true'> → </span>
-              <span className='sr-only'>{t('np.pmAssistant.plan.becomes')}</span>
-              <span className='font-medium'>{text(change.field, change.to)}</span>
+              <span className='sr-only'>
+                {t('np.pmAssistant.plan.becomes')}
+              </span>
+              <span className='font-medium'>
+                {text(change.field, change.to)}
+              </span>
             </Line>
           ))}
         </dl>
@@ -340,19 +375,27 @@ function RowDetails({
         <p className='text-xs'>
           {from !== undefined ? (
             <>
-              <span className='text-muted-foreground'>{text('statusKey', from)}</span>
+              <span className='text-muted-foreground'>
+                {text('statusKey', from)}
+              </span>
               <span aria-hidden='true'> → </span>
-              <span className='sr-only'>{t('np.pmAssistant.plan.becomes')}</span>
+              <span className='sr-only'>
+                {t('np.pmAssistant.plan.becomes')}
+              </span>
             </>
           ) : null}
-          <span className='font-medium'>{text('statusKey', params.statusKey)}</span>
+          <span className='font-medium'>
+            {text('statusKey', params.statusKey)}
+          </span>
         </p>
       );
     }
     case 'comment.create':
       return (
         <div className='rounded-md bg-muted/60 px-2 py-1.5 text-sm'>
-          <NpMarkdown content={typeof params.content === 'string' ? params.content : ''} />
+          <NpMarkdown
+            content={typeof params.content === 'string' ? params.content : ''}
+          />
         </div>
       );
     case 'decision.resolve':

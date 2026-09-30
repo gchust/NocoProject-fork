@@ -43,7 +43,10 @@ import { DecisionActionsBar } from './decision-actions-bar.js';
 import { readInboxActions } from './decision-actions.js';
 import { INBOX_ACTION_ICON } from './inbox-icons.js';
 import { inboxActionsFor, inboxItemLink, isSettled } from './inbox-model.js';
-import { usePmAssistant, usePmContextSource } from '../pm/assistant/pm-assistant.js';
+import {
+  usePmAssistant,
+  usePmContextSource,
+} from '../pm/assistant/pm-assistant.js';
 
 /**
  * The inbox's detail pane (nocosolution/guidelines/frontend-standard.md §S2): everything needed to decide without leaving the inbox.
@@ -130,7 +133,11 @@ function ItemDetail({
   const link = inboxItemLink(item);
   const body = sentence(item);
   // NP-185: the selected item is the project manager's page context.
-  const pmObject = { type: 'inboxItem' as const, id: item.id, label: item.title };
+  const pmObject = {
+    type: 'inboxItem' as const,
+    id: item.id,
+    label: item.title,
+  };
   usePmContextSource(pmObject);
   const assistant = usePmAssistant();
 

@@ -1,5 +1,11 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import { type ReactElement, useEffect, useRef, useState } from 'react';
+import {
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -16,21 +22,21 @@ import { PmDrawerHeader } from './pm-drawer-header.js';
 
 const WIDE_QUERY = '(min-width: 1280px)';
 
+function subscribeWide(onChange: () => void): () => void {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const query = window.matchMedia(WIDE_QUERY);
+  query.addEventListener?.('change', onChange);
+  return () => query.removeEventListener?.('change', onChange);
+}
+
+function readWide(): boolean {
+  return typeof window === 'undefined' || !window.matchMedia
+    ? true
+    : window.matchMedia(WIDE_QUERY).matches;
+}
+
 function useWide(): boolean {
-  const [wide, setWide] = useState(() =>
-    typeof window === 'undefined' || !window.matchMedia
-      ? true
-      : window.matchMedia(WIDE_QUERY).matches,
-  );
-  useEffect(() => {
-    if (!window.matchMedia) return;
-    const query = window.matchMedia(WIDE_QUERY);
-    const onChange = (): void => setWide(query.matches);
-    query.addEventListener?.('change', onChange);
-    onChange();
-    return () => query.removeEventListener?.('change', onChange);
-  }, []);
-  return wide;
+  return useSyncExternalStore(subscribeWide, readWide, () => true);
 }
 
 /**
@@ -48,9 +54,7 @@ export function PmDrawer(): ReactElement | null {
   const wide = useWide();
   const [mounted, setMounted] = useState(assistant.open);
   const asideRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (assistant.open) setMounted(true);
-  }, [assistant.open]);
+  if (assistant.open && !mounted) setMounted(true);
 
   const { mode, setMode, closeAssistant, open } = assistant;
   useEffect(() => {
@@ -84,7 +88,9 @@ export function PmDrawer(): ReactElement | null {
           showCloseButton={false}
           className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 rounded-none p-0 sm:max-w-none'
         >
-          <DialogTitle className='sr-only'>{t('np.pmAssistant.title')}</DialogTitle>
+          <DialogTitle className='sr-only'>
+            {t('np.pmAssistant.title')}
+          </DialogTitle>
           <PmDrawerHeader compact />
           {body}
         </DialogContent>

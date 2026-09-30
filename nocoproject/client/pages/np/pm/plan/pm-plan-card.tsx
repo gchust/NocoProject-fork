@@ -67,12 +67,14 @@ function conflictTitle(
 ): string {
   if (error instanceof ApiClientError) {
     if (error.status === 403) return t('np.common.forbidden');
-    if (error.code === 'PLAN_EXPIRED') return t('np.pmAssistant.plan.expiredError');
+    if (error.code === 'PLAN_EXPIRED')
+      return t('np.pmAssistant.plan.expiredError');
     if (error.code === 'PLAN_NOT_PENDING')
       return t('np.pmAssistant.plan.notPending');
     if (error.code === 'REVISION_CONFLICT')
       return t('np.pmAssistant.plan.revisionConflict');
-    if (error.code === 'INVALID_REF') return t('np.pmAssistant.plan.referenced');
+    if (error.code === 'INVALID_REF')
+      return t('np.pmAssistant.plan.referenced');
   }
   return t(fallback);
 }
@@ -118,7 +120,9 @@ export function PmPlanCard({
       onPlan={(next) => {
         queryClient.setQueryData(key, next);
         void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
-        void queryClient.invalidateQueries({ queryKey: [...npKeys.pm, 'conversations'] });
+        void queryClient.invalidateQueries({
+          queryKey: [...npKeys.pm, 'conversations'],
+        });
       }}
       onReload={() => void queryClient.invalidateQueries({ queryKey: key })}
     />
@@ -139,8 +143,8 @@ function PlanBody({
   const { t } = useTranslation();
   const api = useApiClient();
   const lookup = usePlanLookup();
-  const [edits, setEdits] = useState<PmPlanEdits>(new Map());
-  const [editing, setEditing] = useState<ReadonlySet<number>>(new Set());
+  const [edits, setEdits] = useState<PmPlanEdits>(() => new Map());
+  const [editing, setEditing] = useState<ReadonlySet<number>>(() => new Set());
   const [confirm, setConfirm] = useState<'execute' | 'discard' | null>(null);
   const closed = CLOSED.has(plan.status);
   const [expanded, setExpanded] = useState(!closed);
@@ -239,7 +243,9 @@ function PlanBody({
             <NpTag tone={STATUS_TONE[plan.status]}>
               {t(`np.pmAssistant.plan.status.${plan.status}`)}
             </NpTag>
-            <span>{t('np.pmAssistant.plan.rowCount', { count: plan.rows.length })}</span>
+            <span>
+              {t('np.pmAssistant.plan.rowCount', { count: plan.rows.length })}
+            </span>
             {plan.status === 'pending' && hours > 0 ? (
               <span>{t('np.pmAssistant.plan.expiresIn', { hours })}</span>
             ) : null}
@@ -270,7 +276,10 @@ function PlanBody({
               <NpMarkdown content={plan.summary} />
             </div>
           ) : null}
-          <ol className='space-y-1.5' aria-label={t('np.pmAssistant.plan.rows')}>
+          <ol
+            className='space-y-1.5'
+            aria-label={t('np.pmAssistant.plan.rows')}
+          >
             {views.map((view) => (
               <PmPlanRowItem
                 key={view.row.seq}
@@ -298,8 +307,14 @@ function PlanBody({
             <footer className='flex flex-wrap items-center gap-2'>
               {dirty ? (
                 <>
-                  <Button size='sm' disabled={busy} onClick={() => save.mutate()}>
-                    {save.isPending ? <Spinner data-icon='inline-start' /> : null}
+                  <Button
+                    size='sm'
+                    disabled={busy}
+                    onClick={() => save.mutate()}
+                  >
+                    {save.isPending ? (
+                      <Spinner data-icon='inline-start' />
+                    ) : null}
                     {t('np.pmAssistant.plan.save')}
                   </Button>
                   <Button
@@ -322,7 +337,9 @@ function PlanBody({
                   size='sm'
                   disabled={busy || !plan.executable}
                   onClick={() =>
-                    toConfirm.length > 0 ? setConfirm('execute') : execute.mutate()
+                    toConfirm.length > 0
+                      ? setConfirm('execute')
+                      : execute.mutate()
                   }
                 >
                   {execute.isPending ? (

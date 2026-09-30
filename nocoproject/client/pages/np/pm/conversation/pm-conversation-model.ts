@@ -1,5 +1,6 @@
 import { toolSummary } from '../../issues/detail/tool-summary.js';
 import type { CommentThread, IssueComment, RunEvent } from '../../types.js';
+import type { PmConversationAgent } from '../../types-pm.js';
 
 /**
  * A project manager conversation as pure data (NP-185): the messages in order with their kinds, the turn in progress
@@ -98,7 +99,9 @@ const LINK =
  * in order of first mention, each once, at most five. Code spans and fenced blocks are skipped.
  */
 export function referencesIn(content: string): PmReference[] {
-  const text = content.replace(/```[\s\S]*?```/gu, ' ').replace(/`[^`]*`/gu, ' ');
+  const text = content
+    .replace(/```[\s\S]*?```/gu, ' ')
+    .replace(/`[^`]*`/gu, ' ');
   const found: { index: number; reference: PmReference }[] = [];
   for (const match of text.matchAll(LINK)) {
     const segment = match[1];
@@ -140,7 +143,18 @@ export function withAttachmentLinks(
 ): string {
   if (files.length === 0) return content;
   const links = files
-    .map((file) => `- [${file.filename.replace(/[[\]]/gu, '')}](${file.contentUrl})`)
+    .map(
+      (file) =>
+        `- [${file.filename.replace(/[[\]]/gu, '')}](${file.contentUrl})`,
+    )
     .join('\n');
   return content.trim() ? `${content.trim()}\n\n${links}` : links;
+}
+
+/** A personal agent that cannot take the message right now: offline, or its CLI needs an upgrade. */
+export function isAgentUnreachable(agent: PmConversationAgent): boolean {
+  return (
+    agent.source === 'personal' &&
+    (!agent.online || agent.compat === 'upgrade_required')
+  );
 }

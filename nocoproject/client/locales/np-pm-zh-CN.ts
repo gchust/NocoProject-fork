@@ -30,13 +30,15 @@ const npPmZhCN: NpPmResource = {
     notFoundDescription: '它可能已在别处归档，或者你已没有访问权限。',
     defaultName: '项目经理',
     emptyTitle: '有什么要我安排的？',
-    emptyDescription: '可以问任何任务或项目，也可以直接描述要安排的工作。当前页面会作为上下文一起发送。',
+    emptyDescription:
+      '可以问任何任务或项目，也可以直接描述要安排的工作。当前页面会作为上下文一起发送。',
     messages: '消息',
     switchTo: {
       system: '切换到系统默认并开新对话',
       personal: '切换到我的项目经理并开新对话',
     },
     context: {
+      run: '{{agent}} 的运行',
       label: '下一条消息带上的上下文',
       sent: '这条消息带上的上下文',
       filter: '筛选：{{filter}}',

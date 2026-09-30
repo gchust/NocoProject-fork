@@ -14,16 +14,9 @@ import { Button } from '@/components/ui/button';
 import type { PmResolvedContext } from '../../types-pm.js';
 import {
   type PmContextChip,
-  type PmContextFilter,
+  filterText,
   selectionPreview,
 } from './pm-context-model.js';
-
-/** "status=in_progress, owner=me" for a filter tag. */
-export function filterText(filter: PmContextFilter): string {
-  return Object.entries(filter.params)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(', ');
-}
 
 function useChipText(): (chip: PmContextChip) => string {
   const { t } = useTranslation();
@@ -74,9 +67,7 @@ export function PmContextChips({
               tone={chip.kind === 'object' && chip.pinned ? 'blue' : 'grey'}
               icon={<ChipIcon chip={chip} />}
               className='max-w-60'
-              title={
-                chip.kind === 'selection' ? chip.selection.text : label
-              }
+              title={chip.kind === 'selection' ? chip.selection.text : label}
             >
               <span className='truncate'>{label}</span>
             </NpTag>
@@ -134,7 +125,11 @@ export function PmSentContext({
     >
       {tags.map((tag) => (
         <li key={tag.key} className='max-w-full'>
-          <NpTag tone='grey' className='max-w-60' title={tag.title ?? tag.label}>
+          <NpTag
+            tone='grey'
+            className='max-w-60'
+            title={tag.title ?? tag.label}
+          >
             <span className='truncate'>{tag.label}</span>
           </NpTag>
         </li>

@@ -97,7 +97,10 @@ export function IssuesView({
   const [stored, setStored] = useState(() => readStoredIssueView(viewKey));
   const view = resolveIssueView(params, stored);
   // NP-185: the list's filters are the project manager's page context.
-  usePmUrlFilter(view === 'board' ? 'board' : 'issues', Object.values(ISSUE_FILTER_PARAMS));
+  usePmUrlFilter(
+    view === 'board' ? 'board' : 'issues',
+    Object.values(ISSUE_FILTER_PARAMS),
+  );
   const urlFilters = readIssueFilters(params, KNOWN_STATUS_KEYS, view);
   const filters: IssueFilters = { ...urlFilters, ...fixedFilters };
   const list = useIssuePages(filters, view === 'list');

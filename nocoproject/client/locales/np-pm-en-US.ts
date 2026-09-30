@@ -32,7 +32,8 @@ const npPmEnUS = {
     messageKept:
       'Your message is saved and will be answered once a project manager is available.',
     notFound: 'This conversation is not available',
-    notFoundDescription: 'It may have been archived by another tab or you no longer have access.',
+    notFoundDescription:
+      'It may have been archived by another tab or you no longer have access.',
     defaultName: 'Project manager',
     emptyTitle: 'What should I take care of?',
     emptyDescription:
@@ -43,6 +44,7 @@ const npPmEnUS = {
       personal: 'Switch to my project manager and start a new conversation',
     },
     context: {
+      run: 'Run by {{agent}}',
       label: 'Context sent with the next message',
       sent: 'Context sent with this message',
       filter: 'Filter: {{filter}}',
@@ -72,15 +74,18 @@ const npPmEnUS = {
         fallback: 'Default for now',
       },
       offline: 'The computer your project manager runs on is offline',
-      upgradeRequired: 'The computer your project manager runs on needs a CLI upgrade',
+      upgradeRequired:
+        'The computer your project manager runs on needs a CLI upgrade',
       queued: 'Messages wait until it is back.',
       fallback: 'Use the default for this conversation',
-      usingDefault: 'This conversation is using the default project manager for now.',
+      usingDefault:
+        'This conversation is using the default project manager for now.',
       restore: 'Return to my project manager',
       personalUnavailable: 'Your project manager is not available.',
       fallbackDone: 'Switched to the default project manager',
       restoreDone: 'Switched back to your project manager',
-      newSession: 'A new session starts; the project manager rereads the conversation.',
+      newSession:
+        'A new session starts; the project manager rereads the conversation.',
     },
     references: {
       label: 'Mentioned',
@@ -129,7 +134,8 @@ const npPmEnUS = {
       executeFailed: 'The plan was not executed; nothing was changed.',
       discarded: 'Plan discarded',
       discardTitle: 'Discard this plan?',
-      discardDescription: 'Nothing in it will be done. The project manager can propose a new one.',
+      discardDescription:
+        'Nothing in it will be done. The project manager can propose a new one.',
       executeTitle: 'Execute this plan?',
       executeDescription: 'These operations reach beyond the plan itself:',
       expiredError: 'The plan has expired.',
@@ -199,7 +205,8 @@ const npPmEnUS = {
         STALE_TARGET: '{{title}} changed after the plan was made.',
         INVALID_REF: 'Points at an operation that is no longer in the plan.',
         FORBIDDEN: 'You do not have permission to do this.',
-        NOT_FOUND: 'The issue or project no longer exists or is not visible to you.',
+        NOT_FOUND:
+          'The issue or project no longer exists or is not visible to you.',
         PROCESS_LOCKED: 'The process can no longer be changed.',
         INVALID_TRANSITION: 'The workflow does not allow this status change.',
         CONVERSATION_NOT_ISSUE: 'A conversation cannot be used as an issue.',

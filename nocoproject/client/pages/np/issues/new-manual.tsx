@@ -221,7 +221,9 @@ export function ManualIssueForm({
           projectName={
             projects.data?.find((project) => project.id === projectId)?.name
           }
-          draft={[title.trim(), description.trim()].filter(Boolean).join('\n\n')}
+          draft={[title.trim(), description.trim()]
+            .filter(Boolean)
+            .join('\n\n')}
           onOpen={() => void close()}
         />
         {formError ? (
@@ -451,7 +453,11 @@ function TellPmInstead({
             view: 'chat',
             draft: draft || undefined,
             pin: projectId
-              ? { type: 'project', id: projectId, label: projectName ?? projectId }
+              ? {
+                  type: 'project',
+                  id: projectId,
+                  label: projectName ?? projectId,
+                }
               : undefined,
           });
           onOpen();

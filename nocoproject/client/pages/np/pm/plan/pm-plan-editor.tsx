@@ -10,22 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { ISSUE_PRIORITIES } from '../../constants.js';
 import { PropertySelect } from '../../issues/detail/property-fields.js';
 import { ProcessSelect } from '../../issues/process-fields.js';
-import type { PmOperationType } from '../../types-pm.js';
 import {
   fromExecutorRef,
   type PmRowView,
   toExecutorRef,
 } from './pm-plan-model.js';
 import type { PlanLookup } from './pm-plan-values.js';
-
-/** Row types with fields a member may change on the card; dependencies and status moves are kept or removed whole. */
-export const EDITABLE_TYPES: ReadonlySet<PmOperationType> = new Set([
-  'issue.create',
-  'issue.update',
-  'comment.create',
-  'decision.resolve',
-  'project.create',
-]);
 
 const TITLE_MAX = 200;
 
@@ -267,8 +257,8 @@ function IssueFields({
   readonly onChange: (patch: Record<string, unknown>) => void;
 }): ReactElement {
   const { t } = useTranslation();
-  const prefix = useId();
-  const id = (field: string): string => `${prefix}-${seq}-${field}`;
+  const prefixId = useId();
+  const id = (field: string): string => `${prefixId}-${seq}-${field}`;
   return (
     <Stack>
       {fields.map((field) => {
@@ -295,7 +285,11 @@ function IssueFields({
                     value,
                     label: t(`np.priority.${value}`),
                   }))}
-                  value={typeof values.priority === 'string' ? values.priority : 'none'}
+                  value={
+                    typeof values.priority === 'string'
+                      ? values.priority
+                      : 'none'
+                  }
                   onChange={(next) => onChange({ priority: next ?? 'none' })}
                 />
               </FieldRow>
@@ -310,7 +304,11 @@ function IssueFields({
                     value: label.id,
                     label: label.name,
                   }))}
-                  value={Array.isArray(values.labelIds) ? values.labelIds.map(String) : []}
+                  value={
+                    Array.isArray(values.labelIds)
+                      ? values.labelIds.map(String)
+                      : []
+                  }
                   placeholder={t('np.labels.placeholder')}
                   emptyText={t('np.labels.empty')}
                   onChange={(labelIds) => onChange({ labelIds })}
@@ -335,7 +333,9 @@ function IssueFields({
                   value={toExecutorRef(values.executor)}
                   agents={lookup.agents}
                   members={lookup.members}
-                  onChange={(next) => onChange({ executor: fromExecutorRef(next) })}
+                  onChange={(next) =>
+                    onChange({ executor: fromExecutorRef(next) })
+                  }
                 />
               </FieldRow>
             );
@@ -349,9 +349,15 @@ function IssueFields({
                     value: member.userId,
                     label: member.name,
                   }))}
-                  value={typeof values.ownerUserId === 'string' ? values.ownerUserId : null}
+                  value={
+                    typeof values.ownerUserId === 'string'
+                      ? values.ownerUserId
+                      : null
+                  }
                   noneLabel={t('np.intake.defaultOwner')}
-                  onChange={(next) => onChange({ ownerUserId: next ?? undefined })}
+                  onChange={(next) =>
+                    onChange({ ownerUserId: next ?? undefined })
+                  }
                 />
               </FieldRow>
             );
@@ -362,7 +368,11 @@ function IssueFields({
                   id={id(field)}
                   aria-label={t('np.pmAssistant.plan.fields.process')}
                   choices={['direct', 'design_first']}
-                  value={values.process === 'design_first' ? 'design_first' : 'direct'}
+                  value={
+                    values.process === 'design_first'
+                      ? 'design_first'
+                      : 'direct'
+                  }
                   onChange={(process) => onChange({ process })}
                 />
               </FieldRow>
@@ -377,7 +387,11 @@ function IssueFields({
                     value: project.id,
                     label: project.name,
                   }))}
-                  value={typeof values.projectId === 'string' ? values.projectId : null}
+                  value={
+                    typeof values.projectId === 'string'
+                      ? values.projectId
+                      : null
+                  }
                   noneLabel={t('np.issueForm.noProject')}
                   onChange={(projectId) => onChange({ projectId })}
                 />

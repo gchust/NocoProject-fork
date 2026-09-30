@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 
-import type { PmAgentChoice, PmConversationDetail } from '../../types-pm.js';
 import { PmAgentBadge } from '../conversation/pm-agent-status.js';
 import {
   usePmAgentChoice,
@@ -30,19 +29,7 @@ import {
 } from '../conversation/use-pm-conversation.js';
 import { PM_TITLE_MAX } from '../history/pm-history-list.js';
 import { usePmAssistant } from './pm-assistant.js';
-
-/** Where "switch and start a new conversation" goes, or null when there is nothing to switch to (§5.4, §6.2). */
-export function switchTarget(
-  choice: PmAgentChoice | undefined,
-  conversation: PmConversationDetail | null | undefined,
-): 'system' | 'personal' | null {
-  if (!choice || !choice.allowPersonal) return null;
-  const source = conversation?.agent.source;
-  if (source === 'personal') return choice.systemAgent ? 'system' : null;
-  return choice.agentId && choice.candidates.some((c) => c.id === choice.agentId)
-    ? 'personal'
-    : null;
-}
+import { switchTarget } from './pm-assistant-state.js';
 
 /**
  * The drawer's header (NP-185): the conversation's title (click to rename; Enter saves, Escape cancels) and its
@@ -163,7 +150,11 @@ export function PmDrawerHeader({
               )
             }
           >
-            {assistant.mode === 'expanded' ? <Minimize2Icon /> : <Maximize2Icon />}
+            {assistant.mode === 'expanded' ? (
+              <Minimize2Icon />
+            ) : (
+              <Maximize2Icon />
+            )}
           </Button>
         )}
         {conversation && !history ? (
@@ -225,7 +216,9 @@ export function PmDrawerHeader({
           <XIcon />
         </Button>
       </div>
-      {conversation && !history ? <PmAgentBadge agent={conversation.agent} /> : null}
+      {conversation && !history ? (
+        <PmAgentBadge agent={conversation.agent} />
+      ) : null}
     </header>
   );
 }

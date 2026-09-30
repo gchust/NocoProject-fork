@@ -163,11 +163,7 @@ export interface PmIssueUpdateSet {
 }
 
 export type PmDecisionAction =
-  | 'accept'
-  | 'dismiss'
-  | 'approve'
-  | 'request_changes'
-  | 'reject';
+  'accept' | 'dismiss' | 'approve' | 'request_changes' | 'reject';
 
 export type PmOperation =
   | {
@@ -177,7 +173,10 @@ export type PmOperation =
     }
   | {
       readonly type: 'issue.update';
-      readonly params: { readonly issue: string; readonly set: PmIssueUpdateSet };
+      readonly params: {
+        readonly issue: string;
+        readonly set: PmIssueUpdateSet;
+      };
     }
   | {
       readonly type: 'issue.status';
@@ -235,11 +234,7 @@ export type PmPlanStatus =
 export type PmPlanOpStatus = 'pending' | 'done' | 'failed' | 'removed';
 
 export type PmPlanRowFlag =
-  | 'startsRun'
-  | 'terminal'
-  | 'ownerChange'
-  | 'decision'
-  | 'createsProject';
+  'startsRun' | 'terminal' | 'ownerChange' | 'decision' | 'createsProject';
 
 /** A run the row would start once executed (§3.4 `previewRuns`). */
 export interface RunPreview {

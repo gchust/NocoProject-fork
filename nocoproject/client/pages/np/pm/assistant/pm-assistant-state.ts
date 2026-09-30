@@ -1,3 +1,5 @@
+import type { PmAgentChoice, PmConversationDetail } from '../../types-pm.js';
+
 /**
  * The project manager drawer's state as pure data (NP-185): whether it is open, docked or expanded, showing the
  * conversation or the history, and which conversation. It lives in `sessionStorage`, so a reload in the same tab
@@ -72,7 +74,8 @@ export function drawerStateFromSearch(
   if (!value) return null;
   const mode: PmDrawerMode =
     search.get('pmMode') === 'expanded' ? 'expanded' : 'docked';
-  if (value === 'history') return { ...current, open: true, mode, view: 'history' };
+  if (value === 'history')
+    return { ...current, open: true, mode, view: 'history' };
   return {
     open: true,
     mode,
@@ -88,4 +91,18 @@ export function withoutDrawerParams(search: URLSearchParams): string {
   next.delete('pmMode');
   const text = next.toString();
   return text ? `?${text}` : '';
+}
+
+/** Where "switch and start a new conversation" goes, or null when there is nothing to switch to (§5.4, §6.2). */
+export function switchTarget(
+  choice: PmAgentChoice | undefined,
+  conversation: PmConversationDetail | null | undefined,
+): 'system' | 'personal' | null {
+  if (!choice || !choice.allowPersonal) return null;
+  const source = conversation?.agent.source;
+  if (source === 'personal') return choice.systemAgent ? 'system' : null;
+  return choice.agentId &&
+    choice.candidates.some((c) => c.id === choice.agentId)
+    ? 'personal'
+    : null;
 }

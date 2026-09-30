@@ -186,11 +186,7 @@ export interface IssueComment {
   readonly authorName?: string | null;
   readonly content: string;
   readonly kind?:
-    | 'comment'
-    | 'system'
-    | CommentKindPhase1Iter4
-    | 'plan'
-    | 'plan_result';
+    'comment' | 'system' | CommentKindPhase1Iter4 | 'plan' | 'plan_result';
   readonly parentId: string | null;
   readonly sourceRunId?: string | null;
   readonly createdAt: string;

@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 import { settingsCheck } from '../../config/config-access.js';
 import type { PmConversationAgent } from '../../types-pm.js';
+import { isAgentUnreachable } from './pm-conversation-model.js';
 
 /** The conversation's agent: its name, where it comes from, and whether its computer is online (§5.4, §6.5). */
 export function PmAgentBadge({
@@ -27,7 +28,10 @@ export function PmAgentBadge({
   const { t } = useTranslation();
   return (
     <span className='flex min-w-0 items-center gap-1.5'>
-      <span className='truncate text-xs text-muted-foreground' title={agent.name}>
+      <span
+        className='truncate text-xs text-muted-foreground'
+        title={agent.name}
+      >
         {agent.name}
       </span>
       <NpTag tone={agent.source === 'personal' ? 'violet' : 'grey'}>
@@ -35,14 +39,6 @@ export function PmAgentBadge({
       </NpTag>
       <NpOnlineState online={agent.online} />
     </span>
-  );
-}
-
-/** A personal agent that cannot take the message right now: offline, or its CLI needs an upgrade. */
-export function isAgentUnreachable(agent: PmConversationAgent): boolean {
-  return (
-    agent.source === 'personal' &&
-    (!agent.online || agent.compat === 'upgrade_required')
   );
 }
 
@@ -119,7 +115,9 @@ export function PmAgentNotice({
         className='flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground'
         data-testid='np-pm-agent-fallback'
       >
-        <span className='mr-auto'>{t('np.pmAssistant.agent.usingDefault')}</span>
+        <span className='mr-auto'>
+          {t('np.pmAssistant.agent.usingDefault')}
+        </span>
         {agent.personalAvailable ? (
           <Button
             variant='outline'

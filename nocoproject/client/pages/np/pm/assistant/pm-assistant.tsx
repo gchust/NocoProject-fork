@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- the provider and its hooks are intentionally colocated */
 import {
   createContext,
   type ReactElement,
@@ -148,33 +149,33 @@ export function PmAssistantProvider({
   const [state, setState] = useState<PmDrawerState>(() => readDrawerState());
   const [pinned, setPinned] = useState<readonly PmContextObject[]>([]);
   const [draft, setDraft] = useState<PmDraft | null>(null);
-  const composerFocus = useRef<(() => void) | null>(null);
-  const focusWanted = useRef(false);
-  const returnFocus = useRef<HTMLElement | null>(null);
-  const draftNonce = useRef(0);
+  const composerFocusRef = useRef<(() => void) | null>(null);
+  const focusWantedRef = useRef(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const draftNonceRef = useRef(0);
 
   useEffect(() => writeDrawerState(state), [state]);
 
   const focusComposer = useCallback(() => {
-    if (composerFocus.current) composerFocus.current();
-    else focusWanted.current = true;
+    if (composerFocusRef.current) composerFocusRef.current();
+    else focusWantedRef.current = true;
   }, []);
 
   const registerComposer = useCallback((focus: () => void) => {
-    composerFocus.current = focus;
-    if (focusWanted.current) {
-      focusWanted.current = false;
+    composerFocusRef.current = focus;
+    if (focusWantedRef.current) {
+      focusWantedRef.current = false;
       focus();
     }
     return () => {
-      if (composerFocus.current === focus) composerFocus.current = null;
+      if (composerFocusRef.current === focus) composerFocusRef.current = null;
     };
   }, []);
 
   const openAssistant = useCallback(
     (options: PmOpenOptions = {}) => {
       if (!focusIsInDrawer() && document.activeElement instanceof HTMLElement) {
-        returnFocus.current = document.activeElement;
+        returnFocusRef.current = document.activeElement;
       }
       setState((current) => ({
         ...current,
@@ -194,8 +195,8 @@ export function PmAssistantProvider({
         );
       }
       if (options.draft) {
-        draftNonce.current += 1;
-        setDraft({ text: options.draft, nonce: draftNonce.current });
+        draftNonceRef.current += 1;
+        setDraft({ text: options.draft, nonce: draftNonceRef.current });
       }
       if ((options.view ?? 'chat') === 'chat') focusComposer();
     },
@@ -205,8 +206,8 @@ export function PmAssistantProvider({
   const closeAssistant = useCallback(() => {
     const inDrawer = focusIsInDrawer();
     setState((current) => ({ ...current, open: false, mode: 'docked' }));
-    const target = returnFocus.current;
-    returnFocus.current = null;
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
     if (inDrawer && target?.isConnected) target.focus();
   }, []);
 
@@ -216,16 +217,16 @@ export function PmAssistantProvider({
   }, [state.open, closeAssistant, openAssistant]);
 
   // ⌘J / Ctrl+J: open and focus the composer; open with focus elsewhere: bring focus in; focus inside: close.
-  const shortcut = useRef<() => void>(noop);
+  const shortcutRef = useRef<() => void>(noop);
   useEffect(() => {
-    shortcut.current = () => {
+    shortcutRef.current = () => {
       if (!state.open) openAssistant();
       else if (!focusIsInDrawer()) {
         if (state.view !== 'chat') {
           setState((current) => ({ ...current, view: 'chat' }));
         }
         if (document.activeElement instanceof HTMLElement) {
-          returnFocus.current = document.activeElement;
+          returnFocusRef.current = document.activeElement;
         }
         focusComposer();
       } else closeAssistant();
@@ -236,30 +237,33 @@ export function PmAssistantProvider({
     function onKeyDown(event: KeyboardEvent): void {
       if (event.defaultPrevented || !isAssistantShortcut(event)) return;
       event.preventDefault();
-      shortcut.current();
+      shortcutRef.current();
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [available]);
 
-  // `?pm=` opens the drawer (links, the screenshot run), then leaves the URL.
+  // `?pm=` opens the drawer (links, the screenshot run), then leaves the URL. The state follows the URL while
+  // rendering (React's "adjusting state when a prop changes"); the effect only rewrites the URL.
+  const [seenSearch, setSeenSearch] = useState<string | null>(null);
+  if (available && location.search !== seenSearch) {
+    setSeenSearch(location.search);
+    const next = drawerStateFromSearch(
+      new URLSearchParams(location.search),
+      state,
+    );
+    if (next) setState(next);
+  }
+  const { pathname, search, hash } = location;
   useEffect(() => {
     if (!available) return;
-    const search = new URLSearchParams(location.search);
-    const next = drawerStateFromSearch(search, state);
-    if (!next) return;
-    setState(next);
+    const params = new URLSearchParams(search);
+    if (!params.has('pm')) return;
     void navigate(
-      {
-        pathname: location.pathname,
-        search: withoutDrawerParams(search),
-        hash: location.hash,
-      },
+      { pathname, search: withoutDrawerParams(params), hash },
       { replace: true },
     );
-    // Reacts to the URL only; `state` is read for the fields `pm=history` keeps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available, location.search]);
+  }, [available, pathname, search, hash, navigate]);
 
   const value = useMemo<PmAssistantValue>(
     () => ({
@@ -320,23 +324,26 @@ function PmSourcesProvider({
   readonly onUnpin: (key: string) => void;
   readonly children: ReactNode;
 }): ReactElement {
-  const [objects, setObjects] = useState<
-    ReadonlyMap<number, PmContextObject>
-  >(new Map());
-  const [filters, setFilters] = useState<
-    ReadonlyMap<number, PmContextFilter>
-  >(new Map());
+  const [objects, setObjects] = useState<ReadonlyMap<number, PmContextObject>>(
+    () => new Map(),
+  );
+  const [filters, setFilters] = useState<ReadonlyMap<number, PmContextFilter>>(
+    () => new Map(),
+  );
   const [selection, setSelection] = useState<PmSelection | null>(null);
-  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const onUnpinRef = useRef(onUnpin);
   useEffect(() => {
     onUnpinRef.current = onUnpin;
   });
 
-  useEffect(() => {
+  // The selection and the removed tags belong to the page: reset when the path changes (while rendering).
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (pathname !== seenPath) {
+    setSeenPath(pathname);
     setSelection(null);
     setRemoved(new Set());
-  }, [pathname]);
+  }
 
   // The last non-empty selection outside the drawer: clicking into the composer clears the page's selection.
   useEffect(() => {

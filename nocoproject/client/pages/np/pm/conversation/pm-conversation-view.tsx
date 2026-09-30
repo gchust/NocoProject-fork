@@ -108,8 +108,7 @@ function PmConversationBody({
   const messages = issue ? pmMessages(issue.threads) : [];
   const run = issue ? activeSessionRun(issue.runs) : null;
   const hint = issue ? sessionHint(run, issue.queuedRun) : null;
-  const agentName =
-    conversation?.agent.name ?? t('np.pmAssistant.defaultName');
+  const agentName = conversation?.agent.name ?? t('np.pmAssistant.defaultName');
 
   const listRef = useRef<HTMLDivElement>(null);
   const count = messages.length;
@@ -180,11 +179,17 @@ function PmConversationBody({
               busy={actions.switchAgent.isPending}
               onFallback={() =>
                 conversation &&
-                actions.switchAgent.mutate({ id: conversation.id, to: 'fallback' })
+                actions.switchAgent.mutate({
+                  id: conversation.id,
+                  to: 'fallback',
+                })
               }
               onRestore={() =>
                 conversation &&
-                actions.switchAgent.mutate({ id: conversation.id, to: 'restore' })
+                actions.switchAgent.mutate({
+                  id: conversation.id,
+                  to: 'restore',
+                })
               }
             />
             {hint ? (

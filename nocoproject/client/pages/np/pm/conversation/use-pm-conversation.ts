@@ -25,9 +25,7 @@ import { useRealtimeTopic } from '../../use-realtime.js';
  */
 
 function notRetriedOnClientErrors(count: number, error: unknown): boolean {
-  return (
-    !(error instanceof ApiClientError && error.status < 500) && count < 2
-  );
+  return !(error instanceof ApiClientError && error.status < 500) && count < 2;
 }
 
 export function usePmConversationDetail(conversationId: string | null) {
@@ -48,15 +46,18 @@ export function usePmConversationIssue(
 ) {
   const api = useApiClient();
   const queryClient = useQueryClient();
-  useRealtimeTopic<IssuesTopicPayload>(issueId ? 'np:issues' : null, (payload) => {
-    if (!issueId || (payload && payload.issueId !== issueId)) return;
-    void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
-    if (conversationId) {
-      void queryClient.invalidateQueries({
-        queryKey: npKeys.pmConversation(conversationId),
-      });
-    }
-  });
+  useRealtimeTopic<IssuesTopicPayload>(
+    issueId ? 'np:issues' : null,
+    (payload) => {
+      if (!issueId || (payload && payload.issueId !== issueId)) return;
+      void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
+      if (conversationId) {
+        void queryClient.invalidateQueries({
+          queryKey: npKeys.pmConversation(conversationId),
+        });
+      }
+    },
+  );
   return useQuery({
     queryKey: npKeys.issue(issueId ?? ''),
     queryFn: ({ signal }) => fetchIssueDetail(api, issueId ?? '', signal),
@@ -85,7 +86,8 @@ function errorTitle(
 ): string {
   if (error instanceof ApiClientError) {
     if (error.status === 403) return t('np.common.forbidden');
-    if (error.code === 'PM_NOT_CONFIGURED') return t('np.pmAssistant.notConfigured');
+    if (error.code === 'PM_NOT_CONFIGURED')
+      return t('np.pmAssistant.notConfigured');
     if (error.code === 'PERSONAL_UNAVAILABLE')
       return t('np.pmAssistant.agent.personalUnavailable');
   }

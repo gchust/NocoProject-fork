@@ -146,7 +146,9 @@ export function IssueMain({
   const pmObject = {
     type: 'issue' as const,
     id: issue.id,
-    label: issue.identifier ? `${issue.identifier} ${issue.title}` : issue.title,
+    label: issue.identifier
+      ? `${issue.identifier} ${issue.title}`
+      : issue.title,
   };
   usePmContextSource(pmObject);
   const covered = coveredByDecisions(decisions);

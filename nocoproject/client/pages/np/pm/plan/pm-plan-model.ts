@@ -2,6 +2,7 @@ import type { ExecutorRef } from '../../types.js';
 import type {
   PmExecutorInput,
   PmIssueRef,
+  PmOperationType,
   PmPlan,
   PmPlanEdit,
   PmPlanRow,
@@ -88,7 +89,9 @@ export function rowViews(plan: PmPlan, edits: PmPlanEdits): PmRowView[] {
 }
 
 /** Refs that a row still in the plan points at: removing their row would leave that row dangling. */
-export function referencedRefs(views: readonly PmRowView[]): ReadonlySet<string> {
+export function referencedRefs(
+  views: readonly PmRowView[],
+): ReadonlySet<string> {
   const used = new Set<string>();
   for (const view of views) {
     if (view.removed) continue;
@@ -215,3 +218,12 @@ export function hoursLeft(expiresAt: string, now = Date.now()): number {
   if (!Number.isFinite(ms) || ms <= 0) return 0;
   return Math.max(1, Math.round(ms / 3_600_000));
 }
+
+/** Row types with fields a member may change on the card; dependencies and status moves are kept or removed whole. */
+export const EDITABLE_TYPES: ReadonlySet<PmOperationType> = new Set([
+  'issue.create',
+  'issue.update',
+  'comment.create',
+  'decision.resolve',
+  'project.create',
+]);

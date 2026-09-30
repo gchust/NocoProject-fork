@@ -47,7 +47,9 @@ export function PmDecisionRow({
     enabled: item?.type === 'proposal_pending',
   });
   const comment =
-    typeof params.comment === 'string' && params.comment ? params.comment : null;
+    typeof params.comment === 'string' && params.comment
+      ? params.comment
+      : null;
 
   return (
     <div className='space-y-2 text-sm'>

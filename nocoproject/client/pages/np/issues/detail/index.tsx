@@ -132,7 +132,10 @@ function IssueDetailView({
   // A project manager conversation is not an issue page (NP-185): it opens as the conversation.
   if (detail.data.issue.originType === 'pm') {
     return (
-      <Navigate replace to={`/pm/${encodeURIComponent(detail.data.issue.id)}`} />
+      <Navigate
+        replace
+        to={`/pm/${encodeURIComponent(detail.data.issue.id)}`}
+      />
     );
   }
 

@@ -200,3 +200,10 @@ export function selectionPreview(text: string, max = 40): string {
   const line = text.replace(/\s+/gu, ' ').trim();
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
+
+/** "status=in_progress, owner=me" for a filter tag. */
+export function filterText(filter: PmContextFilter): string {
+  return Object.entries(filter.params)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ');
+}

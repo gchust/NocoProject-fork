@@ -169,10 +169,7 @@ export async function executePmPlan(
   planId: string,
   revision: number,
 ): Promise<PmPlan> {
-  const { data } = await api.request<
-    { data: PmPlan },
-    { revision: number }
-  >({
+  const { data } = await api.request<{ data: PmPlan }, { revision: number }>({
     path: `np/pm/plans/${id(planId)}/execute`,
     method: 'POST',
     json: { revision },

@@ -129,7 +129,11 @@ export function SubtasksSection({
           <div className='flex gap-1'>
             {/* NP-185: the project manager's breakdown; "AI breakdown" below goes with intake in NP-186. */}
             <AskPmButton
-              object={{ type: 'issue', id: issueId, label: issueLabel ?? issueId }}
+              object={{
+                type: 'issue',
+                id: issueId,
+                label: issueLabel ?? issueId,
+              }}
               draft={t('np.pmAssistant.breakdownDraft')}
               label={t('np.pmAssistant.breakdown')}
               variant='ghost'

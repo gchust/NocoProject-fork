@@ -84,7 +84,7 @@ const VIAS: ReadonlySet<string> = new Set<ActivityVia>([
  * `pm` / `pm_plan` (NP-185, `protocol-pm-assistant.md` §2.4) when the project manager wrote as the person, or the
  * person executed its plan.
  */
-export function activityVia(details: IssueActivity['details']): ActivityVia | null {
+function activityVia(details: IssueActivity['details']): ActivityVia | null {
   const via = details?.via;
   return typeof via === 'string' && VIAS.has(via) ? (via as ActivityVia) : null;
 }
@@ -102,7 +102,10 @@ function ViaMarker({
 }): ReactElement {
   const { t } = useTranslation();
   const conversationId = activity.details?.conversationId;
-  if ((via === 'pm' || via === 'pm_plan') && typeof conversationId === 'string') {
+  if (
+    (via === 'pm' || via === 'pm_plan') &&
+    typeof conversationId === 'string'
+  ) {
     return (
       <PmViaMarker
         via={via}

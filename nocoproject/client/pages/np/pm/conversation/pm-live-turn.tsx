@@ -1,7 +1,7 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRightIcon } from 'lucide-react';
-import { type ReactElement, useEffect, useId, useState } from 'react';
+import { type ReactElement, useId, useState } from 'react';
 
 import { NpPulse } from '@/components/np-badges';
 import { NpMarkdown } from '@/components/np-markdown';
@@ -111,15 +111,14 @@ export function PmTurnAnnouncer({
   const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [wasRunning, setWasRunning] = useState(running);
-  useEffect(() => {
-    if (running === wasRunning) return;
+  if (running !== wasRunning) {
     setWasRunning(running);
     setMessage(
       running
         ? t('np.pmAssistant.turn.started')
         : t('np.pmAssistant.turn.finished'),
     );
-  }, [running, wasRunning, t]);
+  }
   return (
     <p className='sr-only' aria-live='polite' data-testid='np-pm-announcer'>
       {message}

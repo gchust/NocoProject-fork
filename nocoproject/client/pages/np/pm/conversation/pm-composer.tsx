@@ -104,11 +104,16 @@ export function PmComposer({
     () => registerComposer(() => textareaRef.current?.focus()),
     [registerComposer],
   );
+  // A draft from "Ask the project manager" fills an empty box once (while rendering), then takes the focus.
+  const [seenDraft, setSeenDraft] = useState<number | null>(null);
+  if (draft && draft.nonce !== seenDraft) {
+    setSeenDraft(draft.nonce);
+    if (!content.trim()) setContent(draft.text);
+  }
+  const draftNonce = draft?.nonce;
   useEffect(() => {
-    if (!draft) return;
-    setContent((current) => (current.trim() ? current : draft.text));
-    textareaRef.current?.focus();
-  }, [draft]);
+    if (draftNonce !== undefined) textareaRef.current?.focus();
+  }, [draftNonce]);
 
   const contextInput: PmContextInput = {
     route: `${location.pathname}${location.search}`,
@@ -162,9 +167,14 @@ export function PmComposer({
       );
       const agent = result.conversation?.agent;
       const next = agent ? { ...target, agent } : target;
-      if (agent) queryClient.setQueryData(npKeys.pmConversation(target.id), next);
-      void queryClient.invalidateQueries({ queryKey: npKeys.issue(target.issueId) });
-      void queryClient.invalidateQueries({ queryKey: [...npKeys.pm, 'conversations'] });
+      if (agent)
+        queryClient.setQueryData(npKeys.pmConversation(target.id), next);
+      void queryClient.invalidateQueries({
+        queryKey: npKeys.issue(target.issueId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [...npKeys.pm, 'conversations'],
+      });
       onSent({ conversation: next, notConfigured: false });
     } catch (error: unknown) {
       if (
@@ -226,7 +236,11 @@ export function PmComposer({
     <div className='space-y-2' data-testid='np-pm-composer'>
       <PmContextChips chips={chips} onRemove={sources.remove} />
       {notice ?? null}
-      <div className={showFiles || hasFiles || uploadStatus !== 'idle' ? '' : 'hidden'}>
+      <div
+        className={
+          showFiles || hasFiles || uploadStatus !== 'idle' ? '' : 'hidden'
+        }
+      >
         <FileUploadField
           ref={uploadRef}
           repository={repository}

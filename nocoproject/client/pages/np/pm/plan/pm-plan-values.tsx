@@ -46,6 +46,13 @@ export function usePlanLookup(): PlanLookup {
   };
 }
 
+/** A value as text: strings and numbers as they are, anything else as JSON. */
+function plain(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number'
+    ? String(value)
+    : (JSON.stringify(value) ?? '');
+}
+
 /** Formats a plan field's value the way the pages show it: names for ids, localized priorities and processes. */
 export function usePlanValueText(
   lookup: PlanLookup,
@@ -58,9 +65,9 @@ export function usePlanValueText(
     if (value === undefined || value === null || value === '') return '—';
     switch (field) {
       case 'priority':
-        return t(`np.priority.${String(value)}`);
+        return t(`np.priority.${plain(value)}`);
       case 'process':
-        return t(`np.process.choices.${String(value)}`);
+        return t(`np.process.choices.${plain(value)}`);
       case 'ownerUserId':
         return person(value);
       case 'executor': {
@@ -78,26 +85,26 @@ export function usePlanValueText(
               .map(
                 (id) =>
                   lookup.labels.find((label) => label.id === id)?.name ??
-                  String(id),
+                  plain(id),
               )
               .join(', ') || '—'
           : '—';
       case 'projectId':
         return (
           lookup.projects.find((project) => project.id === value)?.name ??
-          String(value)
+          plain(value)
         );
       case 'statusKey':
-        return t(statusLabelKey(String(value)), {
-          defaultValue: String(value),
+        return t(statusLabelKey(plain(value)), {
+          defaultValue: plain(value),
         });
       case 'visibility':
-        return t(`np.pmAssistant.plan.visibility.${String(value)}`, {
-          defaultValue: String(value),
+        return t(`np.pmAssistant.plan.visibility.${plain(value)}`, {
+          defaultValue: plain(value),
         });
       default:
         return typeof value === 'string' || typeof value === 'number'
-          ? String(value)
+          ? plain(value)
           : JSON.stringify(value);
     }
   };
