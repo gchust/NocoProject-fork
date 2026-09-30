@@ -1,11 +1,16 @@
 import { BotIcon, UserIcon } from 'lucide-react';
 import type { ComponentProps, ReactElement } from 'react';
-import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
+import Markdown, {
+  defaultUrlTransform,
+  type Components,
+  type ExtraProps,
+} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '@/lib/utils';
 
 import type { TocHeading } from './np-markdown-toc.js';
+import { NpMermaid } from './np-mermaid.js';
 
 export interface NpMarkdownProps {
   readonly content: string;
@@ -59,6 +64,42 @@ function MentionOrLink({
   );
 }
 
+/** The source of a ```` ```mermaid ```` block: `pre` holding only `code.language-mermaid`, else `undefined`. */
+function mermaidSource(node: ExtraProps['node']): string | undefined {
+  const [code, ...rest] = (node?.children ?? []).filter(
+    (child) => child.type !== 'text' || child.value.trim(),
+  );
+  if (rest.length > 0 || code?.type !== 'element' || code.tagName !== 'code') {
+    return undefined;
+  }
+  const className = code.properties.className;
+  if (!Array.isArray(className) || !className.includes('language-mermaid')) {
+    return undefined;
+  }
+  return code.children
+    .map((child) => (child.type === 'text' ? child.value : ''))
+    .join('')
+    .replace(/\n$/u, '');
+}
+
+function CodeBlock({
+  node,
+  ...props
+}: ComponentProps<'pre'> & ExtraProps): ReactElement {
+  const pre = (
+    <pre
+      className='my-2 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs [&>code]:bg-transparent [&>code]:p-0'
+      {...props}
+    />
+  );
+  const mermaid = mermaidSource(node);
+  return mermaid === undefined ? (
+    pre
+  ) : (
+    <NpMermaid code={mermaid} fallback={pre} />
+  );
+}
+
 // Compact prose for comments and descriptions: the Typography primitives are sized for long-form pages, which would
 // make every comment look like an article. Only tokens and the Tailwind scale are used.
 const baseComponents: Components = {
@@ -87,12 +128,8 @@ const baseComponents: Components = {
       {...props}
     />
   ),
-  pre: ({ node: _node, ...props }) => (
-    <pre
-      className='my-2 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs [&>code]:bg-transparent [&>code]:p-0'
-      {...props}
-    />
-  ),
+  // ```` ```mermaid ```` blocks are drawn as diagrams (`NpMermaid`); every other code block stays code.
+  pre: CodeBlock,
   table: ({ node: _node, ...props }) => (
     <div className='my-2 w-full overflow-x-auto'>
       <table className='w-full text-sm' {...props} />
