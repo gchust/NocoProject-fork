@@ -126,7 +126,7 @@ describe('requests', () => {
     expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url, keyStorage: 'file' });
     const req = seen[0] as Seen;
     expect(req.headers['x-api-key']).toBe(KEY);
-    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.6.0');
+    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.6.1');
     expect(req.headers.authorization).toBeUndefined();
     expect(r.out + r.err).not.toContain(KEY);
   });

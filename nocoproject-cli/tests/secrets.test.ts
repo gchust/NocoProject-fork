@@ -165,13 +165,38 @@ describe('agent run guards', () => {
   };
   const run = (path: string, args: string[], env: Record<string, string>) => spawnSync('/bin/sh', [path, ...args], { env: { PATH: '/usr/bin:/bin', ...env }, encoding: 'utf8' });
 
-  it('refuses the reading subcommands inside a run', () => {
+  it('refuses reads of the NocoProject item, unscoped reads and bulk reads inside a run', () => {
     const path = guard();
-    for (const args of [['find-generic-password', '-s', 'nocoproject-cli', '-w'], ['-q', 'dump-keychain'], ['-i'], ['lookup', 'service', 'nocoproject-cli'], ['search', '--all']]) {
+    for (const args of [
+      ['find-generic-password', '-s', 'nocoproject-cli', '-w'],
+      ['find-generic-password', '-a', '/h', '-w', '-s', 'nocoproject-cli'],
+      ['find-generic-password', '-snocoproject-cli', '-w'],
+      ['find-generic-password', '-w'],
+      ['find-internet-password', '-a', 'x'],
+      ['-q', 'dump-keychain'],
+      ['-i'],
+      ['export', '-k', 'login.keychain'],
+      ['lookup', 'service', 'nocoproject-cli'],
+      ['lookup', 'account', '/h'],
+      ['search', '--all'],
+    ]) {
       const r = run(path, args, { NOCOPROJECT_TOKEN: 'npr_x' });
       expect(r.status, args.join(' ')).toBe(1);
-      expect(r.stderr).toContain('agent runs cannot read the keychain');
+      expect(r.stderr).toContain('agent runs cannot read the NocoProject keychain item');
       expect(r.stdout).toBe('');
+    }
+  });
+
+  it('lets a run read other items, such as a coding tool login', () => {
+    const path = guard();
+    for (const args of [
+      ['find-generic-password', '-a', 'zhou', '-w', '-s', 'Claude Code-credentials'],
+      ['find-generic-password', '-sClaude Code-credentials', '-w'],
+      ['lookup', 'service', 'Claude Code', 'account', 'zhou'],
+    ]) {
+      const r = run(path, args, { NOCOPROJECT_RUN_ID: 'r1' });
+      expect(r.status, args.join(' ')).toBe(0);
+      expect(r.stdout).toBe(`real ${args.join(' ')}\n`);
     }
   });
 

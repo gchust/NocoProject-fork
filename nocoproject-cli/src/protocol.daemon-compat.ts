@@ -27,7 +27,7 @@ export type DaemonCredential = 'computer' | 'personalKey';
 export const SUPPORTED_PROTOCOLS = { min: 1, current: 2 } as const;
 
 /** The CLI version this application ships (`/assets/cli/nocoproject-cli-<version>.tgz`). */
-export const LATEST_CLI_VERSION = '0.6.0';
+export const LATEST_CLI_VERSION = '0.6.1';
 
 /** The oldest CLI that may still claim runs (NP-125's agent configuration). */
 export const MIN_CLI_VERSION = '0.4.0';

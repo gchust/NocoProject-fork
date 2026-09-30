@@ -6,6 +6,7 @@
 import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { which } from '../util/process.js';
+import { SECRET_SERVICE } from '../secrets/store.js';
 import { AGENT_ENV_NAME_PATTERN, RESERVED_ENV_NAMES, RESERVED_ENV_PREFIX, RUN_ENV_PHASE1 as RUN_ENV } from '../protocol.js';
 import type { ClaimedRunV1 } from '../run-context.js';
 
@@ -64,24 +65,42 @@ export function ensureCliShim(home: string, cliPath: string): string {
   return binDir;
 }
 
-/** Subcommands (and interactive mode) of `security` / `secret-tool` that read secrets. */
-const KEYCHAIN_READS = ['-i', '-p*', 'find-generic-password', 'find-internet-password', 'dump-keychain', 'export', 'lookup', 'search'];
+/** `security` / `secret-tool` reads of the whole keychain (or interactive mode): always refused inside a run. */
+const KEYCHAIN_BULK_READS = ['-i', '-p*', 'dump-keychain', 'export', 'search'];
+/** Reads of one item: refused inside a run only when they name `SECRET_SERVICE` or no service at all. */
+const KEYCHAIN_ITEM_READS = ['find-generic-password', 'find-internet-password', 'lookup'];
 
-/** The guard script: refuses the reading subcommands inside an agent run, passes everything else to `real`. */
+/**
+ * The guard script: inside an agent run it refuses the reads that could reach the personal key and passes everything
+ * else to `real`. Reads of other items stay allowed: Claude Code on macOS reads its own login with
+ * `security find-generic-password -s "Claude Code-credentials" …`, and refusing that logs every Claude run out.
+ */
 export function keychainGuardScript(real: string): string {
   return [
     '#!/bin/sh',
-    '# Written by the NocoProject daemon (NP-190): agent runs may not read the keychain, where the personal API key is.',
+    '# Written by the NocoProject daemon (NP-190): agent runs may not read the personal API key from the keychain.',
+    'deny() {',
+    '  echo "nocoproject: agent runs cannot read the NocoProject keychain item; use nocoproject issue ... (the run token) instead" >&2',
+    '  exit 1',
+    '}',
     'if [ -n "${NOCOPROJECT_TOKEN}${NOCOPROJECT_RUN_ID}" ]; then',
+    '  cmd=""; scoped=""; ours=""; prev=""',
     '  for arg in "$@"; do',
-    '    case "$arg" in',
-    `      ${KEYCHAIN_READS.join('|')})`,
-    '        echo "nocoproject: agent runs cannot read the keychain; use nocoproject issue ... (the run token) instead" >&2',
-    '        exit 1 ;;',
-    '      -*) ;;',
-    '      *) break ;;',
-    '    esac',
+    `    case "$arg" in ${SECRET_SERVICE}|-s${SECRET_SERVICE}) ours=1 ;; esac`,
+    '    if [ -z "$cmd" ]; then',
+    '      case "$arg" in',
+    `        ${KEYCHAIN_BULK_READS.join('|')}) deny ;;`,
+    `        ${KEYCHAIN_ITEM_READS.join('|')}) cmd="$arg" ;;`,
+    '        -*) ;;',
+    '        *) break ;;',
+    '      esac',
+    '    else',
+    '      case "$arg" in -s?*) scoped=1 ;; esac',
+    '      case "$prev" in -s|service) scoped=1 ;; esac',
+    '    fi',
+    '    prev="$arg"',
     '  done',
+    '  if [ -n "$cmd" ] && { [ -n "$ours" ] || [ -z "$scoped" ]; }; then deny; fi',
     'fi',
     `exec ${JSON.stringify(real)} "$@"`,
     '',
