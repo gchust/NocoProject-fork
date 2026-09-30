@@ -1,22 +1,98 @@
 import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Hono } from 'hono';
 
-import { npRouter, queryInt, queryText, sessionActor } from '../shared/http.js';
+import {
+  npRouter,
+  queryInt,
+  queryText,
+  readJson,
+  sessionActor,
+} from '../shared/http.js';
+import type {
+  PmAgentChoiceRequest,
+  PmAgentCopyRequest,
+  PmConversationCreateRequest,
+  PmConversationPatch,
+} from '../shared/protocol.js';
+import type { PmAgentService } from './pm-agent.service.js';
+import type { ConversationService } from './pm.conversations.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
 import type { PmService } from './pm.service.js';
 
 /**
- * `/np/pm` (browser, iteration-4 contract §C): `GET /conversation` (404 when the caller has none) and
- * `POST /conversation` (finds or creates) → `{ data: PmConversationResponse }`; 409 `PM_NOT_CONFIGURED` without a
- * usable project manager agent.
+ * `/np/pm` (browser; NP-183 protocol-pm-assistant.md §5.4): the member's conversations — `GET /conversations?q&archived&
+ * cursor&limit`, `POST /conversations { title?, switchTo? }` (201), `GET|PATCH /conversations/:id`,
+ * `POST /conversations/:id/fallback|restore` — and the iteration-4 alias `GET|POST /conversation` (`{ issueId,
+ * identifier, agentId }`, the latest unarchived conversation). 409 `PM_NOT_CONFIGURED` without a usable project
+ * manager; somebody else's conversation is 404.
  */
-export function createPmRoutes(pm: PmService): Hono<AuthEnv> {
+export function createPmRoutes(
+  conversations: ConversationService,
+): Hono<AuthEnv> {
   const routes = npRouter<AuthEnv>();
   routes.get('/conversation', async (context) =>
-    context.json({ data: await pm.conversation(sessionActor(context), false) }),
+    context.json({
+      data: await conversations.legacy(sessionActor(context), false),
+    }),
   );
   routes.post('/conversation', async (context) =>
-    context.json({ data: await pm.conversation(sessionActor(context), true) }),
+    context.json({
+      data: await conversations.legacy(sessionActor(context), true),
+    }),
+  );
+  routes.get('/conversations', async (context) =>
+    context.json(
+      await conversations.list(sessionActor(context), {
+        q: queryText(context, 'q'),
+        archived: queryText(context, 'archived') === 'true',
+        cursor: queryText(context, 'cursor'),
+        limit: queryInt(context, 'limit'),
+      }),
+    ),
+  );
+  routes.post('/conversations', async (context) =>
+    context.json(
+      {
+        data: await conversations.create(
+          sessionActor(context),
+          await readJson<PmConversationCreateRequest>(context),
+        ),
+      },
+      201,
+    ),
+  );
+  routes.get('/conversations/:id', async (context) =>
+    context.json({
+      data: await conversations.get(
+        sessionActor(context),
+        context.req.param('id'),
+      ),
+    }),
+  );
+  routes.patch('/conversations/:id', async (context) =>
+    context.json({
+      data: await conversations.patch(
+        sessionActor(context),
+        context.req.param('id'),
+        await readJson<PmConversationPatch>(context),
+      ),
+    }),
+  );
+  routes.post('/conversations/:id/fallback', async (context) =>
+    context.json({
+      data: await conversations.fallback(
+        sessionActor(context),
+        context.req.param('id'),
+      ),
+    }),
+  );
+  routes.post('/conversations/:id/restore', async (context) =>
+    context.json({
+      data: await conversations.restore(
+        sessionActor(context),
+        context.req.param('id'),
+      ),
+    }),
   );
   return routes;
 }
@@ -77,6 +153,39 @@ export function createAgentPmRoutes(pm: PmService): Hono<RunTokenEnv> {
         q: queryText(context, 'q'),
       }),
     }),
+  );
+  return routes;
+}
+
+/**
+ * `/np/me/pm-agent` (browser, NP-183 protocol-pm-assistant.md §6.2): `GET /` → `PmAgentChoice`; `PUT / { revision,
+ * mode, agentId? }` saves the choice for new conversations (400 `PM_AGENT_NOT_ELIGIBLE` with `details.reason`);
+ * `POST /copy-from-default { runtimeId, model?, reasoningEffort?, name? }` (201) creates the member's own project
+ * manager from the system default and chooses it.
+ */
+export function createPmAgentRoutes(pmAgents: PmAgentService): Hono<AuthEnv> {
+  const routes = npRouter<AuthEnv>();
+  routes.get('/', async (context) =>
+    context.json({ data: await pmAgents.choice(sessionActor(context)) }),
+  );
+  routes.put('/', async (context) =>
+    context.json({
+      data: await pmAgents.choose(
+        sessionActor(context),
+        await readJson<PmAgentChoiceRequest>(context),
+      ),
+    }),
+  );
+  routes.post('/copy-from-default', async (context) =>
+    context.json(
+      {
+        data: await pmAgents.copyFromDefault(
+          sessionActor(context),
+          await readJson<PmAgentCopyRequest>(context),
+        ),
+      },
+      201,
+    ),
   );
   return routes;
 }

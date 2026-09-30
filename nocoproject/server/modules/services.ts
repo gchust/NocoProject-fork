@@ -210,6 +210,8 @@ export interface NpServices {
   // Iteration 4.
   readonly design: Iteration4Services['design'];
   readonly pm: Iteration4Services['pm'];
+  readonly pmConversations: Iteration4Services['pmConversations'];
+  readonly pmAgents: Iteration4Services['pmAgents'];
   readonly pullRequestMerges: Iteration4Services['pullRequestMerges'];
   // Phase 2 (NP-77).
   readonly checklists: ChecklistService;
@@ -378,6 +380,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       users,
       activity,
       triggers: () => services.triggers,
+      conversations: () => services.pmConversations,
     }),
     agents: createAgentService({ tx, ids, users, activity }),
     runtimes: createRuntimeService({ tx, ids, users }),
@@ -403,7 +406,17 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       services,
     ),
     ...createIteration4Services(
-      { tx, ids, secrets, github, users, activity, settings, workflows },
+      {
+        tx,
+        ids,
+        secrets,
+        github,
+        users,
+        activity,
+        settings,
+        workflows,
+        roles: deps.roles,
+      },
       services,
     ),
     checklists: createChecklistService({ tx, ids, users, activity }),
