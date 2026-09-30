@@ -1194,3 +1194,7 @@ export * from './protocol.computers-server.js';
 
 // Server- and browser-only (the CLI's sync-protocol drops this line)
 export * from './protocol.roles-server.js';
+
+// ---------- Project manager assistant (NP-181 / NP-183) ----------
+
+export * from './protocol.phase2-pm-assistant.js';

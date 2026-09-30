@@ -8,6 +8,7 @@
  * gate when they change the status (iteration 2), and are handed to the trigger service in the same transaction.
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
+import { isConversation } from '../shared/conversation.js';
 import type {
   ApprovalApplyResult,
   ApprovalGateway,
@@ -183,9 +184,10 @@ async function insertIssue(
   actor: Actor,
   input: NewIssue,
 ): Promise<IssueV4> {
-  const { number, identifier } = await deps.settings.allocateIssueNumber(
-    tx.conn,
-  );
+  // NP-183: a project manager conversation is not a task and takes no NP-n number.
+  const { number, identifier } = isConversation(input)
+    ? { number: null, identifier: null }
+    : await deps.settings.allocateIssueNumber(tx.conn);
   const id = deps.ids.next();
   const timestamp = now();
   await tx.conn.query

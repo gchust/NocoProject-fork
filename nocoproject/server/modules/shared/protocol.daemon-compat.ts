@@ -32,6 +32,12 @@ export const LATEST_CLI_VERSION = '0.5.1';
 /** The oldest CLI that may still claim runs (NP-125's agent configuration). */
 export const MIN_CLI_VERSION = '0.4.0';
 
+/**
+ * NP-183: the oldest CLI that may claim a project manager conversation run (it knows `member.act`, the page context
+ * and unnumbered issues). Older daemons keep claiming every other run; conversation runs wait for an upgrade.
+ */
+export const PM_ASSISTANT_MIN_CLI = '0.6.0';
+
 /** The first CLI with `nocoproject upgrade` and `nocoproject daemon install`. */
 export const UPGRADE_COMMAND_SINCE = '0.5.0';
 

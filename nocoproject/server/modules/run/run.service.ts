@@ -15,7 +15,7 @@ import {
   type DaemonRunStatusResponse,
   type DaemonStartRequest,
   type Run,
-  type RunTriggerTypeV6,
+  type RunTriggerTypeV7,
   type RunStatus,
 } from '../shared/protocol.js';
 import {
@@ -31,8 +31,8 @@ import { markRetrospectiveDone } from './retrospective.js';
 import { upsertSession } from './sessions.js';
 
 export interface TriggerRecordInput {
-  /** Iteration 4 adds `designApproved` and `retrospective`, Phase 2 `stageEntered` and `signal`. */
-  readonly type: RunTriggerTypeV6;
+  /** Iteration 4 adds `designApproved` and `retrospective`, Phase 2 `stageEntered` and `signal`, NP-183 `planExecuted`. */
+  readonly type: RunTriggerTypeV7;
   readonly commentId?: string | null;
   readonly payload?: Readonly<Record<string, unknown>> | null;
   readonly createdById?: string | null;

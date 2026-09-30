@@ -26,6 +26,8 @@ const npIter4EnUS = {
     checklist_write: 'Update checklists',
     workflow_propose: 'Propose process templates',
     pullRequest_link: 'Link pull requests',
+    member_act: 'Act as the asking member (project manager)',
+    repo_read: 'Check out repositories read-only',
   },
   entries: {
     conversation: 'Conversation entry',

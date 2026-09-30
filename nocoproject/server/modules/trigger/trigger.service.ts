@@ -19,6 +19,8 @@
  * | Design approved; issue enters done (iteration 4)                    | `designApproved` / `retrospective` (`trigger/retrospective.ts`) |
  * | Any status write enters a status with stage actions (Phase 2)       | `stageEntered` and the other effects (`workflow/stage-actions.ts`) |
  * | A source reports a signal and its rule is on (Phase 2 signals)      | `signal` for the executor, on behalf of the owner (`trigger/signal.ts`) |
+ * | A comment the project manager wrote in a member's name (`via = 'pm'`) | nothing (NP-183)                       |
+ * | A conversation switches agent; a plan card finishes (NP-183)        | see `trigger/pm.ts`                      |
  *
  * Owner changes withdraw queued/deferred work of an executor the new owner cannot invoke; dispatched/running work finishes.
  * Implicit invocations check the invoking user's agent access; unauthorized triggers leave the comment intact.
@@ -58,6 +60,13 @@ import type { SettingsService } from '../system/settings.service.js';
 import type { IdSource } from '../shared/ids.js';
 import type { UserDirectory } from '../shared/users.js';
 import { onStageEntered } from '../workflow/stage-actions.js';
+import {
+  onConversationRebound,
+  onPlanFinished,
+  type ConversationRebound,
+  type PlanFinished,
+} from './pm.js';
+import { recordRunAttempt } from './preview.js';
 import { onTerminalEntered, releaseIfUnblocked } from './release.js';
 import { designApprovedRun, retrospectiveRun } from './retrospective.js';
 import {
@@ -127,6 +136,13 @@ export interface TriggerService {
   onSignal(tx: Tx, report: SignalReport): Promise<TriggeredRun | null>;
   /** ...and that the problem is gone: the streak of that kind ends. */
   onSignalResolved(tx: Tx, resolution: SignalResolution): Promise<void>;
+  /** NP-183: a project manager conversation switched agent (`trigger/pm.ts`). */
+  onConversationRebound(
+    tx: Tx,
+    change: ConversationRebound,
+  ): Promise<TriggeredRun[]>;
+  /** NP-183: a plan card finished executing; wakes the conversation's agent (`trigger/pm.ts`). */
+  onPlanFinished(tx: Tx, finished: PlanFinished): Promise<TriggeredRun | null>;
 }
 
 export interface TriggerDeps {
@@ -159,9 +175,14 @@ export async function enqueueFor(
   trigger: TriggerRecordInput,
 ): Promise<TriggeredRun | null> {
   const { issue, agentId, threadScope, actorUserId } = target;
-  if (!(await canTriggerAgent(tx, actorUserId, agentId))) return null;
+  const attempt = { agentId, issueId: issue.id, triggerType: trigger.type };
+  if (!(await canTriggerAgent(tx, actorUserId, agentId))) {
+    recordRunAttempt({ ...attempt, started: false });
+    return null;
+  }
   const blockers = await blockersOf(tx.conn, deps.workflows, issue as IssueV1);
   if (blockers.length > 0) {
+    recordRunAttempt({ ...attempt, started: false });
     await deps.activity.record(tx.conn, {
       issueId: issue.id,
       actor: { type: 'system', id: null },
@@ -188,6 +209,7 @@ export async function enqueueFor(
     threadScope,
     triggers: [{ ...trigger, createdById: trigger.createdById ?? actorUserId }],
   });
+  recordRunAttempt({ ...attempt, started: true });
   return { agentId, runId: result.runId };
 }
 
@@ -242,8 +264,10 @@ async function onCommentCreated(
   tx: Tx,
   { comment, issue, parent, actor }: CommentChange,
 ): Promise<TriggeredRun[]> {
-  // Agent-authored (and system) comments never trigger; mentions in them are plain text.
+  // Agent-authored (and system) comments never trigger; mentions in them are plain text. So are the comments the
+  // project manager writes in a member's name (NP-183, `via = 'pm'`): an agent's output never starts a run.
   if (actor.type !== 'user' || comment.authorType !== 'user') return [];
+  if (actor.via === 'pm') return [];
   if (isNote(comment.content)) return [];
   const route = (
     agentId: string,
@@ -430,5 +454,9 @@ export function createTriggerService(deps: TriggerDeps): TriggerService {
     onSignal: (tx, report) => onSignal({ ...deps, enqueue }, tx, report),
     onSignalResolved: (tx, resolution) =>
       onSignalResolved(deps, tx, resolution),
+    onConversationRebound: (tx, change) =>
+      onConversationRebound({ ...deps, enqueue }, tx, change),
+    onPlanFinished: (tx, finished) =>
+      onPlanFinished({ ...deps, enqueue }, tx, finished),
   };
 }

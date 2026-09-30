@@ -42,13 +42,48 @@ export async function validateEntries(
       if (
         !agent ||
         !(await canInvokeAgent(conn, userId, agent)) ||
-        !(await hasCapability(conn, entry.agentId, 'comment.create'))
+        (entry === value.completion &&
+          !(await hasCapability(conn, entry.agentId, 'comment.create')))
       )
         throw invalid(
           'INVALID_ENTRY_AGENT',
           'Choose an accessible agent with comment.create.',
         );
+      await requireEntryKind(conn, entry.agentId, entry === value.conversation);
     }
   }
+  if (
+    value.conversation.allowPersonal !== undefined &&
+    typeof value.conversation.allowPersonal !== 'boolean'
+  )
+    throw invalid('INVALID_ENTRY', 'allowPersonal must be a boolean.');
   return { ...value, revision: current.revision + 1 };
+}
+
+/**
+ * NP-183 (protocol-pm-assistant.md §2.2): the conversation entry names a project manager type agent, whose
+ * capabilities are fixed (`PM_CAPABILITIES`), and the completion entry never does.
+ */
+async function requireEntryKind(
+  conn: Conn,
+  agentId: string,
+  conversation: boolean,
+): Promise<void> {
+  const row = await conn.query
+    .selectFrom('agents')
+    .select('kind')
+    .where('id', '=', agentId)
+    .executeTakeFirst();
+  const manager = row?.kind === 'manager';
+  if (conversation && !manager)
+    throw invalid(
+      'PM_AGENT_NOT_ELIGIBLE',
+      'The project manager must be a project manager type agent.',
+      { reason: 'notManager' },
+    );
+  if (!conversation && manager)
+    throw invalid(
+      'MANAGER_NOT_COMPLETION',
+      'A project manager type agent cannot write completion summaries.',
+    );
 }

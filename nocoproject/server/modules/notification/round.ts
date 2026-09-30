@@ -2,6 +2,7 @@
  * One notification pass over a transaction's domain events: the recipients it touched and a name cache, plus the
  * delivery helper every event handler uses (`notification.service.ts`, `delivery-notices.ts`).
  */
+import { isConversation } from '../shared/conversation.js';
 import type { Tx } from '../shared/db.js';
 import { unique } from '../shared/db.js';
 import type { EventActor } from '../shared/events.js';
@@ -60,13 +61,17 @@ export class Round {
     return unique(ids).filter((id) => names.has(id));
   }
 
-  /** Delivers to each recipient except the actor. */
+  /**
+   * Delivers to each recipient except the actor. Nothing on a project manager conversation notifies anyone (NP-183):
+   * its messages, plans and results show only in the conversation.
+   */
   async notify(
-    issue: IssueV1,
+    issue: IssueV1 & { readonly originType?: string },
     recipients: readonly (string | null | undefined)[],
     actor: EventActor,
     notice: Notice,
   ): Promise<void> {
+    if (isConversation(issue)) return;
     const actorName = await this.actorName(actor);
     for (const userId of unique(recipients)) {
       if (actor.type === 'user' && actor.id === userId) continue;
