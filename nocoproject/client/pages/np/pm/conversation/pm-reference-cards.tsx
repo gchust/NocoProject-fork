@@ -30,7 +30,7 @@ export function PmReferenceCards({
   if (references.length === 0) return null;
   return (
     <ul
-      className='mt-2 flex flex-col gap-1.5'
+      className='mt-2 flex w-full min-w-0 flex-col gap-1.5'
       aria-label={t('np.pmAssistant.references.label')}
     >
       {references.map((reference) => (
@@ -161,7 +161,7 @@ function Card({
   readonly tag: ReactNode;
 }): ReactElement {
   return (
-    <li>
+    <li className='min-w-0'>
       <Link
         to={to}
         className='flex min-h-9 min-w-0 items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground'
