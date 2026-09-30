@@ -779,6 +779,88 @@ describe('first visit', () => {
     );
   });
 
+  it('starts a new conversation from an existing one (NP-201)', async () => {
+    stubMatchMedia(true);
+    api.request.mockImplementation(respond(routes));
+    const user = userEvent.setup();
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(await within(drawer).findByText('Plan the release')).toBeVisible();
+    await user.click(
+      within(drawer).getByRole('button', { name: 'New conversation' }),
+    );
+    expect(await within(drawer).findByText('New conversation')).toBeVisible();
+    expect(within(drawer).queryByText('Plan the release')).toBeNull();
+    expect(
+      within(drawer).getByRole('textbox', {
+        name: 'Message to the project manager',
+      }),
+    ).toHaveFocus();
+  });
+
+  it('starts another new conversation after one created in the drawer (NP-201)', async () => {
+    stubMatchMedia(true);
+    const c2 = conversation({ id: 'c2', issueId: 'c2', title: 'Second' });
+    let listed = false;
+    api.request.mockImplementation(
+      respond({
+        'GET np/pm/conversations': () => {
+          const data = listed ? [c2] : [];
+          listed = true;
+          return { data, nextCursor: null };
+        },
+        'POST np/pm/conversations': { data: c2 },
+        'GET np/pm/conversations/c2': { data: c2 },
+        'GET np/issues/c2': {
+          data: {
+            ...issueDetail({ comments: [] }),
+            issue: { ...issueDetail().issue, id: 'c2' },
+          },
+        },
+        'POST np/issues/c2/comments': {
+          data: {
+            comment: {
+              id: 'm9',
+              authorType: 'user',
+              authorId: 'u1',
+              content: 'Hello',
+              parentId: null,
+              createdAt: NOW,
+            },
+            triggered: [],
+          },
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    await user.type(
+      within(drawer).getByRole('textbox', {
+        name: 'Message to the project manager',
+      }),
+      'Hello{Enter}',
+    );
+    await waitFor(() =>
+      expect(calls('POST', 'np/issues/c2/comments')).toHaveLength(1),
+    );
+    expect(
+      await within(drawer).findByRole('region', { name: 'Second' }),
+    ).toBeVisible();
+    await user.click(
+      within(drawer).getByRole('button', { name: 'New conversation' }),
+    );
+    expect(
+      await within(drawer).findByRole('region', { name: 'New conversation' }),
+    ).toBeVisible();
+    expect(within(drawer).queryByRole('region', { name: 'Second' })).toBeNull();
+    expect(
+      within(drawer).getByRole('textbox', {
+        name: 'Message to the project manager',
+      }),
+    ).toHaveFocus();
+  });
+
   it('shows a new conversation when there is none', async () => {
     stubMatchMedia(true);
     api.request.mockImplementation(respond({}));

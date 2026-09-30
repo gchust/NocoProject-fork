@@ -1,6 +1,10 @@
 import { I18nRuntime } from '@nocobase/i18n';
 import { I18nProvider } from '@nocobase/i18n/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -26,7 +30,12 @@ export async function renderNp(
   runtime.registerApplicationNamespace('test-app', locales);
   await runtime.init('en-US');
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    // The application's client (`@nocobase/app-client`) defaults `placeholderData` to `keepPreviousData`, which a
+    // disabled query with a new key also shows (NP-201): the tests keep that default so they see what users see.
+    defaultOptions: {
+      queries: { retry: false, placeholderData: keepPreviousData },
+      mutations: { retry: false },
+    },
   });
   const result = render(
     <I18nProvider runtime={runtime}>
@@ -58,7 +67,12 @@ export async function renderNpRoutes(
   runtime.registerApplicationNamespace('test-app', locales);
   await runtime.init('en-US');
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    // The application's client (`@nocobase/app-client`) defaults `placeholderData` to `keepPreviousData`, which a
+    // disabled query with a new key also shows (NP-201): the tests keep that default so they see what users see.
+    defaultOptions: {
+      queries: { retry: false, placeholderData: keepPreviousData },
+      mutations: { retry: false },
+    },
   });
   const result = render(
     <I18nProvider runtime={runtime}>
