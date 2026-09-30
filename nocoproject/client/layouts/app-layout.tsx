@@ -18,9 +18,15 @@ import { HeaderActions } from './components/header-actions.js';
 import { hasVisiblePlatformSettings } from './components/settings-gate.js';
 import { SidebarFooter } from './components/sidebar-footer.js';
 import {
+  PmAssistantProvider,
+} from '../pages/np/pm/assistant/pm-assistant.js';
+import { PmDrawer } from '../pages/np/pm/assistant/pm-drawer.js';
+import { PmFloatingButton } from '../pages/np/pm/assistant/pm-launchers.js';
+import {
   useRouteNavigation,
   selectedNavigationId,
   navigationPages,
+  routeKey,
 } from '../routing/route-navigation.js';
 
 export function AppLayout({
@@ -35,7 +41,11 @@ export function AppLayout({
     useSidebarPreference();
 
   const { t } = useTranslation();
-  const { items: menuItems, denied } = useRouteNavigation(routes);
+  const {
+    items: menuItems,
+    denied,
+    loading: navigationLoading,
+  } = useRouteNavigation(routes);
   const selectedKey = selectedNavigationId(
     routes,
     useLocation().pathname,
@@ -45,9 +55,15 @@ export function AppLayout({
     useClientApplication().runtime.settingsRouteTree,
   );
 
+  // NocoProject (NP-185): the project manager drawer lives in the shell so it survives page changes; it is offered
+  // when the viewer may open the project manager page (`np-pm`), the same check the sidebar entry passes.
+  const pmAvailable =
+    !navigationLoading && hasRouteNamed(routes, 'np-pm', denied);
+
   return (
     // The shell owns the business route tree used by its pages and navigation.
     <RouteTreeProvider routes={routes}>
+      <PmAssistantProvider available={pmAvailable}>
       <div className='flex h-svh bg-background'>
         <LayoutSidebar
           aria-label={t('navigation.label', {
@@ -144,15 +160,35 @@ export function AppLayout({
               showDev={import.meta.env.DEV}
             />
           </LayoutHeader>
-          <main className='relative min-w-0 flex-1 overflow-hidden'>
-            {/* main only positions; the page scrolls in here, so a child page layer laid over main is neither
-            moved by the page's scrolling nor stretched by its height. */}
-            <div className='h-full overflow-y-auto'>
-              <Outlet />
-            </div>
-          </main>
+          {/* NocoProject: main and the project manager drawer share this row; the docked drawer narrows main, the
+          floating and expanded forms lie over it. */}
+          <div className='relative flex min-h-0 flex-1'>
+            <main className='relative min-w-0 flex-1 overflow-hidden'>
+              {/* main only positions; the page scrolls in here, so a child page layer laid over main is neither
+              moved by the page's scrolling nor stretched by its height. */}
+              <div className='h-full overflow-y-auto'>
+                <Outlet />
+              </div>
+            </main>
+            <PmDrawer />
+          </div>
+          <PmFloatingButton />
         </div>
       </div>
+      </PmAssistantProvider>
     </RouteTreeProvider>
+  );
+}
+
+/** Whether a route with this name is in the tree and not denied to the viewer. */
+function hasRouteNamed(
+  routes: readonly AppClientRegisteredRoute[],
+  name: string,
+  denied: ReadonlySet<string>,
+): boolean {
+  return routes.some(
+    (route) =>
+      (route.name === name && !denied.has(routeKey(route))) ||
+      hasRouteNamed(route.children ?? [], name, denied),
   );
 }
