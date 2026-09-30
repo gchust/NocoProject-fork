@@ -18,6 +18,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/toast';
 
+import { apiErrorMessage } from '../api-error.js';
 import { fetchWorkflows } from '../api-collab.js';
 import {
   fetchWorkspaceSettings,
@@ -151,10 +152,7 @@ function SettingsForm({
       toast.add({
         type: 'error',
         priority: 'high',
-        title:
-          error instanceof ApiClientError && error.status === 403
-            ? t('np.common.forbidden')
-            : t('np.common.requestFailed'),
+        title: apiErrorMessage(t, error),
       }),
   });
 

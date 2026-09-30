@@ -30,6 +30,21 @@ const npIter4EnUS = {
     repo_read: 'Check out repositories read-only',
   },
   entries: {
+    noManager: 'No project manager agent is available.',
+    createManager: 'New project manager',
+    errors: {
+      notManager:
+        'The conversation entry must be a project manager type agent.',
+      managerCompletion:
+        'A project manager type agent cannot write completion summaries.',
+      invalidAgent: 'This agent is not available. Choose another one.',
+    },
+    invalidManagerCompletion:
+      'The selected agent is a project manager type and cannot write completion summaries. Choose another agent.',
+    invalidConversationAgent:
+      'The selected agent is not a project manager type. Choose a project manager.',
+    invalidUnavailable:
+      'The selected agent is no longer available (archived, not invocable or missing comment.create). Choose another one.',
     conversation: 'Conversation entry',
     completion: 'Task completion trigger',
     enabled: 'Enabled',

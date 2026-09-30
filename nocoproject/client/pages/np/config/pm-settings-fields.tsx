@@ -1,10 +1,12 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -14,7 +16,17 @@ import { fetchAgents } from '../api.js';
 import { npKeys } from '../constants.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
 import { ProcessSelect } from '../issues/process-fields.js';
-import type { PmSettingsDraft } from './pm-settings-model.js';
+import {
+  entryAgentEligible,
+  entryAgentProblem,
+  type PmSettingsDraft,
+} from './pm-settings-model.js';
+const PROBLEM_KEYS = {
+  notManager: 'invalidConversationAgent',
+  managerCompletion: 'invalidManagerCompletion',
+  unavailable: 'invalidUnavailable',
+} as const;
+
 export function PmSettingsFields({
   draft,
   canEdit,
@@ -53,6 +65,16 @@ export function PmSettingsFields({
               [key]: { ...entry, ...patch },
             },
           });
+        const list = agents.data ?? [];
+        const options = list
+          .filter((agent) => entryAgentEligible(key, agent))
+          .map((agent) => ({ value: agent.id, label: agent.name }));
+        const problem = agents.data
+          ? entryAgentProblem(key, entry.agentId, list)
+          : null;
+        const current = list.find((agent) => agent.id === entry.agentId);
+        if (problem && current)
+          options.push({ value: current.id, label: current.name });
         return (
           <fieldset key={key} className='space-y-4'>
             <legend>{t(`np.entries.${key}`)}</legend>
@@ -107,16 +129,22 @@ export function PmSettingsFields({
                 value={entry.agentId}
                 disabled={!canEdit}
                 noneLabel={t('np.pmSettings.none')}
-                options={(agents.data ?? [])
-                  .filter(
-                    (agent) =>
-                      agent.canInvoke &&
-                      !agent.archivedAt &&
-                      agent.capabilities?.includes('comment.create'),
-                  )
-                  .map((agent) => ({ value: agent.id, label: agent.name }))}
+                options={options}
                 onChange={(agentId) => change({ agentId })}
               />
+              {problem ? (
+                <FieldError>
+                  {t(`np.entries.${PROBLEM_KEYS[problem]}`)}
+                </FieldError>
+              ) : null}
+              {key === 'conversation' && agents.data && options.length === 0 ? (
+                <FieldDescription>
+                  {t('np.entries.noManager')}{' '}
+                  <Link className='underline' to='/agents/new?kind=manager'>
+                    {t('np.entries.createManager')}
+                  </Link>
+                </FieldDescription>
+              ) : null}
             </Field>
             <Field>
               <FieldLabel htmlFor={`np-entry-${key}-instructions`}>

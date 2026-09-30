@@ -1,6 +1,6 @@
 import type { AgentEntryBindings } from '../agent-capabilities.js';
 import { readDefaultProcess } from '../api-iter4.js';
-import type { WorkspaceSettings } from '../types.js';
+import type { AgentListItem, WorkspaceSettings } from '../types.js';
 import type {
   DefaultProcess,
   WorkspaceSettingsPhase1Iter4,
@@ -51,4 +51,34 @@ export function pmSettingsInput(draft: PmSettingsDraft): Pick<
     defaultProcess: draft.defaultProcess,
     agentEntries: draft.agentEntries,
   };
+}
+
+export type EntryKey = 'conversation' | 'completion';
+
+/** The agents an entry may name (mirrors `validateEntries` in the server's `agent-entries.ts`). */
+export function entryAgentEligible(
+  key: EntryKey,
+  agent: AgentListItem,
+): boolean {
+  if (!agent.canInvoke || agent.archivedAt) return false;
+  if (key === 'conversation') return agent.kind === 'manager';
+  return (
+    agent.kind !== 'manager' &&
+    agent.capabilities?.includes('comment.create') === true
+  );
+}
+
+/** Why the saved agent no longer fits its entry; null when it does (or nothing is chosen). */
+export function entryAgentProblem(
+  key: EntryKey,
+  agentId: string | null,
+  agents: readonly AgentListItem[],
+): 'notManager' | 'managerCompletion' | 'unavailable' | null {
+  if (!agentId) return null;
+  const agent = agents.find((item) => item.id === agentId);
+  if (!agent) return 'unavailable';
+  if (key === 'conversation' && agent.kind !== 'manager') return 'notManager';
+  if (key === 'completion' && agent.kind === 'manager')
+    return 'managerCompletion';
+  return entryAgentEligible(key, agent) ? null : 'unavailable';
 }
