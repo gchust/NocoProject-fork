@@ -5,7 +5,7 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircleIcon } from 'lucide-react';
 import { type FormEvent, type ReactElement, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { NpOnlineState } from '@/components/np-badges';
 import { RouteDialog } from '@/components/route-dialog';
@@ -94,7 +94,9 @@ function NewAgentBody({
   const [maxConcurrentRuns, setMaxConcurrentRuns] = useState(
     String(DEFAULT_MAX_CONCURRENT_RUNS),
   );
-  const [kind, setKind] = useState<AgentKind>('coder');
+  const [kind, setKind] = useState<AgentKind>(
+    useSearchParams()[0].get('kind') === 'manager' ? 'manager' : 'coder',
+  );
   const [reasoningEffort, setReasoningEffort] =
     useState<ReasoningEffort | null>(null);
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});

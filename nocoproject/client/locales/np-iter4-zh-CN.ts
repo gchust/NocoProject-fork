@@ -24,6 +24,19 @@ const npIter4ZhCN: NpIter4Resource = {
     repo_read: '只读检出仓库',
   },
   entries: {
+    noManager: '找不到可选的项目经理 Agent。',
+    createManager: '新建项目经理',
+    errors: {
+      notManager: '对话入口必须是项目经理类型的 Agent。',
+      managerCompletion: '项目经理类型的 Agent 不能写完成总结。',
+      invalidAgent: '这个 Agent 不可用，请重新选择。',
+    },
+    invalidManagerCompletion:
+      '当前选择的 Agent 是项目经理类型，不能写完成总结，请改选其他 Agent。',
+    invalidConversationAgent:
+      '当前选择的 Agent 不是项目经理类型，请改选项目经理。',
+    invalidUnavailable:
+      '当前选择的 Agent 已不可选（已归档、无权调用或缺少评论能力），请重新选择。',
     conversation: '对话入口',
     completion: '任务完成触发',
     enabled: '启用',
