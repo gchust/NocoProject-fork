@@ -187,7 +187,7 @@ export interface AgentKnowledgeProposalRequest {
   readonly docId?: string;
   readonly title?: string;
   readonly slug?: string;
-  /** The project when creating a new document; defaults to the run's project, null = system-wide */
+  /** The project when creating a new document; defaults to the parent's scope, or the run's project without a parent; null = system-wide */
   readonly projectId?: string | null;
   readonly summary?: string;
   readonly content: string;

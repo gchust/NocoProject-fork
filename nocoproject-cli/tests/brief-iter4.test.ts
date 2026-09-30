@@ -59,6 +59,9 @@ describe('configured conversation and completion briefs', () => {
   expect(brief).toContain('Answer in Chinese. Do not split tasks.');
   expect(brief).toContain('Summarize the completed work.');
   expect(brief).toContain('nocoproject pm projects');
+  expect(brief).toContain('--title <title> [--parent <slug|id>]');
+  expect(brief).toContain('a new document inherits the parent’s scope: system-level or this project');
+  expect(brief).toContain('system-level proposals still need a system-level knowledge decider');
   expect(brief).not.toContain('## Project manager');
   expect(brief).not.toContain('nocoproject issue create');
   expect(brief).not.toContain('Lead with the conclusion');

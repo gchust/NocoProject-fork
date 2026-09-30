@@ -250,7 +250,7 @@ export class DaemonApi {
 
 /**
  * `POST /np/agent/knowledge/proposals` (iteration 3 §B): `docId` updates an existing document,
- * `title` (+ optional `slug`) proposes a new one; `projectId` defaults to the run's project.
+ * `title` (+ optional `slug`) proposes a new one; `projectId` defaults to the parent's scope, or the run's project without a parent.
  */
 export interface KnowledgeProposalBody {
   readonly docId?: string;

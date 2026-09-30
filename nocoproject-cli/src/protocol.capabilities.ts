@@ -58,7 +58,7 @@ export const AGENT_COMMANDS: Record<AgentCapability, readonly string[]> = {
     'issue comment add <issue> --content-file ./reply.md [--parent <rootId>]',
   ],
   'knowledge.propose': [
-    'kb propose --title <title> --content-file ./kb.md --reason <reason>',
+    'kb propose --title <title> [--parent <slug|id>] --content-file ./kb.md --reason <reason>',
   ],
   'issue.execute': [
     'repo checkout <url> --json',

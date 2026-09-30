@@ -55,7 +55,7 @@ Write comments to a Markdown file and pass --content-file. Reply in the triggeri
 - \`nocoproject pm metrics --json\`
 - \`nocoproject pm knowledge --json\`
 - \`nocoproject issue comment add NP-12 --content-file ./reply.md [--parent <rootId>]\`
-- \`nocoproject kb propose --title <title> --content-file ./kb.md --reason <reason>\`
+- \`nocoproject kb propose --title <title> [--parent <slug|id>] --content-file ./kb.md --reason <reason>\`
 - \`nocoproject repo checkout <url> --json\`
 - \`nocoproject project get --json\`
 - \`nocoproject pr list [--issue NP-12] --json\`
@@ -133,7 +133,8 @@ When you are woken because a batch of NP-12's sub-issues finished:
 Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:
 
 - Update an existing document: \`nocoproject kb propose --doc <slug> --content-file ./kb.md --reason "..." --json\`. The file holds the whole new content, so start from \`nocoproject kb get <slug>\` and edit that.
-- Add a new document: \`nocoproject kb propose --title "..." [--slug <slug>] --content-file ./kb.md --reason "..." [--summary "..."] --json\`.
+- Add a new document: \`nocoproject kb propose --title "..." [--slug <slug>] [--parent <slug|id>] --content-file ./kb.md --reason "..." [--summary "..."] --json\`.
+- With \`--parent\`, a new document inherits the parent’s scope: system-level or this project. Without a parent it defaults to the run’s project (system-level for a projectless run). Parents must be visible to this run; system-level proposals still need a system-level knowledge decider.
 - \`--reason\` (at most 500 characters) says what you found and why it matters.
 - Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.
 - Propose at most 3 per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.

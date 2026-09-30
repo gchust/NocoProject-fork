@@ -14,7 +14,7 @@ export function knowledgeCommands(): string[] {
   return [
     '- `nocoproject kb list --json` — list the knowledge documents you can read (see Knowledge)',
     '- `nocoproject kb get <slug> [--json]` — print a knowledge document’s Markdown',
-    '- `nocoproject kb propose (--doc <slug> | --title "...") --content-file ./kb.md --reason "..." [--summary "..."] --json` — propose a knowledge change for a human to accept (see Capture learnings)',
+    '- `nocoproject kb propose (--doc <slug> | --title "..." [--parent <slug|id>]) --content-file ./kb.md --reason "..." [--summary "..."] --json` — propose a knowledge change for a human to accept; a new document inherits its parent’s scope, or the run’s project without a parent',
   ];
 }
 
@@ -55,7 +55,8 @@ export function captureLearningsSection(): string[] {
     'Before you finish the task, ask yourself whether you found something the next person or agent on this project should know: a convention, a pitfall, or a decision and why it was made. If so, propose it to the knowledge base:',
     '',
     '- Update an existing document: `nocoproject kb propose --doc <slug> --content-file ./kb.md --reason "..." --json`. The file holds the whole new content, so start from `nocoproject kb get <slug>` and edit that.',
-    '- Add a new document: `nocoproject kb propose --title "..." [--slug <slug>] --content-file ./kb.md --reason "..." [--summary "..."] --json`.',
+    '- Add a new document: `nocoproject kb propose --title "..." [--slug <slug>] [--parent <slug|id>] --content-file ./kb.md --reason "..." [--summary "..."] --json`.',
+    '- With `--parent`, a new document inherits the parent’s scope: system-level or this project. Without a parent it defaults to the run’s project (system-level for a projectless run). Parents must be visible to this run; system-level proposals still need a system-level knowledge decider.',
     '- `--reason` (at most 500 characters) says what you found and why it matters.',
     '- Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.',
     `- Propose at most ${KB_PROPOSALS_PER_RUN} per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.`,
