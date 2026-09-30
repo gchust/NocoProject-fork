@@ -23,7 +23,7 @@ export default function IssuesPage(): ReactElement {
   const navigate = useNavigate();
   const { viewer } = useWorkspaceViewer();
   const canEdit = canEditIssue(viewer);
-  // The page is exactly the content area's height (nocosolution/guidelines/NocoSolution 前端规范.md §3.6): header, toolbar, then the board
+  // The page is exactly the content area's height (nocosolution/guidelines/frontend-standard.md §3.6): header, toolbar, then the board
   // or table filling the rest and scrolling inside, so the page itself never scrolls.
   return (
     <PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'>
