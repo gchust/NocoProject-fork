@@ -291,4 +291,89 @@ describe.skipIf(!db)('subscriptions and inbox (PostgreSQL)', () => {
       services.inbox.mark(ALICE, first.data[0]!.id, 'read'),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  it('lists every pending decision before the settled ones across pages (NP-180)', async () => {
+    const insert = async (
+      id: string,
+      minutesAgo: number,
+      resolved: boolean,
+    ) => {
+      const at = new Date(Date.now() - minutesAgo * 60_000);
+      await db!.knex(`${db!.schema}.inbox_items`).insert({
+        id,
+        user_id: BOB.id,
+        kind: 'decision',
+        type: 'review_requested',
+        issue_id: null,
+        title: id,
+        body: '',
+        count: 1,
+        dedupe_key: `np180:${id}`,
+        resolved_at: resolved ? at : null,
+        created_at: at,
+        updated_at: at,
+      });
+    };
+    // Two old pending decisions, then 55 settled ones: settling bumps `updatedAt`, so they are all newer.
+    await insert('pending-a', 1000, false);
+    await insert('pending-b', 999, false);
+    for (let index = 0; index < 55; index += 1)
+      await insert(
+        `settled-${String(index).padStart(2, '0')}`,
+        500 - index,
+        true,
+      );
+    expect((await services.inbox.pendingCount(BOB)).decision).toBe(2);
+    const first = await services.inbox.list(BOB, { kind: 'decision' });
+    expect(first.data.slice(0, 2).map((item) => item.id)).toEqual([
+      'pending-b',
+      'pending-a',
+    ]);
+    expect(first.data).toHaveLength(50);
+    expect(first.data[2]!.id).toBe('settled-54');
+    const second = await services.inbox.list(BOB, {
+      kind: 'decision',
+      cursor: first.nextCursor,
+    });
+    expect(second.data.map((item) => item.id)).toEqual([
+      'settled-06',
+      'settled-05',
+      'settled-04',
+      'settled-03',
+      'settled-02',
+      'settled-01',
+      'settled-00',
+    ]);
+    expect(second.nextCursor).toBeNull();
+    // Exactly one page of pending decisions: the next page starts at the newest settled one.
+    for (let index = 0; index < 48; index += 1)
+      await insert(
+        `pending-${String(index).padStart(2, '0')}`,
+        900 - index,
+        false,
+      );
+    const full = await services.inbox.list(BOB, { kind: 'decision' });
+    expect(full.data.every((item) => item.resolvedAt === null)).toBe(true);
+    const rest = await services.inbox.list(BOB, {
+      kind: 'decision',
+      cursor: full.nextCursor,
+    });
+    expect(rest.data).toHaveLength(50);
+    expect(rest.data[0]!.id).toBe('settled-54');
+    const tail = await services.inbox.list(BOB, {
+      kind: 'decision',
+      cursor: rest.nextCursor,
+    });
+    expect(tail.data.map((item) => item.id)).toEqual([
+      'settled-04',
+      'settled-03',
+      'settled-02',
+      'settled-01',
+      'settled-00',
+    ]);
+    expect(tail.nextCursor).toBeNull();
+    // The unfiltered list keeps plain newest-first order.
+    const mixed = await services.inbox.list(BOB, {});
+    expect(mixed.data[0]!.id).toBe('settled-54');
+  });
 });

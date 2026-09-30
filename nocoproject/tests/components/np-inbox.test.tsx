@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe('inbox', () => {
-  it('groups decisions before notifications, with unread counts on the filters', async () => {
+  it('groups decisions before notifications, with pending and unread counts on the filters', async () => {
     api.request.mockImplementation(respond);
     await renderInbox();
 
@@ -40,7 +40,10 @@ describe('inbox', () => {
       name: 'Needs my decision',
     });
     const decisionTab = screen.getByRole('tab', { name: /Needs my decision/ });
-    expect(within(decisionTab).getByLabelText('1 unread')).toBeVisible();
+    // The decision tab shows the pending count, the same as the navigation badge, not the unread count (NP-180).
+    expect(
+      await within(decisionTab).findByLabelText('2 pending'),
+    ).toBeVisible();
     const infoTab = screen.getByRole('tab', { name: /Notifications/ });
     expect(within(infoTab).getByLabelText('4 unread')).toBeVisible();
     expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute(

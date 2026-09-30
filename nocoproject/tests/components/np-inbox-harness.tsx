@@ -108,6 +108,10 @@ export function respond(options: {
       unread: { decision: 1, info: 4 },
     });
   }
+  // Both decisions wait, one of them already read (NP-180: the decision tab counts pending, not unread).
+  if (options.path === 'np/inbox/pending-count') {
+    return Promise.resolve({ data: { decision: 2 } });
+  }
   if (options.path === 'np/inbox/unread-count') {
     return Promise.resolve({ data: { decision: 1, info: 4 } });
   }
