@@ -34,6 +34,17 @@ export type CommentKindV5 = CommentKindV4 | CommentKindPm;
 /** `comments.via`: a comment the project manager wrote in the asker's name (§3.5). */
 export type CommentVia = 'pm';
 
+/** What comment rows gain (NP-183): the page context of a conversation message and the `via` marker. */
+export interface CommentPmFields {
+  readonly context?: PmResolvedContext | null;
+  readonly via?: CommentVia | null;
+}
+
+/** `POST /np/issues/:id/comments` gains the page context (§8.1), read only on conversation messages. */
+export interface CreateCommentRequestPm {
+  readonly context?: PmPageContext | null;
+}
+
 /** A plan card finished executing: wakes the conversation's agent (§4.7). */
 export type RunTriggerTypePm = 'planExecuted';
 export type RunTriggerTypeV7 = RunTriggerTypeV6 | RunTriggerTypePm;
