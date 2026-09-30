@@ -48,11 +48,15 @@ export interface DesignService {
     actor: Actor,
     idOrKey: string,
     input: DesignApproveRequest,
+    /** NP-183: joins the caller's transaction (a plan card). */
+    outer?: Tx,
   ): Promise<DesignDecisionResultV4>;
   requestChanges(
     actor: Actor,
     idOrKey: string,
     input: DesignRequestChangesRequest,
+    /** NP-183: joins the caller's transaction (a plan card). */
+    outer?: Tx,
   ): Promise<DesignDecisionResultV4>;
 }
 
@@ -166,6 +170,7 @@ async function approve(
   actor: Actor,
   idOrKey: string,
   input: DesignApproveRequest,
+  outer?: Tx,
 ): Promise<DesignDecisionResultV4> {
   const note = text(input?.comment, 'INVALID_COMMENT', false);
   return deps.tx.run(async (tx) => {
@@ -220,7 +225,7 @@ async function approve(
       actor: eventActor(actor),
     });
     return { issue: after, comment, triggered };
-  });
+  }, outer);
 }
 
 async function requestChanges(
@@ -228,6 +233,7 @@ async function requestChanges(
   actor: Actor,
   idOrKey: string,
   input: DesignRequestChangesRequest,
+  outer?: Tx,
 ): Promise<DesignDecisionResultV4> {
   const note = text(input?.comment, 'INVALID_COMMENT', true) as string;
   return deps.tx.run(async (tx) => {
@@ -265,14 +271,15 @@ async function requestChanges(
       comment: created.comment as CommentV2,
       triggered: created.triggered,
     };
-  });
+  }, outer);
 }
 
 export function createDesignService(deps: DesignDeps): DesignService {
   return {
     propose: (auth, idOrKey, input) => propose(deps, auth, idOrKey, input),
-    approve: (actor, idOrKey, input) => approve(deps, actor, idOrKey, input),
-    requestChanges: (actor, idOrKey, input) =>
-      requestChanges(deps, actor, idOrKey, input),
+    approve: (actor, idOrKey, input, outer) =>
+      approve(deps, actor, idOrKey, input, outer),
+    requestChanges: (actor, idOrKey, input, outer) =>
+      requestChanges(deps, actor, idOrKey, input, outer),
   };
 }

@@ -74,6 +74,11 @@ export async function resolveExecutor(
       .executeTakeFirst();
     if (!agent || agent.archivedAt)
       throw invalid('INVALID_EXECUTOR', 'executor agent does not exist.');
+    if (agent.kind === 'manager' && !options.allowConversation)
+      throw invalid(
+        'MANAGER_NOT_EXECUTOR',
+        'A project manager type agent does not execute tasks.',
+      );
     if (
       !options.allowConversation &&
       !(await hasCapability(conn, id, 'issue.execute'))

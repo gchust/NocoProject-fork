@@ -12,6 +12,9 @@ export const AGENT_CAPABILITIES = [
   'checklist.write',
   'workflow.propose',
   'pullRequest.link',
+  // NP-183: the project manager assistant (protocol-pm-assistant.md §2.2); only conversation runs hold them.
+  'member.act',
+  'repo.read',
 ] as const;
 export type AgentCapability = (typeof AGENT_CAPABILITIES)[number];
 export interface AgentConfiguration {
@@ -23,6 +26,8 @@ export interface AgentEntryBinding {
   readonly name: string;
   readonly instructions: string;
   readonly enabled: boolean;
+  /** NP-183, conversation entry only: whether members may pick a personal project manager (absent = false). */
+  readonly allowPersonal?: boolean;
 }
 export interface AgentEntryBindings {
   readonly revision: number;
@@ -53,6 +58,10 @@ export const AGENT_COMMANDS: Record<AgentCapability, readonly string[]> = {
     'pm inbox --json',
     'pm metrics --json',
     'pm knowledge --json',
+    'pm agents --json',
+    'pm runs <issue> --json',
+    'pm run <runId> --events --json',
+    'pm prs <issue> --json',
   ],
   'comment.create': [
     'issue comment add <issue> --content-file ./reply.md [--parent <rootId>]',
@@ -81,4 +90,13 @@ export const AGENT_COMMANDS: Record<AgentCapability, readonly string[]> = {
     'workflow propose <template> --definition-file ./workflow.json --reason <reason>',
   ],
   'pullRequest.link': ['pr link <url> [--issue <issue>] --json'],
+  'member.act': [
+    'pm do <opType> --params-file ./params.json [--ref <ref>] --json',
+    'pm plan create --file ./plan.json --json',
+    'pm plan get <planId> --json',
+    'pm plan list [--status <status>] --json',
+    'pm plan discard <planId>',
+    'pm conversation title "<title>"',
+  ],
+  'repo.read': ['repo checkout <url> --json'],
 };

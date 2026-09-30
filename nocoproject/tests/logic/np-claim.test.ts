@@ -201,7 +201,11 @@ describe.skipIf(!db)('claim per-agent limits (PostgreSQL)', () => {
     const knex = await db!.database.connection().client<Knex>();
     const trx = await knex.transaction();
     await trx.raw(CLAIM_RUNTIME_LOCK_SQL, [claimLockKey(runtimeId)]);
-    const first = (await trx.raw(CLAIM_RUN_SQL, [runtimeId, runtimeId])) as {
+    const first = (await trx.raw(CLAIM_RUN_SQL, [
+      runtimeId,
+      runtimeId,
+      true,
+    ])) as {
       rows: unknown[];
     };
     expect(first.rows).toHaveLength(1);

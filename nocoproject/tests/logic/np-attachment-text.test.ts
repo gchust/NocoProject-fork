@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createAttachmentTextReader,
   type AttachmentSource,
-} from '../../server/modules/intake/attachment-text.ts';
+} from '../../server/modules/attachment/attachment-text.ts';
 
 const FIXTURES = path.resolve(import.meta.dirname, '../fixtures/attachments');
 

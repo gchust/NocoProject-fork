@@ -19,6 +19,7 @@ import { createCommentRoutes } from '../../server/modules/collaboration/comment.
 import { createInboxRoutes } from '../../server/modules/notification/inbox.routes.ts';
 import {
   createAgentPmRoutes,
+  createPmAgentRoutes,
   createPmRoutes,
 } from '../../server/modules/pm/pm.routes.ts';
 import {
@@ -52,9 +53,16 @@ function browserRouter(services: NpServices, as: Actor): Hono<AuthEnv> {
       slowLog: { warn: () => undefined },
     }),
   );
-  root.route('/np/issues', createCommentRoutes(services.comments));
+  root.route(
+    '/np/issues',
+    createCommentRoutes(services.comments, services.pmConversations),
+  );
   root.route('/np/issues', createDesignRoutes(services.design));
-  root.route('/np/pm', createPmRoutes(services.pm));
+  root.route(
+    '/np/pm',
+    createPmRoutes(services.pmConversations, services.pmPlans),
+  );
+  root.route('/np/me/pm-agent', createPmAgentRoutes(services.pmAgents));
   root.route('/np/settings', createSettingsRoutes(services.workspaceSettings));
   root.route('/np/agents', createAgentRoutes(services.agents));
   root.route('/np/intake', createIntakeRoutes(services.intake));
@@ -98,7 +106,11 @@ export function agentApi4(services: NpServices, token: string): ApiCall {
       pullRequests: services.pullRequests,
     }),
     createAgentDesignRoutes(services.design),
-    createAgentPmRoutes(services.pm),
+    createAgentPmRoutes(services.pm, {
+      act: services.pmAct,
+      conversations: services.pmConversations,
+      plans: services.pmPlans,
+    }),
   );
   return (method, path, body) =>
     call(router, { authorization: `Bearer ${token}` }, method, path, body);

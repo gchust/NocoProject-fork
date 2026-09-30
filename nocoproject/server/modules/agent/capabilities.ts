@@ -13,6 +13,7 @@ import {
   type AgentCapability,
   type ConfigurationSnapshot,
 } from '../shared/protocol.capabilities.js';
+import { PM_CAPABILITIES } from '../shared/protocol.phase2-pm-assistant.js';
 export function capabilitiesOf(value: unknown): AgentCapability[] {
   const values = fromJson<unknown>(value);
   return Array.isArray(values)
@@ -20,6 +21,18 @@ export function capabilitiesOf(value: unknown): AgentCapability[] {
         AGENT_CAPABILITIES.includes(v as AgentCapability),
       )
     : [];
+}
+/**
+ * What an agent may do: its configured capabilities, except that a project manager type agent (`kind = 'manager'`)
+ * always holds exactly `PM_CAPABILITIES` (NP-183, ADR-0009), whatever is stored.
+ */
+export function effectiveCapabilities(row: {
+  readonly kind?: unknown;
+  readonly capabilities?: unknown;
+}): AgentCapability[] {
+  return row.kind === 'manager'
+    ? [...PM_CAPABILITIES]
+    : capabilitiesOf(row.capabilities);
 }
 export function validateCapabilities(value: unknown): AgentCapability[] {
   if (
@@ -36,13 +49,11 @@ export async function hasCapability(
 ): Promise<boolean> {
   const row = await conn.query
     .selectFrom('agents')
-    .select(['capabilities', 'archivedAt'])
+    .select(['capabilities', 'archivedAt', 'kind'])
     .where('id', '=', agentId)
     .executeTakeFirst();
   return (
-    !!row &&
-    !row.archivedAt &&
-    capabilitiesOf(row.capabilities).includes(capability)
+    !!row && !row.archivedAt && effectiveCapabilities(row).includes(capability)
   );
 }
 export async function requireCapability(

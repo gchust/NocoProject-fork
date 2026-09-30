@@ -11,6 +11,7 @@ import { requireCapability } from '../agent/capabilities.js';
  *   off → a pending proposal for itself and `suggestedExecutorAgentId`;
  * - another agent id: on the creating agent's delegation list → `autoAccepted` and assigned; otherwise pending.
  */
+import { requireWorkItem } from '../shared/conversation.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import type { Tx, TxRunner } from '../shared/db.js';
 import { str } from '../shared/db.js';
@@ -178,6 +179,8 @@ async function create(
       auth,
       input.parentIssueId ?? auth.issueId,
     );
+    // NP-183: a project manager conversation has no sub-issues.
+    requireWorkItem(parent);
     const plan = await planExecutor(tx, auth, parent, input.executor ?? 'none');
     const created = await deps.issues().insertIssue(tx, actor, {
       title: validateTitle(input.title),

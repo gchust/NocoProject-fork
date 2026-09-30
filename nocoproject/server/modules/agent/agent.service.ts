@@ -1,4 +1,9 @@
-import { capabilitiesOf, validateCapabilities } from './capabilities.js';
+import { effectiveCapabilities, validateCapabilities } from './capabilities.js';
+import {
+  requireFixedManagerCapabilities,
+  requirePersonalPmStaysEligible,
+  validateSummary,
+} from './agent.pm-rules.js';
 import { conflict } from '../shared/errors.js';
 /**
  * Agents: a named configuration (instructions, provider, model) bound to one runtime, with an access level
@@ -78,14 +83,15 @@ export interface AgentDeps {
 
 export function mapAgent(
   row: Record<string, unknown>,
-): AgentV1 & AgentPhase4Fields {
+): AgentV1 & AgentPhase4Fields & { readonly summary: string | null } {
   return {
     id: str(row.id) ?? '',
     name: str(row.name) ?? '',
     description: str(row.description),
     ownerUserId: str(row.ownerUserId) ?? '',
     instructions: str(row.instructions) ?? '',
-    capabilities: capabilitiesOf(row.capabilities),
+    capabilities: effectiveCapabilities(row),
+    summary: str(row.summary),
     configurationRevision: num(row.configurationRevision, 1),
     runtimeId: str(row.runtimeId),
     provider: (str(row.provider) ?? 'echo') as AgentProvider,
@@ -354,6 +360,7 @@ async function createAgent(
         id,
         name,
         description: optionalText(input.description, 'description'),
+        summary: validateSummary((input as { summary?: unknown }).summary),
         ownerUserId: viewer.userId,
         instructions: input.instructions,
         capabilities: JSON.stringify(
@@ -430,6 +437,13 @@ async function patchValues(
   patch: UpdateAgentRequestV4,
 ): Promise<Record<string, unknown>> {
   const values: Record<string, unknown> = {};
+  requireFixedManagerCapabilities(
+    String(patch.kind ?? current.kind),
+    patch.capabilities,
+  );
+  await requirePersonalPmStaysEligible(tx.conn, current.id, patch);
+  const summary = (patch as { summary?: unknown }).summary;
+  if (summary !== undefined) values.summary = validateSummary(summary);
   if (patch.capabilities !== undefined)
     values.capabilities = JSON.stringify(
       validateCapabilities(patch.capabilities),

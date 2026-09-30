@@ -227,7 +227,27 @@ export function createBuiltinRoles(authz: AppAuthorization): RoleAssignments {
         id: userId,
       }),
     holders: (conn, check) => holdersOf(bound(conn), check),
+    accessOf: (userId) => memberAccess(authz, userId),
   };
+}
+
+/**
+ * NP-183: the access a browser request of `userId` would carry, built without a session: the same principal and
+ * subjects the plugin's middleware gives a signed-in request (the user, the `authenticated` audience and whatever the
+ * subject registry resolves, such as teams). Scopes are resolved here, before any transaction.
+ */
+async function memberAccess(
+  authz: AppAuthorization,
+  userId: string,
+): Promise<ActorAccess> {
+  const principal = { type: 'user', id: userId } as const;
+  const subjects = [
+    { type: 'authenticated', id: '*' },
+    ...(await authz.subjects.resolveFor(principal)),
+  ];
+  const access = createActorAccess(authz, authz.for({ principal, subjects }));
+  await access.scopes();
+  return access;
 }
 
 interface StoredGrant {
