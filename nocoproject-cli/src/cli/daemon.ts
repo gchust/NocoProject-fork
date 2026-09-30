@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type { Command } from 'commander';
 import { HttpError, daemonCredentials } from '../api/client.js';
 import { ensureHome, loadConfig, loadDaemonSettings } from '../config.js';
+import { withPersonalKey } from '../secrets/index.js';
 import { Daemon } from '../daemon/lifecycle.js';
 import { sleep } from '../util/backoff.js';
 import { createLogger } from '../util/log.js';
@@ -79,7 +80,7 @@ function settingsFrom(home: string, opts: StartOpts) {
 }
 
 async function startForeground(opts: StartOpts): Promise<void> {
-  const cfg = loadConfig();
+  const cfg = await withPersonalKey(loadConfig());
   if (!cfg.serverUrl || !daemonCredentials(cfg)) throw new CliError('not logged in: run `nocoproject login --server <url> --computer-key-stdin` (add the computer in the app first)', EXIT.auth, 'NOT_LOGGED_IN');
   ensureHome(cfg.home);
   const existing = runningPid(cfg.home);
@@ -120,7 +121,7 @@ async function startForeground(opts: StartOpts): Promise<void> {
 }
 
 async function startBackground(opts: StartOpts): Promise<void> {
-  const cfg = loadConfig();
+  const cfg = await withPersonalKey(loadConfig());
   const service = readInstalledService(cfg.home);
   if (service)
     process.stderr.write(`warning: the boot service ${service.label} is installed; it starts the daemon itself (use \`nocoproject daemon install\` to restart it)\n`);

@@ -11,10 +11,12 @@ the issue's activity.
 
 ## Before anything else
 
-1. `nocoproject user whoami --json` — confirms who you act as and which server. If it says "not logged in", ask the
-   user to run `nocoproject login --server <url> --api-key-stdin` themselves. Never ask for, print or store the key.
+1. `nocoproject user whoami --json` — confirms who you act as and which server. If it answers `NOT_LOGGED_IN`
+   (no personal API key: a computer credential alone is not enough), ask the user to run the
+   `nocoproject login --server <url> --api-key-stdin` command from the message themselves. Never ask for, print or
+   store the key.
 2. If it answers `USER_MODE_IN_RUN`, you are inside a run NocoProject dispatched: stop and use `nocoproject issue …`
-   (the run's own commands) instead. Do not look for the key in `~/.nocoproject/config.json` to get around this.
+   (the run's own commands) instead. Do not look for the key in `~/.nocoproject/config.json` or the system keychain to get around this.
 
 ## Commands (always add `--json` and parse the output)
 

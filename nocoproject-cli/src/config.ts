@@ -1,5 +1,6 @@
 /**
- * Local configuration: `~/.nocoproject/config.json` (0600) plus NOCOPROJECT_* env overrides.
+ * Local configuration: `~/.nocoproject/config.json` (0600) plus NOCOPROJECT_* env overrides. The personal API key
+ * normally lives in the system keychain instead (`src/secrets`, NP-190).
  *
  * `serverUrl` is the application URL including its mount path, e.g. `http://127.0.0.1:13000/main`.
  * HTTP APIs live at `<serverUrl>/api/np/...` and the realtime socket at `<serverUrl>/ws`.
@@ -14,7 +15,10 @@ import { registerSecret } from './util/redact.js';
 
 export const StoredConfigSchema = z.object({
   serverUrl: z.string().optional(),
+  /** A personal API key in plain text: only where there is no system keychain (NP-190). */
   apiKey: z.string().optional(),
+  /** NP-190: the personal API key is in this keychain (`src/secrets`), not in this file. */
+  apiKeyStorage: z.enum(['keychain', 'libsecret']).optional(),
   /** NP-150: the computer credential the daemon uses (only `/np/daemon/*`). */
   computerKey: z.string().optional(),
   daemonId: z.string().optional(),
@@ -25,6 +29,7 @@ export type StoredConfig = z.infer<typeof StoredConfigSchema>;
 export interface ResolvedConfig {
   readonly home: string;
   readonly serverUrl: string | undefined;
+  /** `NOCOPROJECT_API_KEY` or a plain-text key; a key in the keychain is read by `resolvePersonalKey` (NP-190). */
   readonly apiKey: string | undefined;
   readonly computerKey?: string;
   readonly daemonId: string;
