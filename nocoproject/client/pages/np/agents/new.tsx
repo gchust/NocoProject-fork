@@ -35,11 +35,13 @@ import { createAgent, fetchRuntimes } from '../api.js';
 import { npKeys } from '../constants.js';
 import type { AgentKind, ReasoningEffort } from '../types-iter4.js';
 import { AgentKindFields } from './agent-kind-fields.js';
+import { SummaryField } from './summary-field.js';
 
 const FORM_ID = 'np-agent-new-form';
 const DEFAULT_MAX_CONCURRENT_RUNS = 6;
 
-type FieldName = 'name' | 'instructions' | 'runtimeId' | 'maxConcurrentRuns';
+type FieldName =
+  'name' | 'summary' | 'instructions' | 'runtimeId' | 'maxConcurrentRuns';
 
 /** Route `/agents/new`: create an agent bound to one runtime, of a kind (iteration 4 §C: Coding / Project manager). */
 export default function NewAgentPage(): ReactElement {
@@ -81,6 +83,7 @@ function NewAgentBody({
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [summary, setSummary] = useState('');
   const [instructions, setInstructions] = useState('');
   const [capabilities, setCapabilities] = useState<AgentCapability[]>([
     'context.read',
@@ -106,6 +109,9 @@ function NewAgentBody({
   function validate(): Partial<Record<FieldName, string>> {
     const next: Partial<Record<FieldName, string>> = {};
     if (!name.trim()) next.name = t('np.agentForm.nameRequired');
+    if ([...summary].length > 200) {
+      next.summary = t('np.pmSetup.summaryInvalid', { max: 200 });
+    }
     if (!instructions.trim()) {
       next.instructions = t('np.agentForm.instructionsRequired');
     }
@@ -128,6 +134,7 @@ function NewAgentBody({
       const agent = await createAgent(api, {
         name: name.trim(),
         description: description.trim() || undefined,
+        summary: summary.trim() || undefined,
         instructions: instructions.trim(),
         capabilities,
         runtimeId: runtime.id,
@@ -188,6 +195,12 @@ function NewAgentBody({
             onChange={(event) => setDescription(event.target.value)}
           />
         </Field>
+        <SummaryField
+          id='np-agent-summary'
+          value={summary}
+          error={errors.summary}
+          onChange={setSummary}
+        />
         <CapabilityFields
           value={capabilities}
           instructions={instructions}

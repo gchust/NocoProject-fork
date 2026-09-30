@@ -1,8 +1,10 @@
 import type { ApiClient } from '@nocobase/app-client';
 
-import type { CreateCommentResult } from './types.js';
+import type { AgentListItem, CreateCommentResult, Runtime } from './types.js';
+import type { ReasoningEffort } from './types-iter4.js';
 import type {
   PmAgentChoice,
+  PmAgentIneligibleReason,
   PmConversationAgent,
   PmConversationDetail,
   PmConversationPage,
@@ -205,4 +207,75 @@ export async function discardPmPlan(
     method: 'POST',
   });
   return data;
+}
+
+/** `PUT /np/me/pm-agent` (§6.2): the choice for new conversations; 400 `PM_AGENT_NOT_ELIGIBLE` names the reason. */
+export async function savePmAgentChoice(
+  api: ApiClient,
+  input: {
+    readonly revision: number;
+    readonly mode: 'system' | 'personal';
+    readonly agentId?: string | null;
+  },
+): Promise<PmAgentChoice> {
+  const { data } = await api.request<{ data: PmAgentChoice }, typeof input>({
+    path: 'np/me/pm-agent',
+    method: 'PUT',
+    json: input,
+  });
+  return data;
+}
+
+/** `POST /np/me/pm-agent/copy-from-default` (§6.2): the member's own project manager, chosen at once. */
+export async function copyPmAgentFromDefault(
+  api: ApiClient,
+  input: {
+    readonly runtimeId: string;
+    readonly model?: string | null;
+    readonly reasoningEffort?: ReasoningEffort | null;
+  },
+): Promise<{ agent: AgentListItem; choice: PmAgentChoice }> {
+  const { data } = await api.request<
+    { data: { agent: AgentListItem; choice: PmAgentChoice } },
+    typeof input
+  >({
+    path: 'np/me/pm-agent/copy-from-default',
+    method: 'POST',
+    json: input,
+  });
+  return data;
+}
+
+/** `PATCH /np/runtimes/:id { pmAllowed }` (§6.3; owner / admin). */
+export async function setRuntimePmAllowed(
+  api: ApiClient,
+  runtimeId: string,
+  pmAllowed: boolean,
+): Promise<Runtime> {
+  const { data } = await api.request<{ data: Runtime }, { pmAllowed: boolean }>(
+    {
+      path: `np/runtimes/${id(runtimeId)}`,
+      method: 'PATCH',
+      json: { pmAllowed },
+    },
+  );
+  return data;
+}
+
+const INELIGIBLE_REASONS: readonly PmAgentIneligibleReason[] = [
+  'personalDisabled',
+  'notManager',
+  'archived',
+  'notOwner',
+  'notPrivate',
+  'foreignRuntime',
+];
+
+/** The `reason` of a `PM_AGENT_NOT_ELIGIBLE` error body (`details.reason`), if any. */
+export function ineligibleReasonOfError(
+  payload: unknown,
+): PmAgentIneligibleReason | null {
+  const reason = (payload as { details?: { reason?: unknown } } | null)?.details
+    ?.reason;
+  return INELIGIBLE_REASONS.find((item) => item === reason) ?? null;
 }

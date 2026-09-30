@@ -324,7 +324,11 @@ const npIter2ZhCN: NpIter2Resource = {
       project: '项目',
       day: '日期',
       model: '模型',
+      actor: '人员',
+      conversation: '项目经理对话',
     },
+    pmConversations: '项目经理对话',
+    noActor: '无成员',
     columns: {
       runs: '运行次数',
       input: '输入',

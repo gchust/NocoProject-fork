@@ -23,6 +23,7 @@ import { npKeys } from '../constants.js';
 import { fromDateOnly, toDateOnly, useDateFnsLocale } from '../format.js';
 import type { UsageGroupBy, UsageQuery, UsageRow } from '../types.js';
 import {
+  USAGE_CONVERSATION_KEY,
   USAGE_GROUPS,
   defaultUsageRange,
   formatCost,
@@ -35,6 +36,9 @@ const ROW_LINK: Partial<Record<UsageGroupBy, (key: string) => string>> = {
   agent: (key) => `/agents/${encodeURIComponent(key)}`,
   issue: (key) => `/issues/${encodeURIComponent(key)}`,
   project: (key) => `/projects/${encodeURIComponent(key)}`,
+  // NP-183 §6.6: the `pm` row is every project manager conversation; the other rows are agents.
+  conversation: (key) =>
+    key === USAGE_CONVERSATION_KEY ? '' : `/agents/${encodeURIComponent(key)}`,
 };
 
 /**
@@ -72,9 +76,17 @@ export default function UsageReport(): ReactElement {
 
   const tokens = (value: number): string => formatTokens(value, locale);
   const label = (row: UsageRow): ReactElement | string => {
-    const text =
-      row.name ?? (query.groupBy === 'day' ? row.key : row.key || '—');
-    const link = ROW_LINK[query.groupBy];
+    const pmRow =
+      query.groupBy === 'conversation' && row.key === USAGE_CONVERSATION_KEY;
+    const text = pmRow
+      ? t('np.usage.pmConversations')
+      : (row.name ??
+        (query.groupBy === 'day'
+          ? row.key
+          : query.groupBy === 'actor' && row.key === 'none'
+            ? t('np.usage.noActor')
+            : row.key || '—'));
+    const link = pmRow ? undefined : ROW_LINK[query.groupBy];
     return link && row.key ? (
       <Link to={link(row.key)} className='hover:underline'>
         {text}

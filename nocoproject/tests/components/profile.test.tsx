@@ -39,6 +39,17 @@ beforeEach(() => {
   api.request.mockImplementation(
     answer({
       'GET np/me/preferences': { data: { inboxChime: true } },
+      'GET np/me/pm-agent': {
+        data: {
+          mode: 'system',
+          agentId: null,
+          revision: 1,
+          allowPersonal: false,
+          systemAgent: null,
+          candidates: [],
+          eligibleRuntimes: [],
+        },
+      },
       'PATCH np/me/preferences': (options) => ({ data: options.json }),
     }),
   );

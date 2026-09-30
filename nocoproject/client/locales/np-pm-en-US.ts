@@ -222,6 +222,67 @@ const npPmEnUS = {
       },
     },
   },
+  pmSetup: {
+    title: 'My project manager',
+    dataNote:
+      'Your conversations with the project manager go to the model provider configured on that computer.',
+    chooseLegend: 'Project manager for new conversations',
+    systemDefault: 'System default',
+    systemDefaultAgent: '{{name}} · {{state}}',
+    systemDefaultMissing:
+      'No system default project manager is available to you.',
+    online: 'Online',
+    offline: 'Offline',
+    noCandidates: 'You have no project manager agents of your own yet.',
+    personalOff: 'Your workspace uses the system default project manager.',
+    saved: 'Project manager saved',
+    saveChoice: 'Save choice',
+    loadFailed: 'Could not load your project manager.',
+    notConfigured: 'No system default project manager is configured.',
+    notEligible: {
+      personalDisabled:
+        'Your workspace does not allow personal project managers.',
+      notManager: 'Only agents of the project manager type can be chosen.',
+      archived: 'This agent is archived.',
+      notOwner: 'You can only choose an agent you own.',
+      notPrivate: 'The agent must be usable by its owner only.',
+      foreignRuntime:
+        'The agent runs on a runtime that is not yours and is not allowed for project managers.',
+    },
+    copyTitle: 'Copy from default',
+    copyHint:
+      'Creates your own project manager with the default one’s instructions and chooses it.',
+    copyRuntime: 'Runtime',
+    copyAction: 'Copy from default',
+    copied: '{{name}} created and chosen',
+    noRuntimes: 'You have no runtime that can run a personal project manager.',
+    sharedRuntime: 'Shared',
+    confirmTitle: 'Project manager confirmations',
+    confirmDescription:
+      'How the project manager treats plans it makes for you.',
+    confirmAll: 'Always confirm first',
+    confirmAllHint:
+      'Every plan waits for your Run, even one that could run without asking.',
+    confirmAllOn: 'Plans will always wait for you',
+    confirmAllOff: 'Plans may run without asking',
+    allowPersonal: 'Personal project managers',
+    allowPersonalHint:
+      'Members may choose their own project manager agent instead of the default.',
+    pmAllowedColumn: 'Project manager',
+    pmAllowed: 'Allow personal project managers on {{name}}',
+    pmAllowedOn: '{{name}} may run personal project managers',
+    pmAllowedOff: '{{name}} no longer runs personal project managers',
+    pmAllowedPrivate: 'Only public runtimes can be allowed',
+    yes: 'Allowed',
+    no: 'Not allowed',
+    summary: 'Good at',
+    summaryHint:
+      'One line the project manager reads when it picks an agent for a task.',
+    summaryPlaceholder: 'For example: React pages and their tests',
+    summaryInvalid: 'Keep it to {{max}} characters.',
+    capabilitiesFixed:
+      'A project manager agent always holds these capabilities.',
+  },
 };
 
 export default npPmEnUS;

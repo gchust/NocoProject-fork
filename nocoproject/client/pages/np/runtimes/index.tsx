@@ -37,6 +37,7 @@ import { useRealtimeTopic } from '../use-realtime.js';
 import { ComputerGroupHeader } from './computer-group-header.js';
 import { computerKeyOf, groupRuntimesByComputer } from './computer-groups.js';
 import { ComputersSection } from './computers-section.js';
+import { PmAllowedCell } from './pm-allowed-cell.js';
 import { RuntimeCliCell, RuntimeStatusCell } from './runtime-cli.js';
 
 function deviceText(runtime: Runtime, key: string): string | null {
@@ -102,6 +103,11 @@ export default function RuntimesPage(): ReactElement {
           t(`np.runtimes.kind.${row.original.kind}`, {
             defaultValue: row.original.kind,
           }),
+      },
+      {
+        id: 'pmAllowed',
+        header: t('np.pmSetup.pmAllowedColumn'),
+        cell: ({ row }) => <PmAllowedCell runtime={row.original} />,
       },
       {
         accessorKey: 'status',

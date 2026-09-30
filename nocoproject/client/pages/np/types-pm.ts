@@ -61,6 +61,15 @@ export interface PmResolvedContext {
 
 // §5.4 conversations ------------------------------------------------------------------------------------------------
 
+/** §6.3: why an agent cannot be the member's personal project manager (`PM_AGENT_NOT_ELIGIBLE`, `details.reason`). */
+export type PmAgentIneligibleReason =
+  | 'personalDisabled'
+  | 'notManager'
+  | 'archived'
+  | 'notOwner'
+  | 'notPrivate'
+  | 'foreignRuntime';
+
 export type PmAgentSource = 'system' | 'personal' | 'fallback';
 export type PmRuntimeCompat = 'ok' | 'deprecated' | 'upgrade_required';
 
