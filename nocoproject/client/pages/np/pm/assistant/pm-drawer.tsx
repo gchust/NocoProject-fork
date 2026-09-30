@@ -48,6 +48,11 @@ function useWide(): boolean {
  * mounted while closed, so the conversation's subscriptions and a streaming turn carry on.
  */
 export function PmDrawer(): ReactElement | null {
+  const { available } = usePmAssistant();
+  return available ? <PmDrawerFrame /> : null;
+}
+
+function PmDrawerFrame(): ReactElement | null {
   const { t } = useTranslation();
   const assistant = usePmAssistant();
   const mobile = useIsMobile();
@@ -71,7 +76,7 @@ export function PmDrawer(): ReactElement | null {
     return () => element.removeEventListener('keydown', onKeyDown);
   }, [open, mode, setMode, closeAssistant, mounted, mobile]);
 
-  if (!assistant.available || !mounted) return null;
+  if (!mounted) return null;
 
   const body = <PmDrawerBody />;
   if (mobile) {
