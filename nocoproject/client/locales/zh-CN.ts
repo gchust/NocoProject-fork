@@ -477,6 +477,11 @@ const zhCN: AppResource = {
         activeRuns: '活动运行',
         access: '可见范围',
       },
+      grouping: {
+        label: '分组',
+        list: '列表',
+        computer: '按电脑',
+      },
       access: {
         ownerOnly: '仅所有者',
         specificUsers: '指定成员',
@@ -529,7 +534,15 @@ const zhCN: AppResource = {
         key: '凭证',
         state: '状态',
         lastUsed: '最近使用',
+        revokedAt: '吊销时间',
         actions: '操作',
+      },
+      noneValid: '没有有效的凭证',
+      revokedList: '已吊销（{{count}}）',
+      group: {
+        runtimes: '{{count}} 个运行时',
+        agents: '{{count}} 个 Agent',
+        none: '无电脑',
       },
       state: {
         active: '使用中',

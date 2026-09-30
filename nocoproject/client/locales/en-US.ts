@@ -497,6 +497,11 @@ const enUS = {
         activeRuns: 'Active runs',
         access: 'Access',
       },
+      grouping: {
+        label: 'Grouping',
+        list: 'List',
+        computer: 'By computer',
+      },
       access: {
         ownerOnly: 'Only the owner',
         specificUsers: 'Specific people',
@@ -549,7 +554,15 @@ const enUS = {
         key: 'Credential',
         state: 'State',
         lastUsed: 'Last used',
+        revokedAt: 'Revoked',
         actions: 'Actions',
+      },
+      noneValid: 'No valid credentials',
+      revokedList: 'Revoked ({{count}})',
+      group: {
+        runtimes: '{{count}} runtimes',
+        agents: '{{count}} agents',
+        none: 'No computer',
       },
       state: {
         active: 'In use',
