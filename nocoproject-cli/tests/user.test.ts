@@ -126,7 +126,7 @@ describe('requests', () => {
     expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url, keyStorage: 'file' });
     const req = seen[0] as Seen;
     expect(req.headers['x-api-key']).toBe(KEY);
-    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.5.2');
+    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.5.3');
     expect(req.headers.authorization).toBeUndefined();
     expect(r.out + r.err).not.toContain(KEY);
   });
@@ -202,6 +202,14 @@ describe('flag mapping', () => {
     });
     expect(await userCreateBody({ title: 'x', executor: 'none', owner: 'me' }, names())).toEqual({ title: 'x', executor: { type: 'none' }, ownerUserId: 'u1' });
     await expect(userCreateBody({ title: 'x', priority: 'asap' }, names())).rejects.toMatchObject({ code: 'INVALID_PRIORITY' });
+    expect(await userCreateBody({ title: 'x' }, names())).not.toHaveProperty('process');
+  });
+
+  it('passes --process through as given and refuses anything else locally', async () => {
+    for (const process of ['direct', 'design_first', 'auto']) {
+      expect(await userCreateBody({ title: 'x', process }, names())).toEqual({ title: 'x', process });
+    }
+    await expect(userCreateBody({ title: 'x', process: 'Direct' }, names())).rejects.toMatchObject({ code: 'INVALID_PROCESS', exitCode: 5 });
   });
 });
 
@@ -231,6 +239,16 @@ describe('commands', () => {
     expect(r.code).toBe(0);
     expect(JSON.parse(r.out)).toMatchObject({ identifier: 'NP-2' });
     expect(seen.find((s) => s.method === 'POST')?.body).toEqual({ title: 'New', executor: { type: 'agent', id: 'a1' } });
+  });
+
+  it('creates an issue with a process, and refuses an unknown one before any request', async () => {
+    expect((await run(['user', 'create', '--title', 'New', '--process', 'direct', '--json'])).code).toBe(0);
+    expect(seen.find((s) => s.method === 'POST')?.body).toEqual({ title: 'New', process: 'direct' });
+    seen.length = 0;
+    const bad = await run(['user', 'create', '--title', 'New', '--process', 'quick']);
+    expect(bad.code).toBe(5);
+    expect(bad.err).toContain('--process must be one of auto, direct, design_first');
+    expect(seen.some((s) => s.method === 'POST')).toBe(false);
   });
 
   it('comments from a file', async () => {
