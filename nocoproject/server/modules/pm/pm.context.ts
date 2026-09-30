@@ -142,10 +142,10 @@ async function resolveItem(
     case 'project': {
       const row = await conn.query
         .selectFrom('projects')
-        .select(['id', 'name', 'deletedAt'])
+        .select(['id', 'name'])
         .where('id', '=', id)
         .executeTakeFirst();
-      if (!row || row.deletedAt || !(await canSeeProject(conn, viewer, id)))
+      if (!row || !(await canSeeProject(conn, viewer, id)))
         return null;
       return { type, id, identifier: null, title: str(row.name) ?? '' };
     }

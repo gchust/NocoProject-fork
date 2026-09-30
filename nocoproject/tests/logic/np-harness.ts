@@ -1,6 +1,6 @@
 import { AGENT_CAPABILITIES } from '../../server/modules/shared/protocol.capabilities.js';
 import {
-  LATEST_CLI_VERSION,
+  PM_ASSISTANT_MIN_CLI,
   PROTOCOL_VERSION,
 } from '../../server/modules/shared/protocol.ts';
 /**
@@ -336,7 +336,8 @@ export async function registerRuntime(
   const response = await services.runtimes.register(owner.id as string, {
     daemonId,
     deviceName: 'test-device',
-    version: LATEST_CLI_VERSION,
+    // NP-183: new enough for project manager conversation runs (`PM_ASSISTANT_MIN_CLI`).
+    version: PM_ASSISTANT_MIN_CLI,
     protocolVersion: PROTOCOL_VERSION,
     runtimes: [
       {

@@ -24,6 +24,7 @@ import type {
 } from '../shared/protocol.js';
 import {
   PM_DETAIL_TAIL,
+  type PmConversationResponse,
   PM_RUN_EVENTS_MAX,
   type PmRosterAgent,
   type RunEventsResponse,
@@ -31,6 +32,7 @@ import {
 import type { RunEventService } from '../run/run-events.js';
 import type { RunQueries } from '../run/run.queries.js';
 import { roster } from './pm.roster.js';
+import type { ConversationService } from './pm.conversations.js';
 import type { UserDirectory } from '../shared/users.js';
 import type { SettingsService } from '../system/settings.service.js';
 import type { IssueQueries } from '../issue/issue.queries.js';
@@ -62,6 +64,8 @@ export interface PmInboxPage {
 }
 
 export interface PmService {
+  /** The iteration-4 single conversation: the latest unarchived one, created when `create` (`pm.conversations.ts`). */
+  conversation(actor: Actor, create: boolean): Promise<PmConversationResponse>;
   /** The run's asking member with their own access (NP-183), for the other project manager services. */
   asker(auth: RunAuth): Promise<Actor>;
   projects(auth: RunAuth): Promise<ProjectListItem[]>;
@@ -101,6 +105,7 @@ export interface PmDeps {
   readonly roles: () => RoleAssignments;
   readonly runQueries: () => RunQueries;
   readonly runEvents: () => RunEventService;
+  readonly conversations: () => Pick<ConversationService, 'legacy'>;
 }
 
 const RELATIVE_SINCE = /^(\d{1,5})([dhm])$/u;
@@ -165,6 +170,7 @@ export function createPmService(deps: PmDeps): PmService {
   const asking = (auth: RunAuth) => askingMember(deps, auth);
   return {
     asker: asking,
+    conversation: (actor, create) => deps.conversations().legacy(actor, create),
     projects: async (auth) => deps.projects().list(await asking(auth)),
     async issues(auth, query) {
       const actor = await asking(auth);

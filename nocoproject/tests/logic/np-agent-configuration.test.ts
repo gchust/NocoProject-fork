@@ -44,10 +44,15 @@ async function setup(
     capabilities,
     kind: 'coder',
   });
-  await services.settings.write(db.database.connection(), {
-    pmAgentId: agent.id,
-  });
-  const conversation = await services.pm.conversation(ALICE, true);
+  // An ordinary issue the configured agent executes (NP-183: conversations take project manager type agents only,
+  // whose capabilities are fixed). Set directly: the agent may lack issue.execute on purpose.
+  const issue = await services.issues.create(ALICE, { title: 'Configured' });
+  await db.knex
+    .withSchema(db.schema)
+    .table('issues')
+    .where({ id: issue.id })
+    .update({ executor_type: 'agent', executor_id: agent.id });
+  const conversation = { issueId: issue.id };
   await services.comments.create(ALICE, conversation.issueId, {
     content: 'Please split this into subtasks.',
   });
@@ -267,7 +272,14 @@ describe.skipIf(skipped)('configured agent capabilities', () => {
     ).rejects.toMatchObject({ code: 'CAPABILITY_DENIED' });
   });
   it('saves independently selected entry agents and rejects a stale entry version', async () => {
-    const { agent, runtime } = await setup();
+    const { runtime } = await setup();
+    const agent = await services.agents.create(ALICE, {
+      name: 'Project manager',
+      instructions: 'Answer.',
+      runtimeId: runtime.runtimeId,
+      provider: 'echo',
+      kind: 'manager',
+    });
     const other = await services.agents.create(ALICE, {
       name: 'Completion assistant',
       instructions: 'Review',

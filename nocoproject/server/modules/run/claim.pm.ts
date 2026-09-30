@@ -46,7 +46,6 @@ async function askerSummary(
     .innerJoin('projects', 'projects.id', 'projectMembers.projectId')
     .select(['projects.id as id', 'projects.name as name'])
     .where('projectMembers.userId', '=', userId)
-    .where('projects.deletedAt', 'is', null)
     .orderBy('projects.name', 'asc')
     .limit(ASKER_PROJECTS_MAX)
     .execute();

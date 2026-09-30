@@ -135,6 +135,7 @@ export function createIteration4Services(
       roles: input.roles,
       runQueries: () => services.runQueries,
       runEvents: () => services.runEvents,
+      conversations: () => services.pmConversations,
       activity,
       settings,
       issues: () => services.issues,
