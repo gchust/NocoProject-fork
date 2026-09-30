@@ -28,6 +28,13 @@ import {
   transitionRun,
 } from './run.records.js';
 import { markRetrospectiveDone } from './retrospective.js';
+import {
+  acceptsRunInput,
+  currentInputRun,
+  lockRun,
+  requireHandledInputs,
+  runInputs,
+} from './input.js';
 import { upsertSession } from './sessions.js';
 
 export interface TriggerRecordInput {
@@ -51,6 +58,8 @@ export interface EnqueueInput {
   readonly retryOfRunId?: string | null;
   /** A future time makes the run `deferred` until the sweeper promotes it. */
   readonly fireAt?: Date | null;
+  /** Only human comment triggers may join a live run. */
+  readonly appendInput?: boolean;
 }
 
 export interface EnqueueResult {
@@ -65,6 +74,7 @@ export interface RunService {
   /** Only the trigger service calls this (protocol.md §2). Joins the caller's transaction. */
   enqueue(tx: Tx, input: EnqueueInput): Promise<EnqueueResult>;
   get(runId: string): Promise<Run>;
+  currentInputRun: typeof currentInputRun;
   extendLease(runId: string): Promise<Run>;
   start(runId: string, input: DaemonStartRequest): Promise<Run>;
   daemonStatus(runId: string): Promise<DaemonRunStatusResponse>;
@@ -215,10 +225,34 @@ async function enqueue(
     .executeTakeFirst();
   if (!agent) throw notFound('Agent');
   const runtimeId = (agent.runtimeId as string | null) ?? null;
+  if (input.appendInput) {
+    const candidate = await currentInputRun(
+      tx,
+      input.subjectId,
+      input.actorUserId,
+      input.agentId,
+    );
+    if (candidate) {
+      await lockRun(tx.conn, candidate.id);
+      const current = await currentInputRun(
+        tx,
+        input.subjectId,
+        input.actorUserId,
+        input.agentId,
+      );
+      if (current?.id === candidate.id) {
+        await insertTriggers(tx, deps.ids, current.id, input.triggers);
+        tx.emit({ type: 'issue.changed', issueId: input.subjectId });
+        return { runId: current.id, coalesced: true };
+      }
+    }
+  }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const pendingId = await findPendingRunId(tx, input);
     if (pendingId) {
+      await lockRun(tx.conn, pendingId);
+      if ((await findPendingRunId(tx, input)) !== pendingId) continue;
       await insertTriggers(tx, deps.ids, pendingId, input.triggers);
       tx.emit({ type: 'issue.changed', issueId: input.subjectId });
       return { runId: pendingId, coalesced: true };
@@ -278,6 +312,7 @@ async function start(
     if (run.status === 'running') return run;
     const moved = await transitionRun(tx.conn, runId, ['dispatched'], {
       status: 'running',
+      acceptsInput: input.acceptsInput === true,
       startedAt: now(),
       leaseExpiresAt: null,
       providerSessionId: input.providerSessionId ?? run.providerSessionId,
@@ -308,9 +343,17 @@ async function complete(
   input: DaemonCompleteRequest & DaemonReportPhase1Extras,
 ): Promise<Run> {
   return deps.tx.run(async (tx) => {
+    await lockRun(tx.conn, runId);
     const run = await findRun(tx.conn, runId);
     if (!run) throw notFound('Run');
     if (run.status === 'completed') return run;
+    if (run.cancelRequestedAt)
+      throw conflict(
+        'RUN_CANCEL_REQUESTED',
+        'Cancellation must be acknowledged.',
+      );
+    if (await acceptsRunInput(tx.conn, runId))
+      await requireHandledInputs(tx.conn, runId, input.handledInputIds);
     const providerSessionId = input.providerSessionId ?? run.providerSessionId;
     const checkout = checkoutReport(input);
     const moved = await transitionRun(tx.conn, runId, EXECUTING_STATUSES, {
@@ -414,6 +457,7 @@ async function cancelAck(deps: RunServiceDeps, runId: string): Promise<Run> {
 
 export function createRunService(deps: RunServiceDeps): RunService {
   return {
+    currentInputRun,
     enqueue: (tx, input) => enqueue(deps, tx, input),
     get: (runId) => requireRun(deps, runId),
     extendLease: (runId) => extendLease(deps, runId),
@@ -423,6 +467,9 @@ export function createRunService(deps: RunServiceDeps): RunService {
       return {
         status: run.status,
         cancelRequested: run.cancelRequestedAt !== null,
+        ...((await acceptsRunInput(deps.tx.read(), runId))
+          ? { inputs: await runInputs(deps.tx.read(), runId) }
+          : {}),
       };
     },
     complete: (runId, input) => complete(deps, runId, input),

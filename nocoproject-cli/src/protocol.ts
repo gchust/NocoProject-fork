@@ -218,6 +218,8 @@ export interface DaemonClaimResponse {
 }
 
 export interface DaemonStartRequest {
+  /** Opt in to durable comments and same-run continuation. */
+  readonly acceptsInput?: boolean;
   readonly providerSessionId?: string;
   readonly workDir: string;
 }
@@ -227,11 +229,14 @@ export interface DaemonEventsRequest {
 }
 
 export interface DaemonRunStatusResponse {
+  readonly inputs?: readonly ClaimedTriggerComment[];
   readonly status: RunStatus;
   readonly cancelRequested: boolean;
 }
 
 export interface DaemonCompleteRequest {
+  /** Successfully processed input comment IDs; completion is fenced against new input. */
+  readonly handledInputIds?: readonly string[];
   readonly providerSessionId?: string;
   readonly workDir: string;
   readonly summary?: string;
