@@ -152,6 +152,42 @@ describe('iteration 3 brief', () => {
   });
 });
 
+describe('user manual (NP-179)', () => {
+  const MANUAL = { id: 'kd9', slug: 'manual', title: 'NocoProject 使用手册', summary: '手册入口', projectId: null, childCount: 9 };
+  const withManual = (overrides: Parameters<typeof iter3Run>[0] = {}) => iter3Run({ knowledge: [...(iter3Run().knowledge ?? []), MANUAL], ...overrides });
+
+  it('asks an executing agent to sync the manual pages and say so in the delivery', () => {
+    const brief = buildBrief(withManual());
+    expect(brief).toContain('## User manual');
+    expect(brief).toContain('Find the affected pages with `nocoproject kb list --tree`');
+    expect(brief).toContain('set `最后核对：YYYY-MM-DD` in its first line to today');
+    expect(brief).toContain('`手册：已更新 <slug>, <slug>`, or `手册：无影响`');
+    expect(brief).toContain('replying to the triggering thread with `--parent <rootId>`. End it with the `手册：` line (see User manual).');
+    expect(brief.indexOf('## Capture learnings')).toBeLessThan(brief.indexOf('## User manual'));
+    expect(brief.indexOf('## User manual')).toBeLessThan(brief.indexOf('## Workflow'));
+  });
+
+  it('leaves the manual out without a manual root, without knowledge.propose, or in session mode', () => {
+    for (const brief of [
+      buildBrief(iter3Run()),
+      buildBrief(withManual({ agent: { ...iter3Run().agent, capabilities: iter3Run().agent.capabilities?.filter((c) => c !== 'knowledge.propose') } })),
+      buildBrief(withManual({ issue: { ...iter3Run().issue, executionMode: 'session' } })),
+    ]) {
+      expect(brief).not.toContain('## User manual');
+      expect(brief).not.toContain('手册：');
+    }
+  });
+
+  it('has a retrospective run check the manual first when it can propose', () => {
+    const prompt = buildTurnPrompt(withManual({ triggers: [{ type: 'retrospective' }] }), { resumed: false });
+    expect(prompt).toContain('NP-12 entered a done status; this run was triggered for its completion. Follow your task instructions.');
+    expect(prompt).toContain('first check the user manual (`manual` subtree, `nocoproject kb list --tree`)');
+    const plain = buildTurnPrompt(iter3Run({ triggers: [{ type: 'retrospective' }] }), { resumed: false });
+    expect(plain).toContain('entered a done status');
+    expect(plain).not.toContain('user manual');
+  });
+});
+
 describe('turn prompt', () => {
   it('renders a mention turn', () => {
     expect(buildTurnPrompt(claimedRun(), { resumed: false })).toMatchSnapshot();

@@ -1,7 +1,8 @@
 /**
  * Knowledge-base sections of the runtime brief (iteration 3 §I): the `kb` commands, `## Knowledge`
- * (the documents from the claim's `knowledge` index and how to read them) and `## Capture learnings`
- * (propose, never edit; at most 3 proposals per run). Pure string builders.
+ * (the documents from the claim's `knowledge` index and how to read them), `## Capture learnings`
+ * (propose, never edit; at most 3 proposals per run) and `## User manual` (NP-179: keep the
+ * `manual` subtree in step with user-visible changes). Pure string builders.
  */
 import { type ClaimedRunV1, knowledgeOf } from '../run-context.js';
 
@@ -61,5 +62,27 @@ export function captureLearningsSection(): string[] {
     '- Do not edit knowledge documents directly, and do not write them into the repository instead. A proposal goes to the project lead, who accepts or rejects it; an accepted one becomes the next version.',
     `- Propose at most ${KB_PROPOSALS_PER_RUN} per run, and only durable, reusable knowledge, not a log of this task. If you learned nothing new, skip this.`,
     '- Each document takes one pending proposal per run; a second one is refused with `KNOWLEDGE_PROPOSAL_PENDING`, so put everything for that document into one proposal.',
+  ];
+}
+
+/** NP-179: the root slug of the user manual; its pages are `manual-*`. */
+export const MANUAL_ROOT_SLUG = 'manual';
+
+/** The run can see the user manual (its root is in the knowledge index). */
+export function hasUserManual(input: Partial<KnowledgeBriefInput>): boolean {
+  return knowledgeOf({ knowledge: input.knowledge ?? [] }).some((doc) => doc.slug === MANUAL_ROOT_SLUG);
+}
+
+/** `## User manual`: a user-visible change proposes the affected `manual-*` pages; the delivery says which. */
+export function userManualSection(input: KnowledgeBriefInput): string[] {
+  if (!hasUserManual(input)) return [];
+  return [
+    '## User manual',
+    '',
+    `The knowledge base holds the NocoProject user manual (root \`${MANUAL_ROOT_SLUG}\`, pages \`manual-*\`). It is part of delivery: if your change alters what NocoProject users see or do (screens, flows, permissions, CLI commands), before you deliver:`,
+    '',
+    '1. Find the affected pages with `nocoproject kb list --tree` and read each with `nocoproject kb get <slug>`.',
+    '2. Propose each updated page with `nocoproject kb propose --doc <slug> --content-file ./kb.md --reason "..." --json` (the whole page), and set `最后核对：YYYY-MM-DD` in its first line to today.',
+    '3. End your delivery comment with one line: `手册：已更新 <slug>, <slug>`, or `手册：无影响` when nothing users see changed.',
   ];
 }
