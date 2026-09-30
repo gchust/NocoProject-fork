@@ -7,7 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ClaimedRunV1, designPendingOf, executionModeOf } from '../run-context.js';
 import { repositoriesSection, skillsSection, projectSection, workflowSection, conversationModeSection, subIssuesSection, parentCoordinationSection } from './brief-sections.js';
-import { knowledgeSection, captureLearningsSection } from './brief-knowledge.js';
+import { knowledgeSection, captureLearningsSection, hasUserManual, MANUAL_ROOT_SLUG, userManualSection } from './brief-knowledge.js';
 import { approvedProposalLines, DESIGN_APPROVED_OPENING, designFirstSection, hasTrigger } from './brief-iter4.js';
 import { stageEnteredLines, stageChecklistSection, workflowTemplatesSection } from './brief-workflow.js';
 import { signalLines } from './brief-signal.js';
@@ -23,6 +23,7 @@ export function buildBrief(input: BriefInput): string {
   if (input.issue.conversation) return [BRIEF_BEGIN, ...pmBriefSections(input), BRIEF_END].join('\n');
   const key = input.issue.identifier || input.issue.id;
   const executing = permits(input, 'issue.execute') && executionModeOf(input) !== 'session';
+  const manual = executing && permits(input, 'knowledge.propose') && hasUserManual(input);
   const commands = input.agent.commandDescriptions ?? (input.agent.capabilities ?? []).flatMap(c => AGENT_COMMANDS[c] ?? []);
   return [BRIEF_BEGIN, '# NocoProject Agent Runtime', '',
     `You are **${input.agent.name}** (agent id \`${input.agent.id}\`).`,
@@ -39,7 +40,8 @@ export function buildBrief(input: BriefInput): string {
     ...(permits(input, 'issue.execute') ? repositoriesSection(input) : []),
     ...(permits(input, 'subtask.create') ? [...subIssuesSection(input), ...parentCoordinationSection(key)] : []),
     ...(permits(input, 'knowledge.propose') ? captureLearningsSection() : []),
-    ...(executing && permits(input, 'issue.status.write') && !designPendingOf(input) ? workflowSection(input) : []),
+    ...(manual ? userManualSection(input) : []),
+    ...(executing && permits(input, 'issue.status.write') && !designPendingOf(input) ? workflowSection(input, { manual }) : []),
     ...(permits(input, 'checklist.write') ? stageChecklistSection(input) : []),
     ...(permits(input, 'workflow.propose') ? workflowTemplatesSection() : []),
     ...(executing && permits(input, 'design.propose') ? designFirstSection(input) : []),
@@ -66,7 +68,7 @@ export function writeBrief(workDir: string, fileName: string, block: string): st
   return path;
 }
 
-export type PromptInput = Pick<ClaimedRunV1, 'run' | 'issue' | 'triggers' | 'agent'>;
+export type PromptInput = Pick<ClaimedRunV1, 'run' | 'issue' | 'triggers' | 'agent'> & Partial<Pick<ClaimedRunV1, 'knowledge'>>;
 
 function quote(text: string): string {
   return text
@@ -85,6 +87,18 @@ const TRIGGER_NOTES: Record<string, (key: string) => string> = {
     `A batch of ${key}'s sub-issues has finished. Review them with \`nocoproject issue children ${key} --json\` and continue as described under "Parent coordination".`,
   proposalAccepted: () => 'The owner accepted the proposal to make you the executor of this issue.',
 };
+
+/**
+ * NP-179: a `retrospective` run gets its role from the completion entry's task instructions (NP-125); this only
+ * says what triggered it and, when the run can propose and sees the user manual, to check the manual first.
+ */
+function retrospectiveLines(input: PromptInput): string[] {
+  const key = input.issue.identifier;
+  const lines = [`${key} entered a done status; this run was triggered for its completion. Follow your task instructions.`];
+  if (input.agent.capabilities?.includes('knowledge.propose') && hasUserManual(input))
+    lines.push(`If you suggest knowledge updates, first check the user manual (\`${MANUAL_ROOT_SLUG}\` subtree, \`nocoproject kb list --tree\`): propose updates to the \`manual-*\` pages that ${key} made outdated before any other document.`);
+  return lines;
+}
 
 function parentLine(input: PromptInput): string[] {
   const parent = input.issue.parent;
@@ -148,6 +162,8 @@ export function buildTurnPrompt(input: PromptInput, opts: { readonly resumed: bo
       lines.push(...stageEnteredLines(trigger, quote));
     } else if (trigger.type === 'signal') {
       lines.push(...signalLines(trigger, quote));
+    } else if (trigger.type === 'retrospective') {
+      lines.push(...retrospectiveLines(input));
     } else {
       const note = TRIGGER_NOTES[trigger.type];
       if (note) lines.push(note(key));
