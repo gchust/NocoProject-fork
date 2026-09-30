@@ -173,8 +173,15 @@ export function PmAssistantProvider({
   }, []);
 
   const focusComposer = useCallback(() => {
-    if (composerFocusRef.current) composerFocusRef.current();
-    else focusWantedRef.current = true;
+    focusWantedRef.current = true;
+    if (composerFocusRef.current) {
+      composerFocusRef.current();
+      // A new conversation remounts the composer in this same update (NP-201): the one just focused is about to go
+      // away, so the next one to register takes the focus. Only for this turn of the event loop.
+      window.setTimeout(() => {
+        focusWantedRef.current = false;
+      }, 0);
+    }
   }, []);
 
   const registerComposer = useCallback((focus: () => void) => {
