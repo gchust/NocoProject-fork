@@ -7,7 +7,10 @@ import { createHmac } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { combineCiStates } from '../../server/modules/git/github-client.ts';
+import {
+  ciStateOfCheckSuite,
+  combineCiStates,
+} from '../../server/modules/git/github-client.ts';
 import {
   matchIssueIdentifiers,
   parsePullRequestUrl,
@@ -94,5 +97,36 @@ describe('link rules and URLs (pure)', () => {
     expect(combineCiStates([null, 'success', 'pending'])).toBe('pending');
     expect(combineCiStates(['success', 'failure'])).toBe('failure');
     expect(combineCiStates([null])).toBeNull();
+  });
+
+  it('ignores check suites without check runs (NP-195)', () => {
+    // A GitHub App's empty suite stays queued forever; GitHub's own pages skip it.
+    expect(
+      ciStateOfCheckSuite({
+        status: 'queued',
+        conclusion: null,
+        latest_check_runs_count: 0,
+      }),
+    ).toBeNull();
+    for (const status of ['queued', 'in_progress'])
+      expect(
+        ciStateOfCheckSuite({
+          status,
+          conclusion: null,
+          latest_check_runs_count: 1,
+        }),
+      ).toBe('pending');
+    // Without the count (older payloads) the suite still counts.
+    expect(ciStateOfCheckSuite({ status: 'queued', conclusion: null })).toBe(
+      'pending',
+    );
+    expect(
+      ciStateOfCheckSuite({
+        status: 'completed',
+        conclusion: 'success',
+        latest_check_runs_count: 2,
+      }),
+    ).toBe('success');
+    expect(ciStateOfCheckSuite(undefined)).toBeNull();
   });
 });

@@ -229,6 +229,18 @@ describe.skipIf(!db)('GitHub webhook (PostgreSQL)', () => {
       },
     });
     expect((await linked(one.id))[0]?.ciState).toBe('failure');
+    // A suite without check runs is no CI (NP-195): it changes nothing.
+    await send('check_suite', {
+      action: 'completed',
+      repository: { full_name: 'acme/app' },
+      check_suite: {
+        head_sha: 'sha9',
+        status: 'completed',
+        conclusion: 'success',
+        latest_check_runs_count: 0,
+      },
+    });
+    expect((await linked(one.id))[0]?.ciState).toBe('failure');
     await send('status', {
       repository: { full_name: 'acme/app' },
       sha: 'sha9',

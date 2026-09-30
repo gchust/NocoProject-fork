@@ -179,3 +179,65 @@ describe('fetch GitHub client: merge and CI runs', () => {
     });
   });
 });
+
+describe('fetch GitHub client: CI state', () => {
+  const statusUrl = (sha: string) =>
+    `https://api.github.com/repos/acme/app/commits/${sha}/status`;
+  const suitesUrl = (sha: string) =>
+    `https://api.github.com/repos/acme/app/commits/${sha}/check-suites`;
+  const noStatus = { body: { state: 'pending', total_count: 0 } };
+  const emptySuite = {
+    app: { slug: 'nocobase' },
+    status: 'queued',
+    conclusion: null,
+    latest_check_runs_count: 0,
+  };
+
+  it('skips an empty queued suite next to a passed one (PR #83, NP-195)', async () => {
+    const { client } = fakeFetch({
+      [statusUrl('pr83')]: noStatus,
+      [suitesUrl('pr83')]: {
+        body: {
+          check_suites: [
+            {
+              app: { slug: 'github-actions' },
+              status: 'completed',
+              conclusion: 'success',
+              latest_check_runs_count: 2,
+            },
+            emptySuite,
+          ],
+        },
+      },
+    });
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'pr83'),
+    ).resolves.toBe('success');
+  });
+
+  it('still waits for a queued or running suite with runs, and answers null with only empty suites', async () => {
+    const { client } = fakeFetch({
+      [statusUrl('running')]: noStatus,
+      [suitesUrl('running')]: {
+        body: {
+          check_suites: [
+            {
+              status: 'in_progress',
+              conclusion: null,
+              latest_check_runs_count: 2,
+            },
+            emptySuite,
+          ],
+        },
+      },
+      [statusUrl('empty')]: noStatus,
+      [suitesUrl('empty')]: { body: { check_suites: [emptySuite] } },
+    });
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'running'),
+    ).resolves.toBe('pending');
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'empty'),
+    ).resolves.toBeNull();
+  });
+});

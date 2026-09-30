@@ -30,6 +30,7 @@ import {
   ciStateOfCheckSuite,
   ciStateOfStatus,
   snapshotFromPayload,
+  type CheckSuiteFields,
   type GitHubClient,
   type GitHubPullRequestPayload,
 } from './github-client.js';
@@ -250,15 +251,14 @@ async function dispatch(
       return handlePullRequest(deps, tx, payload, connectionId);
     case 'check_suite': {
       const suite = payload.check_suite as
-        | { head_sha?: string; status?: unknown; conclusion?: unknown }
-        | undefined;
+        (CheckSuiteFields & { head_sha?: string }) | undefined;
       if (payload.action !== 'completed') return false;
       return updateCi(
         deps,
         tx,
         repo,
         suite?.head_sha,
-        ciStateOfCheckSuite(suite?.status, suite?.conclusion),
+        ciStateOfCheckSuite(suite),
       );
     }
     case 'status':
