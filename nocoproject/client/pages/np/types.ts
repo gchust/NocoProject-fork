@@ -114,6 +114,10 @@ export interface Me {
 /** `GET /np/me/preferences` (NP-108): the viewer's own preferences, kept with the account. */
 export interface MemberPreferences {
   readonly inboxChime: boolean;
+  /** NP-183: ask before every operation plan runs, even the ones that could run without asking. */
+  readonly pmConfirmAll?: boolean;
+  /** Sent with `pmConfirmAll` (optimistic concurrency); answered by the server. */
+  readonly revision?: number;
 }
 
 export interface Project {
@@ -286,6 +290,8 @@ export interface AgentListItem extends AgentConfiguration {
   readonly description?: string | null;
   readonly ownerUserId?: string | null;
   readonly instructions?: string | null;
+  /** NP-183: "what it is good at", at most 200 characters; the project manager reads it when choosing an agent. */
+  readonly summary?: string | null;
   readonly runtimeId: string | null;
   readonly runtimeName?: string | null;
   /** Either field may carry the runtime's state; `isRuntimeOnline` reads both. */
@@ -327,6 +333,8 @@ export interface Runtime {
   readonly ownerUserId?: string | null;
   readonly ownerName?: string | null;
   readonly visibility?: 'private' | 'public';
+  /** NP-183: a public runtime may run members' personal project managers. */
+  readonly pmAllowed?: boolean;
   /** `upgrade_required` (NP-150): the daemon is alive but must be upgraded before it runs agents. */
   readonly status: 'online' | 'offline' | 'upgrade_required';
   readonly lastSeenAt: string | null;
@@ -421,6 +429,7 @@ export interface CreateCommentResult {
 export interface CreateAgentInput extends AgentConfiguration {
   readonly name: string;
   readonly description?: string;
+  readonly summary?: string;
   readonly instructions: string;
   readonly runtimeId: string;
   readonly provider: string;
@@ -436,6 +445,7 @@ export interface CreateAgentInput extends AgentConfiguration {
 export interface UpdateAgentInput extends AgentConfiguration {
   readonly name?: string;
   readonly description?: string | null;
+  readonly summary?: string | null;
   readonly instructions?: string;
   readonly runtimeId?: string;
   readonly provider?: string;

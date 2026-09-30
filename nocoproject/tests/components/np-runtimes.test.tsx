@@ -31,6 +31,10 @@ const runtime = (
 });
 
 // The page subscribes to `np:agents`; the realtime client is not part of this test.
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@/components/ui/toast', () => ({ toast: { add: vi.fn() } }));
 vi.mock('../../client/pages/np/use-realtime.js', () => ({
   useRealtimeTopic: () => undefined,

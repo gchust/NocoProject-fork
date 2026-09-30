@@ -1,7 +1,12 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery } from '@tanstack/react-query';
-import { Field, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -62,6 +67,26 @@ export function PmSettingsFields({
                 onCheckedChange={(enabled) => change({ enabled })}
               />
             </Field>
+            {key === 'conversation' ? (
+              <Field orientation='horizontal'>
+                <FieldContent>
+                  <FieldLabel htmlFor='np-entry-conversation-allow-personal'>
+                    {t('np.pmSetup.allowPersonal')}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t('np.pmSetup.allowPersonalHint')}
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id='np-entry-conversation-allow-personal'
+                  checked={
+                    draft.agentEntries.conversation.allowPersonal === true
+                  }
+                  disabled={!canEdit}
+                  onCheckedChange={(allowPersonal) => change({ allowPersonal })}
+                />
+              </Field>
+            ) : null}
             <Field>
               <FieldLabel htmlFor={`np-entry-${key}-name`}>
                 {t('np.entries.name')}

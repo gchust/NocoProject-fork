@@ -1,5 +1,8 @@
 import { CapabilityFields } from '../capability-fields.js';
-import type { AgentCapability } from '../../agent-capabilities.js';
+import {
+  type AgentCapability,
+  PM_CAPABILITIES,
+} from '../../agent-capabilities.js';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +41,10 @@ import type {
 } from '../../types.js';
 import type { AgentKind, ReasoningEffort } from '../../types-iter4.js';
 import { AgentKindFields } from '../agent-kind-fields.js';
+import { SummaryField } from '../summary-field.js';
+
+/** `AGENT_SUMMARY_MAX` of the contract (§7.2), counted in characters like the server does. */
+const AGENT_SUMMARY_MAX = 200;
 
 const ACCESS_LEVELS: readonly AgentAccessLevel[] = [
   'ownerOnly',
@@ -49,6 +56,7 @@ interface Draft {
   readonly capabilities: readonly AgentCapability[];
   readonly name: string;
   readonly description: string;
+  readonly summary: string;
   readonly instructions: string;
   readonly model: string;
   readonly maxConcurrentRuns: string;
@@ -62,9 +70,13 @@ interface Draft {
 
 function draftOf(agent: AgentListItem): Draft {
   return {
-    capabilities: agent.capabilities ?? [],
+    capabilities:
+      agentKind(agent) === 'manager'
+        ? PM_CAPABILITIES
+        : (agent.capabilities ?? []),
     name: agent.name,
     description: agent.description ?? '',
+    summary: agent.summary ?? '',
     instructions: agent.instructions ?? '',
     model: agent.model ?? '',
     maxConcurrentRuns: String(agent.maxConcurrentRuns ?? 1),
@@ -80,7 +92,7 @@ function draftOf(agent: AgentListItem): Draft {
 }
 
 type FieldName =
-  'name' | 'instructions' | 'maxConcurrentRuns' | 'accessUserIds';
+  'name' | 'summary' | 'instructions' | 'maxConcurrentRuns' | 'accessUserIds';
 
 /**
  * The agent's settings (§J 5, §H): identity, instructions, model, concurrency, runtime (only runtimes of the same
@@ -127,7 +139,10 @@ export function AgentForm({
           : error instanceof ApiClientError &&
               error.code === 'PROVIDER_MISMATCH'
             ? t('np.agentDetail.providerMismatch')
-            : t('np.common.requestFailed'),
+            : error instanceof ApiClientError &&
+                error.code === 'INVALID_SUMMARY'
+              ? t('np.pmSetup.summaryInvalid', { max: AGENT_SUMMARY_MAX })
+              : t('np.common.requestFailed'),
       ),
   });
 
@@ -135,6 +150,10 @@ export function AgentForm({
     event.preventDefault();
     const found: Partial<Record<FieldName, string>> = {};
     if (!draft.name.trim()) found.name = t('np.agentForm.nameRequired');
+    if ([...draft.summary].length > AGENT_SUMMARY_MAX)
+      found.summary = t('np.pmSetup.summaryInvalid', {
+        max: AGENT_SUMMARY_MAX,
+      });
     if (!draft.instructions.trim())
       found.instructions = t('np.agentForm.instructionsRequired');
     const max = Number(draft.maxConcurrentRuns);
@@ -152,6 +171,7 @@ export function AgentForm({
       capabilities: draft.capabilities,
       name: draft.name.trim(),
       description: draft.description.trim() || null,
+      summary: draft.summary.trim() || null,
       instructions: draft.instructions.trim(),
       model: draft.model.trim() || null,
       maxConcurrentRuns: max,
@@ -177,6 +197,7 @@ export function AgentForm({
           value={draft.capabilities}
           instructions={draft.instructions}
           disabled={disabled}
+          fixed={agentKind(agent) === 'manager'}
           onChange={(capabilities) => set('capabilities', capabilities)}
         />
         {formError ? (
@@ -217,6 +238,13 @@ export function AgentForm({
             onChange={(event) => set('description', event.target.value)}
           />
         </Field>
+        <SummaryField
+          id='np-agent-edit-summary'
+          value={draft.summary}
+          error={errors.summary}
+          disabled={disabled}
+          onChange={(value) => set('summary', value)}
+        />
         <Field data-invalid={errors.instructions ? true : undefined}>
           <FieldLabel htmlFor='np-agent-edit-instructions'>
             {t('np.agentForm.instructions')}

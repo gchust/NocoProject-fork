@@ -291,7 +291,8 @@ export interface IntakeConfirmInput {
 
 // ---------- §I usage and settings ----------
 
-export type UsageGroupBy = 'agent' | 'issue' | 'project' | 'day' | 'model';
+export type UsageGroupBy =
+  'agent' | 'issue' | 'project' | 'day' | 'model' | 'actor' | 'conversation';
 
 export interface UsageRow {
   readonly key: string;
