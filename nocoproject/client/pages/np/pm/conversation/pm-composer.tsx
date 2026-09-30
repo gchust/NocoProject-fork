@@ -283,7 +283,9 @@ export function PmComposer({
         className='max-h-48 min-h-20 resize-none'
         placeholder={t('np.pmAssistant.composer.placeholder')}
         aria-invalid={tooLong ? true : undefined}
-        disabled={pending}
+        // Read-only rather than disabled while sending, so the focus stays in the box (and in the drawer).
+        readOnly={pending}
+        aria-busy={pending || undefined}
         onChange={(event) => setContent(event.target.value)}
         onKeyDown={(event) => {
           if (isSubmitEnter(event.nativeEvent)) {

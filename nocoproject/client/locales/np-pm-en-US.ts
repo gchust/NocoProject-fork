@@ -194,6 +194,7 @@ const npPmEnUS = {
         ownerUserId: 'Owner',
         process: 'Process',
         projectId: 'Project',
+        parent: 'Parent',
         blockedBy: 'Depends on',
         startDate: 'Start',
         dueDate: 'Due',

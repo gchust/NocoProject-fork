@@ -27,6 +27,10 @@ import {
   updateChanges,
 } from './pm-plan-model.js';
 import { type PlanLookup, usePlanValueText } from './pm-plan-values.js';
+import { useApiClient } from '@nocobase/app-client';
+import { useQuery } from '@tanstack/react-query';
+import { fetchIssueDetail } from '../../api.js';
+import { npKeys } from '../../constants.js';
 
 const FLAG_TONE: Readonly<Record<PmPlanRowFlag, 'amber' | 'red' | 'violet'>> = {
   startsRun: 'violet',
@@ -312,6 +316,11 @@ function RowDetails({
   switch (view.row.type) {
     case 'issue.create': {
       const blockedBy = Array.isArray(params.blockedBy) ? params.blockedBy : [];
+      // A parent row of the plan shows as the tree; an existing parent issue is named here.
+      const parentIssue =
+        isIssueRef(params.parent) && 'issue' in params.parent
+          ? params.parent.issue
+          : null;
       return (
         <dl className='space-y-0.5'>
           {CREATE_FIELDS.filter((field) => params[field] !== undefined).map(
@@ -324,6 +333,11 @@ function RowDetails({
               </Line>
             ),
           )}
+          {parentIssue ? (
+            <Line label={t('np.pmAssistant.plan.fields.parent')}>
+              <ExistingIssue issue={parentIssue} />
+            </Line>
+          ) : null}
           {blockedBy.length > 0 ? (
             <Line label={t('np.pmAssistant.plan.fields.blockedBy')}>
               {blockedBy
@@ -416,4 +430,26 @@ function RowDetails({
     default:
       return null;
   }
+}
+
+/** An existing issue a row points at, as "NP-6 Title" once its detail is read (the cached issue detail). */
+function ExistingIssue({ issue }: { readonly issue: string }): ReactElement {
+  const api = useApiClient();
+  const detail = useQuery({
+    queryKey: npKeys.issue(issue),
+    queryFn: ({ signal }) => fetchIssueDetail(api, issue, signal),
+    retry: false,
+    staleTime: 30_000,
+  });
+  const found = detail.data?.issue;
+  return found ? (
+    <Link
+      to={`/issues/${encodeURIComponent(found.id)}`}
+      className='hover:underline'
+    >
+      {found.identifier ? `${found.identifier} ${found.title}` : found.title}
+    </Link>
+  ) : (
+    <span className='font-mono'>{issue}</span>
+  );
 }

@@ -42,7 +42,6 @@ export default function PmConversationPage(): ReactElement {
       />
       <div className='min-h-0 flex-1'>
         <PmConversationView
-          key={id ?? 'new'}
           conversationId={id}
           onConversation={(created) =>
             void navigate(`/pm/${encodeURIComponent(created)}`, {

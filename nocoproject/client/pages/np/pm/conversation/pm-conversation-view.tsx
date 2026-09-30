@@ -44,6 +44,10 @@ export function PmConversationView({
   const { t } = useTranslation();
   const detail = usePmConversationDetail(conversationId);
   const issue = usePmConversationIssue(detail.data?.issueId, conversationId);
+  // A conversation its first message just created here keeps the same body (no skeleton, no remount), so the
+  // composer keeps its focus and the message appears in place.
+  const [created, setCreated] = useState<string | null>(null);
+  const continuing = conversationId !== null && created === conversationId;
 
   if (conversationId && detail.isError && !detail.data) {
     const gone =
@@ -68,7 +72,11 @@ export function PmConversationView({
       />
     );
   }
-  if (conversationId && (!detail.data || (!issue.data && !issue.isError))) {
+  if (
+    conversationId &&
+    !continuing &&
+    (!detail.data || (!issue.data && !issue.isError))
+  ) {
     return <NpDetailSkeleton />;
   }
   if (issue.isError && !issue.data) {
@@ -82,10 +90,13 @@ export function PmConversationView({
   }
   return (
     <PmConversationBody
-      key={conversationId ?? 'new'}
+      key={continuing ? 'new' : (conversationId ?? 'new')}
       conversation={detail.data ?? null}
       issue={issue.data ?? null}
-      onConversation={onConversation}
+      onConversation={(id) => {
+        setCreated(id);
+        onConversation(id);
+      }}
       className={className}
     />
   );

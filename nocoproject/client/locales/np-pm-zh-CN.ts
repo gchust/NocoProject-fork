@@ -184,6 +184,7 @@ const npPmZhCN: NpPmResource = {
         ownerUserId: '负责人',
         process: '流程',
         projectId: '项目',
+        parent: '上级任务',
         blockedBy: '依赖',
         startDate: '开始',
         dueDate: '截止',
