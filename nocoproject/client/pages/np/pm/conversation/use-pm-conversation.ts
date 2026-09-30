@@ -28,6 +28,15 @@ function notRetriedOnClientErrors(count: number, error: unknown): boolean {
   return !(error instanceof ApiClientError && error.status < 500) && count < 2;
 }
 
+/**
+ * The application's query client keeps the previous key's data as placeholder for every query, and a disabled query
+ * (no conversation yet) shows it too: after "New conversation" the drawer kept showing the conversation it had just
+ * left (NP-201). A conversation's data must never stand in for another one, or for none.
+ */
+function noPlaceholder(): undefined {
+  return undefined;
+}
+
 export function usePmConversationDetail(conversationId: string | null) {
   const api = useApiClient();
   return useQuery({
@@ -35,6 +44,7 @@ export function usePmConversationDetail(conversationId: string | null) {
     queryFn: ({ signal }) =>
       fetchPmConversation(api, conversationId ?? '', signal),
     enabled: conversationId !== null,
+    placeholderData: noPlaceholder,
     retry: notRetriedOnClientErrors,
   });
 }
@@ -62,6 +72,7 @@ export function usePmConversationIssue(
     queryKey: npKeys.issue(issueId ?? ''),
     queryFn: ({ signal }) => fetchIssueDetail(api, issueId ?? '', signal),
     enabled: Boolean(issueId),
+    placeholderData: noPlaceholder,
     refetchInterval: (query) => detailRefetchInterval(query.state.data),
     retry: notRetriedOnClientErrors,
   });
