@@ -212,7 +212,8 @@ nocoproject user inbox [--kind decision|info] [--all] [--cursor c] [--json]
                                                     # GET /np/inbox (resolved=false unless --all)
 nocoproject user create --title T [--description-file F | --description D] [--project <name|id>] [--label a,b] \
   [--executor <agent name|id>|none] [--owner me|<userId>] [--priority p] [--status key] [--parent NP-1] \
-  [--blocked-by NP-2,NP-3] [--json]                 # POST /np/issues (owner defaults to you on the server)
+  [--blocked-by NP-2,NP-3] [--process direct|design_first|auto] [--json]
+                                                    # POST /np/issues (owner defaults to you on the server)
 nocoproject user comment <NP-12> (--content-file F | --content T) [--parent <commentId>] [--json]
                                                     # POST /np/issues/:id/comments
 nocoproject user status <NP-12> <statusKey> [--json]
@@ -239,6 +240,12 @@ nocoproject user skill install [--claude] [--codex] [--force] [--json]
   agent": it has their permissions, the run's asker is them, and the activity shows it came from the CLI. Agents
   dispatched by NocoProject cannot take this path (see the refusal above), so delegation lists and approvals still hold
   for them.
+- **`create --process`** (NP-196) fixes the issue's process at creation, so the first run already gets the right
+  context (a later `PATCH { process }` can be too late: the run may have started). `direct` is for small changes with
+  clear bounds that can be done right away; `design_first` for work that needs an agreed proposal first (the agent
+  moves it to `analysis` and writes a design proposal); `auto` asks the server's classifier. Without the flag the body
+  has no `process` and the workspace default (`settings.defaultProcess`) applies. Any other value exits 5
+  `INVALID_PROCESS` before a request is sent.
 - Names (`--project`, `--label`, `--executor`) match an id first, then a case-insensitive name; no match exits 4
   `NAME_NOT_FOUND`, several exit 5 `AMBIGUOUS_NAME` — nothing is guessed. `--owner me` / the default "mine" use
   `GET /np/me`. Labels are workspace-wide.
