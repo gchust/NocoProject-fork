@@ -7,6 +7,7 @@ import { AlertCircleIcon } from 'lucide-react';
 import { type FormEvent, type ReactElement, useRef, useState } from 'react';
 import { Link } from 'react-router';
 
+import { NpOnlineState } from '@/components/np-badges';
 import { RouteDialog } from '@/components/route-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -228,14 +229,15 @@ function NewAgentBody({
             <SelectContent>
               {(runtimes.data ?? []).map((item) => (
                 <SelectItem key={item.id} value={item.id}>
-                  <span className='flex min-w-0 items-center gap-2'>
+                  <span className='flex min-w-0 flex-1 items-center gap-2'>
                     <span className='truncate'>{item.name}</span>
                     <span className='text-xs text-muted-foreground'>
-                      {item.provider} ·{' '}
-                      {item.status === 'online'
-                        ? t('np.common.online')
-                        : t('np.common.offline')}
+                      {item.provider}
                     </span>
+                    <NpOnlineState
+                      online={item.status === 'online'}
+                      className='ml-auto'
+                    />
                   </span>
                 </SelectItem>
               ))}

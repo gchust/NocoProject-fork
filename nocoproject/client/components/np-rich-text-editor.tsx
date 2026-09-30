@@ -35,6 +35,7 @@ import {
   isNewLineEnter,
   isSubmitEnter,
 } from '@/components/np-shortcut-keys';
+import { NpOnlineState } from '@/components/np-badges';
 import { cn } from '@/lib/utils';
 import { findMentionQuery } from '@/pages/np/issues/mentions';
 
@@ -48,8 +49,8 @@ export interface NpMentionCandidate {
   readonly kind: NpMentionKind;
   readonly id: string;
   readonly name: string;
-  /** A short note beside the name (an agent's online state). */
-  readonly hint?: string;
+  /** An agent's runtime state, shown beside its name as the online/offline tag. */
+  readonly online?: boolean;
 }
 
 export interface NpRichTextHandle {
@@ -388,11 +389,19 @@ export function NpRichTextEditor({
                     className='size-3.5 text-muted-foreground'
                     aria-hidden='true'
                   />
-                  <span className='truncate'>{candidate.name}</span>
-                  {candidate.hint ? (
-                    <span className='ml-auto text-xs text-muted-foreground'>
-                      {candidate.hint}
-                    </span>
+                  <span
+                    className={cn(
+                      'truncate',
+                      candidate.online === false && 'text-muted-foreground',
+                    )}
+                  >
+                    {candidate.name}
+                  </span>
+                  {candidate.online !== undefined ? (
+                    <NpOnlineState
+                      online={candidate.online}
+                      className='ml-auto'
+                    />
                   ) : null}
                 </div>
               );

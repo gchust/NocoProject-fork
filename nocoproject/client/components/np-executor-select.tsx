@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NpActorAvatar } from '@/components/np-actor-avatar';
+import { NpOnlineState } from '@/components/np-badges';
 import { cn } from '@/lib/utils';
 import { executorCandidates } from '@/pages/np/api-iter4';
 import { isRuntimeOnline } from '@/pages/np/constants';
@@ -147,24 +148,33 @@ export function NpExecutorSelect({
               key={item.value}
               value={item.value}
               disabled={blocked}
-              className='[&>span:first-child]:min-w-0 [&>span:first-child]:shrink'
+              className='[&>span:first-child]:min-w-0 [&>span:first-child]:shrink [&>span:first-child]:grow'
             >
               {agent ? (
-                <span className='flex min-w-0 items-center gap-2'>
+                <span className='flex min-w-0 flex-1 items-center gap-2'>
                   <BotIcon
                     className='size-3.5 text-muted-foreground'
                     aria-hidden='true'
                   />
-                  <span className='truncate' title={item.label}>
+                  <span
+                    className={cn(
+                      'truncate',
+                      !isRuntimeOnline(agent) && 'text-muted-foreground',
+                    )}
+                    title={item.label}
+                  >
                     {item.label}
                   </span>
-                  <span className='shrink-0 text-xs text-muted-foreground'>
-                    {agent.canInvoke === false
-                      ? t('np.executor.noAccess')
-                      : isRuntimeOnline(agent)
-                        ? t('np.common.online')
-                        : t('np.common.offline')}
-                  </span>
+                  {agent.canInvoke === false ? (
+                    <span className='shrink-0 text-xs text-muted-foreground'>
+                      {t('np.executor.noAccess')}
+                    </span>
+                  ) : (
+                    <NpOnlineState
+                      online={isRuntimeOnline(agent)}
+                      className='ml-auto'
+                    />
+                  )}
                 </span>
               ) : person ? (
                 <span className='flex min-w-0 items-center gap-2'>
