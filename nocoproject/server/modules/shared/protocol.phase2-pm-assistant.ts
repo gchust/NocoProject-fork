@@ -14,6 +14,7 @@ import type {
 import type { AgentCapability } from './protocol.capabilities.js';
 import type { RunTriggerTypeV6 } from './protocol.phase2-signals.js';
 import type { IssuePriority, MemberRole } from './protocol.js';
+import type { UsageGroupBy } from './protocol.phase1-iter2.js';
 
 // ---------- Identity (§2) ----------
 
@@ -425,6 +426,28 @@ export interface PmAgentCopyRequest {
   readonly reasoningEffort?: ReasoningEffort | null;
   readonly name?: string;
 }
+
+/** `GET /np/runtimes` rows gain `pmAllowed`; `PATCH /np/runtimes/:id { pmAllowed }` (owner / admin). */
+export interface RuntimePmFields {
+  readonly pmAllowed: boolean;
+}
+
+/**
+ * `GET /np/usage?groupBy` gains `actor` (by the member each run acted for) and `conversation` (every project manager
+ * conversation run in one row keyed `pm`, the other runs by agent) (§6.6).
+ */
+export type UsageGroupByV5 = UsageGroupBy | 'actor' | 'conversation';
+export const USAGE_GROUP_BYS_V5: readonly UsageGroupByV5[] = [
+  'agent',
+  'issue',
+  'project',
+  'day',
+  'model',
+  'actor',
+  'conversation',
+];
+/** The `conversation` grouping's key for project manager conversation runs. */
+export const USAGE_CONVERSATION_KEY = 'pm';
 
 // ---------- Roster (§7) ----------
 

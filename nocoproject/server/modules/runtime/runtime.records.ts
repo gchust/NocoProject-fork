@@ -10,6 +10,7 @@ import {
   type RuntimeKind,
   type RuntimeVisibility,
 } from '../shared/protocol.js';
+import type { RuntimePmFields } from '../shared/protocol.js';
 import { runtimeDaemonInfo } from './daemon-compat.js';
 
 export const AGENT_PROVIDERS: readonly AgentProvider[] = [
@@ -40,7 +41,9 @@ export function isOnline(
   );
 }
 
-export function mapRuntime(row: Record<string, unknown>): Runtime {
+export function mapRuntime(
+  row: Record<string, unknown>,
+): Runtime & RuntimePmFields {
   return {
     id: str(row.id) ?? '',
     daemonId: str(row.daemonId) ?? '',
@@ -50,6 +53,7 @@ export function mapRuntime(row: Record<string, unknown>): Runtime {
     ownerUserId: str(row.ownerUserId) ?? '',
     ownerName: null,
     visibility: (str(row.visibility) ?? 'private') as RuntimeVisibility,
+    pmAllowed: row.pmAllowed === true || row.pmAllowed === 1,
     status:
       row.status === 'online' || row.status === 'upgrade_required'
         ? row.status

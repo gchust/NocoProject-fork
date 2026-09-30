@@ -3,7 +3,8 @@
  * the sweeper marks silent runtimes offline.
  */
 import type { Actor } from '../shared/activity.js';
-import { forbid } from '../shared/authz.js';
+import { forbid, requireSetting } from '../shared/authz.js';
+import { NP_SETTINGS } from '../shared/access.js';
 import type { TxRunner } from '../shared/db.js';
 import { isArrayValue, now, str, toJson } from '../shared/db.js';
 import {
@@ -71,6 +72,11 @@ export interface RuntimeService {
     runtimeId: string,
     visibility: unknown,
   ): Promise<Runtime>;
+  /**
+   * NP-183: whether a public runtime may run members' personal project managers (`pmAllowed`); whoever may change the
+   * general settings (owner / admin) may change it.
+   */
+  setPmAllowed(actor: Actor, runtimeId: string, value: unknown): Promise<Runtime>;
   /** Whether a daemon authenticated as `userId` may act on `runId` (it must own the run's runtime). */
   runAccess(runId: string, userId: string): Promise<RunAccess>;
 }
@@ -380,6 +386,36 @@ export function createRuntimeService(deps: RuntimeDeps): RuntimeService {
     list: () => listRuntimes(deps),
     setVisibility: (actor, runtimeId, visibility) =>
       setVisibility(deps, actor, runtimeId, visibility),
+    async setPmAllowed(actor, runtimeId, value) {
+      if (typeof value !== 'boolean')
+        throw invalid('INVALID_RUNTIME', 'pmAllowed must be a boolean.');
+      await requireSetting(
+        deps.tx.read(),
+        actor,
+        NP_SETTINGS.general,
+        'update',
+        'Only an owner or admin may let a runtime run personal project managers.',
+      );
+      await deps.tx.run(async (tx) => {
+        const row = await tx.conn.query
+          .selectFrom('runtimes')
+          .select('id')
+          .where('id', '=', runtimeId)
+          .executeTakeFirst();
+        if (!row) throw notFound('Runtime');
+        await tx.conn.query
+          .updateTable('runtimes')
+          .set({ pmAllowed: value, updatedAt: now() })
+          .where('id', '=', runtimeId)
+          .execute();
+        tx.emit({ type: 'agents.changed' });
+      });
+      const runtime = (await listRuntimes(deps)).find(
+        (item) => item.id === runtimeId,
+      );
+      if (!runtime) throw notFound('Runtime');
+      return runtime;
+    },
     runAccess: (runId, userId) => runAccess(deps, runId, userId),
   };
 }

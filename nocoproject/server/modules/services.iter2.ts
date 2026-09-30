@@ -97,7 +97,7 @@ export function createIteration2Services(
     reactions: createReactionService({ tx, ids, activity }),
     agentEnv: createAgentEnvService({ tx, ids, users, secrets }),
     skills: createSkillService({ tx, ids, users }),
-    usage: createUsageService({ tx, settings }),
+    usage: createUsageService({ tx, settings, users }),
     workspaceSettings: createWorkspaceSettingsService({
       tx,
       settings,
