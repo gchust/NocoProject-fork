@@ -206,5 +206,6 @@ export function planView(plan: PlanRecord, ops: readonly OpRecord[]): PmPlan {
     result: plan.result,
     createdAt: plan.createdAt,
     executedAt: plan.executedAt,
+    commentId: plan.commentId,
   };
 }

@@ -145,7 +145,9 @@ export function usePmConversationActions() {
       }
       const toastId = toast.add({
         type: 'success',
-        title: t('np.pmAssistant.archived', { title: detail.title }),
+        title: t('np.pmAssistant.archived', {
+          title: detail.title || t('np.pm.untitled'),
+        }),
         actionProps: {
           children: t('np.pmAssistant.undo'),
           onClick: () => {
@@ -179,4 +181,10 @@ export function usePmConversationActions() {
   });
 
   return { create, rename, archive, switchAgent };
+}
+
+/** A conversation's title as shown: a new one's title is empty until its first message (NP-183). */
+export function usePmTitle(): (title: string | null | undefined) => string {
+  const { t } = useTranslation();
+  return (title) => (title?.trim() ? title : t('np.pm.untitled'));
 }

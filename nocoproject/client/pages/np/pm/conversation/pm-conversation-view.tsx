@@ -108,7 +108,8 @@ function PmConversationBody({
   const messages = issue ? pmMessages(issue.threads) : [];
   const run = issue ? activeSessionRun(issue.runs) : null;
   const hint = issue ? sessionHint(run, issue.queuedRun) : null;
-  const agentName = conversation?.agent.name ?? t('np.pmAssistant.defaultName');
+  const agentName =
+    conversation?.agent?.name ?? t('np.pmAssistant.defaultName');
 
   const listRef = useRef<HTMLDivElement>(null);
   const count = messages.length;
@@ -121,7 +122,7 @@ function PmConversationBody({
   return (
     <section
       className={cn('flex h-full min-h-0 flex-col gap-3', className)}
-      aria-label={conversation?.title ?? t('np.pmAssistant.newConversation')}
+      aria-label={conversation?.title || t('np.pmAssistant.newConversation')}
       data-testid='np-pm-conversation'
     >
       <div ref={listRef} className='min-h-0 flex-1 overflow-y-auto'>
@@ -149,6 +150,7 @@ function PmConversationBody({
                 key={message.comment.id}
                 message={message}
                 issueId={issue?.issue.id ?? ''}
+                conversationId={conversation?.id ?? issue?.issue.id ?? ''}
                 agentName={agentName}
               />
             ))}

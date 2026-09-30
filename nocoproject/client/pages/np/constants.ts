@@ -239,8 +239,7 @@ export const npKeys = {
     ['np', 'pm', 'conversations', filters] as const,
   pmConversation: (id: string) => ['np', 'pm', 'conversation', id] as const,
   pmAgentChoice: ['np', 'pm', 'agent-choice'] as const,
-  pmPlan: (issueId: string, planId: string) =>
-    ['np', 'issue', issueId, 'plan', planId] as const,
+  pmPlans: (issueId: string) => ['np', 'issue', issueId, 'plans'] as const,
 };
 
 /** Dormant statuses (§ terminology): backlog, or any status whose category is done or closed. */

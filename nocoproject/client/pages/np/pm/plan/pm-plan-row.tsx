@@ -156,7 +156,7 @@ export function PmPlanRowItem({
               <NpTag tone='violet'>
                 {t('np.pmAssistant.plan.startsRunOf', {
                   agent: preview.agentName ?? preview.agentId,
-                  issue: preview.identifier ?? title,
+                  issue: title,
                 })}
               </NpTag>
             </li>

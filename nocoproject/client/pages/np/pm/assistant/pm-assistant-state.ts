@@ -99,7 +99,7 @@ export function switchTarget(
   conversation: PmConversationDetail | null | undefined,
 ): 'system' | 'personal' | null {
   if (!choice || !choice.allowPersonal) return null;
-  const source = conversation?.agent.source;
+  const source = conversation?.agent?.source;
   if (source === 'personal') return choice.systemAgent ? 'system' : null;
   return choice.agentId &&
     choice.candidates.some((c) => c.id === choice.agentId)

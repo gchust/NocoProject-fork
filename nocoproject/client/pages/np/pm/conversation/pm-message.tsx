@@ -20,10 +20,12 @@ import { PmReferenceCards } from './pm-reference-cards.js';
 export function PmMessageItem({
   message,
   issueId,
+  conversationId,
   agentName,
 }: {
   readonly message: PmMessage;
   readonly issueId: string;
+  readonly conversationId: string;
   readonly agentName: string;
 }): ReactElement {
   const { t } = useTranslation();
@@ -51,7 +53,11 @@ export function PmMessageItem({
   if (message.kind === 'plan') {
     return (
       <li data-pm-message='plan'>
-        <PmPlanCard planId={message.planId} issueId={issueId} />
+        <PmPlanCard
+          commentId={comment.id}
+          conversationId={conversationId}
+          issueId={issueId}
+        />
       </li>
     );
   }

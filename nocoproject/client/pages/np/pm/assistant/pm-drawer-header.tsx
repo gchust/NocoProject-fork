@@ -26,6 +26,7 @@ import {
   usePmAgentChoice,
   usePmConversationActions,
   usePmConversationDetail,
+  usePmTitle,
 } from '../conversation/use-pm-conversation.js';
 import { PM_TITLE_MAX } from '../history/pm-history-list.js';
 import { usePmAssistant } from './pm-assistant.js';
@@ -48,13 +49,16 @@ export function PmDrawerHeader({
   const conversation = detail.data;
   const choice = usePmAgentChoice(assistant.open);
   const actions = usePmConversationActions();
+  const pmTitle = usePmTitle();
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState('');
   const history = assistant.view === 'history';
   const target = switchTarget(choice.data, conversation);
   const shownTitle = history
     ? t('np.pmAssistant.history.title')
-    : (conversation?.title ?? t('np.pmAssistant.newConversation'));
+    : conversation
+      ? pmTitle(conversation.title)
+      : t('np.pmAssistant.newConversation');
 
   function saveTitle(): void {
     setRenaming(false);
@@ -216,7 +220,7 @@ export function PmDrawerHeader({
           <XIcon />
         </Button>
       </div>
-      {conversation && !history ? (
+      {conversation?.agent && !history ? (
         <PmAgentBadge agent={conversation.agent} />
       ) : null}
     </header>

@@ -109,7 +109,6 @@ function issueDetail(options: { runs?: unknown[]; comments?: unknown[] } = {}) {
         authorId: 'pm',
         content: 'Plan',
         kind: 'plan',
-        details: { planId: 'p1' },
         parentId: null,
         createdAt: NOW,
       },
@@ -132,6 +131,7 @@ function plan(overrides: Partial<PmPlan> = {}): PmPlan {
     result: null,
     createdAt: NOW,
     executedAt: null,
+    commentId: 'm3',
     rows: [
       {
         seq: 1,
@@ -292,7 +292,7 @@ describe('a conversation (/pm/:id)', () => {
     return respond({
       'GET np/pm/conversations/c1': { data: conversation() },
       'GET np/issues/c1': { data: issueDetail() },
-      'GET np/pm/plans/p1': { data: plan() },
+      'GET np/pm/conversations/c1/plans': { data: [plan()] },
       ...extra,
     });
   }
@@ -361,6 +361,41 @@ describe('a conversation (/pm/:id)', () => {
       content: 'And the rest',
       context: { route: '/pm/c1', items: [] },
     });
+  });
+
+  it('keeps the message and says so when no project manager can answer', async () => {
+    api.request.mockImplementation(
+      routes({
+        'POST np/issues/c1/comments': {
+          data: {
+            comment: {
+              id: 'm9',
+              authorType: 'user',
+              authorId: 'u1',
+              content: 'Anyone?',
+              parentId: null,
+              createdAt: NOW,
+            },
+            triggered: [],
+            conversation: { agent: null },
+          },
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    await renderConversation();
+    await user.type(
+      await screen.findByRole('textbox', {
+        name: 'Message to the project manager',
+      }),
+      'Anyone?{Enter}',
+    );
+    expect(await screen.findByTestId('np-pm-not-configured')).toBeVisible();
+    expect(
+      screen.getByText(
+        'Your message is saved and will be answered once a project manager is available.',
+      ),
+    ).toBeVisible();
   });
 
   it('stops the turn in progress', async () => {
@@ -433,7 +468,7 @@ describe('plan card', () => {
     return respond({
       'GET np/pm/conversations/c1': { data: conversation() },
       'GET np/issues/c1': { data: issueDetail() },
-      'GET np/pm/plans/p1': { data: plan() },
+      'GET np/pm/conversations/c1/plans': { data: [plan()] },
       ...extra,
     });
   }
@@ -453,7 +488,7 @@ describe('plan card', () => {
     let current = plan();
     api.request.mockImplementation(
       routes({
-        'GET np/pm/plans/p1': () => ({ data: current }),
+        'GET np/pm/conversations/c1/plans': () => ({ data: [current] }),
         'POST np/pm/plans/p1/execute': () => {
           current = executed;
           return { data: executed };
@@ -534,13 +569,19 @@ describe('plan card', () => {
       within(card).getByRole('button', { name: 'Save changes' }),
     );
     await waitFor(() =>
-      expect(calls('GET', 'np/pm/plans/p1').length).toBeGreaterThan(1),
+      expect(
+        calls('GET', 'np/pm/conversations/c1/plans').length,
+      ).toBeGreaterThan(1),
     );
   });
 
   it('folds a discarded plan into one line', async () => {
     api.request.mockImplementation(
-      routes({ 'GET np/pm/plans/p1': { data: plan({ status: 'discarded' }) } }),
+      routes({
+        'GET np/pm/conversations/c1/plans': {
+          data: [plan({ status: 'discarded' })],
+        },
+      }),
     );
     await renderConversation();
     const card = await screen.findByTestId('np-pm-plan');

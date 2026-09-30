@@ -30,7 +30,10 @@ import { fetchPmConversations } from '../../api-pm.js';
 import { npKeys } from '../../constants.js';
 import { useNpFormatters } from '../../format.js';
 import type { PmConversationSummary } from '../../types-pm.js';
-import { usePmConversationActions } from '../conversation/use-pm-conversation.js';
+import {
+  usePmConversationActions,
+  usePmTitle,
+} from '../conversation/use-pm-conversation.js';
 
 export const PM_TITLE_MAX = 40;
 
@@ -157,6 +160,7 @@ function HistoryRow({
   const { t } = useTranslation();
   const format = useNpFormatters();
   const actions = usePmConversationActions();
+  const shown = usePmTitle()(item.title);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(item.title);
 
@@ -207,8 +211,8 @@ function HistoryRow({
         >
           <span className='flex w-full min-w-0 items-center gap-1.5'>
             {item.running ? <NpPulse /> : null}
-            <span className='truncate text-sm font-medium' title={item.title}>
-              {item.title}
+            <span className='truncate text-sm font-medium' title={shown}>
+              {shown}
             </span>
             {item.pendingPlanCount > 0 ? (
               <NpTag tone='amber' className='ml-auto'>
@@ -223,7 +227,9 @@ function HistoryRow({
               {format.relative(item.lastMessageAt)}
             </time>
             <span aria-hidden='true'>·</span>
-            <span className='truncate'>{item.agent.name}</span>
+            <span className='truncate'>
+              {item.agent?.name ?? t('np.pmAssistant.agent.none')}
+            </span>
           </span>
         </button>
       )}
@@ -234,7 +240,7 @@ function HistoryRow({
               variant='ghost'
               size='icon-sm'
               aria-label={t('np.pmAssistant.history.actions', {
-                title: item.title,
+                title: shown,
               })}
             />
           }

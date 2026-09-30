@@ -73,6 +73,7 @@ const npPmZhCN: NpPmResource = {
       fallback: '这条对话临时改用系统默认',
       usingDefault: '这条对话临时使用系统默认的项目经理。',
       restore: '改回我的项目经理',
+      none: '没有项目经理',
       personalUnavailable: '你的项目经理当前不可用。',
       fallbackDone: '已改用系统默认的项目经理',
       restoreDone: '已改回你的项目经理',

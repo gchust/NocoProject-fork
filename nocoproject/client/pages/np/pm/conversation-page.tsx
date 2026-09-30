@@ -8,7 +8,10 @@ import { PageHeader } from '@/components/page-header';
 
 import { PmAgentBadge } from './conversation/pm-agent-status.js';
 import { PmConversationView } from './conversation/pm-conversation-view.js';
-import { usePmConversationDetail } from './conversation/use-pm-conversation.js';
+import {
+  usePmConversationDetail,
+  usePmTitle,
+} from './conversation/use-pm-conversation.js';
 
 /**
  * Route `/pm/:conversationId` (NP-185): one conversation at full width, filling the content area like `/issues`
@@ -21,12 +24,19 @@ export default function PmConversationPage(): ReactElement {
   const { conversationId = 'new' } = useParams();
   const id = conversationId === 'new' ? null : conversationId;
   const detail = usePmConversationDetail(id);
+  const pmTitle = usePmTitle();
   return (
     <PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'>
       <PageHeader
-        title={detail.data?.title ?? t('np.pmAssistant.newConversation')}
+        title={
+          detail.data
+            ? pmTitle(detail.data.title)
+            : t('np.pmAssistant.newConversation')
+        }
         description={
-          detail.data ? <PmAgentBadge agent={detail.data.agent} /> : undefined
+          detail.data?.agent ? (
+            <PmAgentBadge agent={detail.data.agent} />
+          ) : undefined
         }
         actions={<NpShortcuts />}
       />

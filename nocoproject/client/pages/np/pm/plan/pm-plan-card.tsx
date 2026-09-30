@@ -26,7 +26,7 @@ import {
   discardPmPlan,
   editPmPlan,
   executePmPlan,
-  fetchPmPlan,
+  fetchPmConversationPlans,
 } from '../../api-pm.js';
 import { npKeys } from '../../constants.js';
 import type { PmPlan, PmPlanStatus } from '../../types-pm.js';
@@ -86,39 +86,49 @@ function conflictTitle(
  * first. Closed plans (discarded, expired, superseded) fold into one line.
  */
 export function PmPlanCard({
-  planId,
+  commentId,
+  conversationId,
   issueId,
 }: {
-  readonly planId: string;
+  readonly commentId: string;
+  readonly conversationId: string;
   readonly issueId: string;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const queryClient = useQueryClient();
   const titleId = useId();
-  const key = npKeys.pmPlan(issueId, planId);
-  const plan = useQuery({
+  // Every card of the conversation reads the same list; it sits under the conversation's issue, so the issue's
+  // realtime refresh refetches it.
+  const key = npKeys.pmPlans(issueId);
+  const plans = useQuery({
     queryKey: key,
-    queryFn: ({ signal }) => fetchPmPlan(api, planId, signal),
+    queryFn: ({ signal }) =>
+      fetchPmConversationPlans(api, conversationId, signal),
     retry: false,
   });
+  const plan = plans.data?.find(
+    (candidate) => candidate.commentId === commentId,
+  );
 
-  if (!plan.data) {
-    return plan.isError ? (
+  if (!plan) {
+    return plans.isPending ? (
+      <Skeleton className='h-24 w-full rounded-lg' />
+    ) : (
       <p className='rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground'>
         {t('np.pmAssistant.plan.loadFailed')}
       </p>
-    ) : (
-      <Skeleton className='h-24 w-full rounded-lg' />
     );
   }
   return (
     <PlanBody
-      key={`${plan.data.id}:${plan.data.revision}:${plan.data.status}`}
-      plan={plan.data}
+      key={`${plan.id}:${plan.revision}:${plan.status}`}
+      plan={plan}
       titleId={titleId}
       onPlan={(next) => {
-        queryClient.setQueryData(key, next);
+        queryClient.setQueryData<PmPlan[]>(key, (current) =>
+          current?.map((item) => (item.id === next.id ? next : item)),
+        );
         void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
         void queryClient.invalidateQueries({
           queryKey: [...npKeys.pm, 'conversations'],

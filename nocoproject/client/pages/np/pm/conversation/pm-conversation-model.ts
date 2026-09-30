@@ -11,21 +11,9 @@ import type { PmConversationAgent } from '../../types-pm.js';
 export type PmMessage =
   | { readonly kind: 'user' | 'agent'; readonly comment: IssueComment }
   | { readonly kind: 'system'; readonly comment: IssueComment }
-  | {
-      readonly kind: 'plan';
-      readonly comment: IssueComment;
-      readonly planId: string;
-    }
-  | {
-      readonly kind: 'planResult';
-      readonly comment: IssueComment;
-      readonly planId: string | null;
-    };
-
-function planIdOf(comment: IssueComment): string | null {
-  const value = comment.details?.planId;
-  return typeof value === 'string' && value ? value : null;
-}
+  /** A plan card: the plan is the conversation's plan whose `commentId` is this comment. */
+  | { readonly kind: 'plan'; readonly comment: IssueComment }
+  | { readonly kind: 'planResult'; readonly comment: IssueComment };
 
 /** Every comment of the conversation, oldest first, as the message it renders as. */
 export function pmMessages(threads: readonly CommentThread[]): PmMessage[] {
@@ -33,12 +21,9 @@ export function pmMessages(threads: readonly CommentThread[]): PmMessage[] {
     .flatMap((thread) => [thread.root, ...thread.replies])
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     .map((comment): PmMessage => {
-      if (comment.kind === 'plan') {
-        const planId = planIdOf(comment);
-        if (planId) return { kind: 'plan', comment, planId };
-      }
+      if (comment.kind === 'plan') return { kind: 'plan', comment };
       if (comment.kind === 'plan_result') {
-        return { kind: 'planResult', comment, planId: planIdOf(comment) };
+        return { kind: 'planResult', comment };
       }
       if (comment.kind === 'system' || comment.authorType === 'system') {
         return { kind: 'system', comment };

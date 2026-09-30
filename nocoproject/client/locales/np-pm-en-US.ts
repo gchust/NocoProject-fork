@@ -81,6 +81,7 @@ const npPmEnUS = {
       usingDefault:
         'This conversation is using the default project manager for now.',
       restore: 'Return to my project manager',
+      none: 'No project manager',
       personalUnavailable: 'Your project manager is not available.',
       fallbackDone: 'Switched to the default project manager',
       restoreDone: 'Switched back to your project manager',

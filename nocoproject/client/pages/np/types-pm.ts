@@ -6,8 +6,10 @@ import type { IssuePriority } from './types.js';
  * page context (§8) and operation plans (§4). Copied from the contract rather than imported (see `types.ts`); keep
  * it in step with `server/modules/shared/protocol.phase2-pm-assistant.ts` once the server lands it.
  *
- * Two shapes the contract names without pinning down — `RunPreview` and `PmPlanResult` — are written here with the
- * fields the plan card needs, every one optional beyond the identifying ones.
+ * The shapes follow the server's `server/modules/shared/protocol.phase2-pm-assistant.ts` as NP-183 implemented them
+ * (the departures are listed in the contract's change log): a conversation's `agent` is null when no project manager
+ * can take it, a new conversation's title is empty until its first message, and a plan names the comment it belongs
+ * to (`commentId`) because comments carry no `details`.
  */
 
 // §8.1 page context -------------------------------------------------------------------------------------------------
@@ -78,7 +80,8 @@ export interface PmConversationSummary {
   readonly title: string;
   readonly lastMessageAt: string;
   readonly archivedAt: string | null;
-  readonly agent: PmConversationAgent;
+  /** Null when no project manager can take the conversation. */
+  readonly agent: PmConversationAgent | null;
   readonly running: boolean;
   readonly pendingPlanCount: number;
 }
@@ -239,10 +242,9 @@ export type PmPlanRowFlag =
 /** A run the row would start once executed (§3.4 `previewRuns`). */
 export interface RunPreview {
   readonly agentId: string;
-  readonly agentName?: string | null;
-  readonly issueId?: string | null;
-  readonly identifier?: string | null;
-  readonly triggerType?: string | null;
+  readonly agentName: string | null;
+  readonly issueId: string;
+  readonly triggerType: string;
 }
 
 export interface PmPlanRow {
@@ -262,18 +264,20 @@ export interface PmPlanRow {
   readonly warnings: readonly string[];
 }
 
+export interface PmPlanResultRow {
+  readonly seq: number;
+  readonly type: PmOperationType;
+  readonly ok: boolean;
+  readonly errorCode?: string;
+  readonly resultType?: string;
+  readonly resultId?: string;
+  readonly identifier?: string | null;
+  readonly warnings: readonly string[];
+}
+
 export interface PmPlanResult {
-  readonly status?: 'executed' | 'failed';
-  readonly results?: readonly {
-    readonly seq: number;
-    readonly type: PmOperationType;
-    readonly ok: boolean;
-    readonly errorCode?: string;
-    readonly resultType?: string;
-    readonly resultId?: string;
-    readonly identifier?: string | null;
-    readonly warnings?: readonly string[];
-  }[];
+  readonly status: 'executed' | 'failed';
+  readonly rows: readonly PmPlanResultRow[];
 }
 
 export interface PmPlan {
@@ -290,6 +294,8 @@ export interface PmPlan {
   readonly result: PmPlanResult | null;
   readonly createdAt: string;
   readonly executedAt: string | null;
+  /** The conversation's `kind = 'plan'` comment that shows this plan. */
+  readonly commentId?: string | null;
 }
 
 /** `PATCH /np/pm/plans/:id` */

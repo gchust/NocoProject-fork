@@ -165,17 +165,25 @@ export function PmComposer({
         npKeys.issue(target.issueId),
         (detail) => (detail ? withComment(detail, result.comment) : detail),
       );
+      // NP-183: with no project manager available the message is saved (201) and `conversation.agent` is null.
       const agent = result.conversation?.agent;
-      const next = agent ? { ...target, agent } : target;
-      if (agent)
+      const next =
+        result.conversation === undefined
+          ? target
+          : { ...target, agent: agent ?? null };
+      if (result.conversation !== undefined) {
         queryClient.setQueryData(npKeys.pmConversation(target.id), next);
+      }
       void queryClient.invalidateQueries({
         queryKey: npKeys.issue(target.issueId),
       });
       void queryClient.invalidateQueries({
         queryKey: [...npKeys.pm, 'conversations'],
       });
-      onSent({ conversation: next, notConfigured: false });
+      onSent({
+        conversation: next,
+        notConfigured: result.conversation !== undefined && !agent,
+      });
     } catch (error: unknown) {
       if (
         error instanceof ApiClientError &&

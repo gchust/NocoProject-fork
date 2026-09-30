@@ -116,13 +116,13 @@ export async function sendPmMessage(
   input: { readonly content: string; readonly context?: PmPageContext },
 ): Promise<
   CreateCommentResult & {
-    readonly conversation?: { readonly agent: PmConversationAgent };
+    readonly conversation?: { readonly agent: PmConversationAgent | null };
   }
 > {
   const { data } = await api.request<
     {
       data: CreateCommentResult & {
-        conversation?: { agent: PmConversationAgent };
+        conversation?: { agent: PmConversationAgent | null };
       };
     },
     typeof input
@@ -143,6 +143,19 @@ export async function fetchPmAgentChoice(
     signal,
   });
   return data;
+}
+
+/** The member's plans in one conversation, newest first (NP-183: matched to their comments by `commentId`). */
+export async function fetchPmConversationPlans(
+  api: ApiClient,
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<PmPlan[]> {
+  const { data } = await api.request<{ data: PmPlan[] }>({
+    path: `np/pm/conversations/${id(conversationId)}/plans`,
+    signal,
+  });
+  return Array.isArray(data) ? data : [];
 }
 
 export async function fetchPmPlan(
