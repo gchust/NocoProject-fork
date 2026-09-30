@@ -15,6 +15,7 @@ import { createIntakeBatch } from '../../api-intake.js';
 
 import type { StatusCatalogEntry, SubtaskSummary } from '../../types.js';
 import { groupSubtasksByStage } from './subtask-model.js';
+import { AskPmButton } from '../../pm/assistant/pm-launchers.js';
 
 function SubtaskRow({
   subtask,
@@ -57,11 +58,14 @@ function SubtaskRow({
  */
 export function SubtasksSection({
   issueId,
+  issueLabel,
   subtasks,
   catalog,
   canEdit = true,
 }: {
   readonly issueId: string;
+  /** How the issue reads as project manager context ("NP-12 Title"). */
+  readonly issueLabel?: string;
   readonly subtasks: readonly SubtaskSummary[];
   readonly catalog: readonly StatusCatalogEntry[];
   /** `issues/edit` (NP-161): without it, "AI breakdown" and "New sub-issue" do not render. */
@@ -123,6 +127,13 @@ export function SubtasksSection({
         </h2>
         {canEdit ? (
           <div className='flex gap-1'>
+            {/* NP-185: the project manager's breakdown; "AI breakdown" below goes with intake in NP-186. */}
+            <AskPmButton
+              object={{ type: 'issue', id: issueId, label: issueLabel ?? issueId }}
+              draft={t('np.pmAssistant.breakdownDraft')}
+              label={t('np.pmAssistant.breakdown')}
+              variant='ghost'
+            />
             <Button
               variant='ghost'
               size='sm'

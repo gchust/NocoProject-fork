@@ -40,6 +40,9 @@ import { buildTimeline, mergeActivities } from './timeline.js';
 import { useIssueDecisions } from './use-issue-decisions.js';
 import { useOlderActivities } from './use-older-activities.js';
 import { useRevealSentComment } from './use-reveal-sent-comment.js';
+import { usePmContextSource } from '../../pm/assistant/pm-assistant.js';
+import { AskPmButton } from '../../pm/assistant/pm-launchers.js';
+import { sourceAttribute } from '../../pm/context/pm-context-model.js';
 
 /**
  * What the decision section already shows, so the cards below do not repeat it: the approvals it covers, and whether
@@ -139,6 +142,13 @@ export function IssueMain({
     detail.blocks.length > 0 ||
     revealed.has('dependencies');
   const decisions = useIssueDecisions(issue.id);
+  // NP-185: the issue is the project manager's page context while it is open.
+  const pmObject = {
+    type: 'issue' as const,
+    id: issue.id,
+    label: issue.identifier ? `${issue.identifier} ${issue.title}` : issue.title,
+  };
+  usePmContextSource(pmObject);
   const covered = coveredByDecisions(decisions);
   const live = detail.runs.find((run) => ACTIVE_RUN_STATUSES.has(run.status));
   const project = detail.project;
@@ -146,9 +156,15 @@ export function IssueMain({
   return (
     <>
       <div className='flex-1'>
-        <div className='w-full space-y-6 px-6 py-6 md:px-8'>
+        <div
+          className='w-full space-y-6 px-6 py-6 md:px-8'
+          data-pm-source={sourceAttribute('issue', issue.id)}
+        >
           <div className='space-y-2'>
-            <Breadcrumbs />
+            <div className='flex items-center justify-between gap-2'>
+              <Breadcrumbs />
+              <AskPmButton object={pmObject} variant='ghost' />
+            </div>
             {detail.parent ? (
               <Link
                 to={`../${encodeURIComponent(detail.parent.id)}`}
@@ -246,6 +262,7 @@ export function IssueMain({
             <div className='rounded-lg border bg-card p-4 text-card-foreground'>
               <SubtasksSection
                 issueId={issue.id}
+                issueLabel={pmObject.label}
                 subtasks={detail.subtasks}
                 catalog={detail.statusCatalog}
                 canEdit={canEdit}
@@ -254,6 +271,7 @@ export function IssueMain({
           ) : (
             <SubtasksSection
               issueId={issue.id}
+              issueLabel={pmObject.label}
               subtasks={detail.subtasks}
               catalog={detail.statusCatalog}
               canEdit={canEdit}

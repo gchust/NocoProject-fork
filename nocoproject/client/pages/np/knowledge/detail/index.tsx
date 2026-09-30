@@ -15,6 +15,9 @@ import { type ReactElement, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { usePmContextSource } from '../../pm/assistant/pm-assistant.js';
+import { AskPmButton } from '../../pm/assistant/pm-launchers.js';
+import { sourceAttribute } from '../../pm/context/pm-context-model.js';
 import { NpDetailLayout } from '@/components/np-detail-layout';
 import { NpMarkdown } from '@/components/np-markdown';
 import { extractMarkdownHeadings } from '@/components/np-markdown-toc';
@@ -151,6 +154,12 @@ function KnowledgeLayout({
   });
   const canEdit = canEditKnowledge(doc, viewer, projects.data);
   const [editing, setEditing] = useState(false);
+  const pmObject = {
+    type: 'knowledgeDoc' as const,
+    id: doc.id,
+    label: doc.title,
+  };
+  usePmContextSource(pmObject);
   const [compare, setCompare] = useState<CompareState | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const headings = useMemo(
@@ -179,7 +188,10 @@ function KnowledgeLayout({
       void queryClient.invalidateQueries({ queryKey: npKeys.knowledge }),
   });
   const main = (
-    <div className='space-y-6 p-6 md:p-8'>
+    <div
+      className='space-y-6 p-6 md:p-8'
+      data-pm-source={sourceAttribute('knowledgeDoc', doc.id)}
+    >
       <Breadcrumbs />
       <KnowledgeAncestors breadcrumbs={detail.breadcrumbs} title={doc.title} />
       <PageHeader
@@ -188,6 +200,7 @@ function KnowledgeLayout({
         actions={
           canEdit && !editing ? (
             <>
+              <AskPmButton object={pmObject} size='default' />
               <Button
                 variant='outline'
                 onClick={() =>
@@ -217,7 +230,9 @@ function KnowledgeLayout({
                 {t('np.knowledge.edit')}
               </Button>
             </>
-          ) : undefined
+          ) : editing ? undefined : (
+            <AskPmButton object={pmObject} size='default' />
+          )
         }
       />
       {doc.archivedAt ? (

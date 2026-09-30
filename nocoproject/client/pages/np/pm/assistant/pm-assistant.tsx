@@ -15,6 +15,7 @@ import { isAssistantShortcut } from '@/components/np-shortcut-keys';
 
 import {
   clampSelection,
+  filterFromSearch,
   objectKey,
   parseSourceAttribute,
   type PmContextFilter,
@@ -439,4 +440,13 @@ export function usePmFilterSource(filter: PmContextFilter | null): void {
     if (!serialized) return;
     return registerFilter(JSON.parse(serialized) as PmContextFilter);
   }, [registerFilter, serialized]);
+}
+
+/** Registers the filter a list page keeps in its URL (the listed keys) as project manager context. */
+export function usePmUrlFilter(
+  page: PmContextFilter['page'],
+  keys: readonly string[],
+): void {
+  const { search } = useLocation();
+  usePmFilterSource(filterFromSearch(page, new URLSearchParams(search), keys));
 }

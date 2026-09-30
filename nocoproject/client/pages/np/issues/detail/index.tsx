@@ -129,6 +129,13 @@ function IssueDetailView({
 
   if (!detail.data) return <NpDetailSkeleton />;
 
+  // A project manager conversation is not an issue page (NP-185): it opens as the conversation.
+  if (detail.data.issue.originType === 'pm') {
+    return (
+      <Navigate replace to={`/pm/${encodeURIComponent(detail.data.issue.id)}`} />
+    );
+  }
+
   const canonicalId = detail.data.issue.id;
   if (canonicalId !== issueId) {
     // Keep any child route (`runs/:runId`) and the query string.

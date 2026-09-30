@@ -45,6 +45,8 @@ import { progressFromCounts, progressFromGroups } from '../progress.js';
 import { ProjectKnowledge } from './knowledge-tab.js';
 import { ProjectOverview } from './overview.js';
 import { ProjectActions } from './project-actions.js';
+import { usePmContextSource } from '../../pm/assistant/pm-assistant.js';
+import { AskPmButton } from '../../pm/assistant/pm-launchers.js';
 
 /**
  * Route `/projects/:projectId` (§J 4, client/pages/np/README.md §3): a covering child page over the project list.
@@ -188,6 +190,13 @@ function ProjectLayout({
     setParams(search, { replace: true });
   }
 
+  const pmObject = {
+    type: 'project' as const,
+    id: project.id,
+    label: project.name,
+  };
+  usePmContextSource(pmObject);
+
   const meta: ReactElement[] = [];
   meta.push(
     <span key='lead' className='inline-flex items-center gap-1.5'>
@@ -279,6 +288,7 @@ function ProjectLayout({
                 {t('np.issues.new')}
               </Button>
             ) : null}
+            <AskPmButton object={pmObject} />
             <ProjectActions project={project} canDelete={canDelete} />
           </div>
         </header>

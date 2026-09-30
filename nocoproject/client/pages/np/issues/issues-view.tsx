@@ -46,6 +46,8 @@ import {
 import { IssueToolbar, type IssueToolbarFilter } from './toolbar.js';
 import { useBoardPages, useIssuePages } from './use-issue-pages.js';
 import { useUrlSearch } from './use-url-search.js';
+import { usePmUrlFilter } from '../pm/assistant/pm-assistant.js';
+import { ISSUE_FILTER_PARAMS } from './filters.js';
 
 export interface IssuesViewProps {
   /** Filters the page always applies on top of the URL's (my issues: owner or executor = me). */
@@ -94,6 +96,8 @@ export function IssuesView({
 
   const [stored, setStored] = useState(() => readStoredIssueView(viewKey));
   const view = resolveIssueView(params, stored);
+  // NP-185: the list's filters are the project manager's page context.
+  usePmUrlFilter(view === 'board' ? 'board' : 'issues', Object.values(ISSUE_FILTER_PARAMS));
   const urlFilters = readIssueFilters(params, KNOWN_STATUS_KEYS, view);
   const filters: IssueFilters = { ...urlFilters, ...fixedFilters };
   const list = useIssuePages(filters, view === 'list');
