@@ -56,7 +56,12 @@ export type CreateProjectInput = CreateProjectRequest;
 export interface ProjectService {
   list(actor: Actor): Promise<ProjectListItem[]>;
   get(actor: Actor, id: string): Promise<ProjectDetail>;
-  create(actor: Actor, input: CreateProjectRequest): Promise<ProjectDetail>;
+  /** NP-183: `outer` joins the caller's transaction (a plan card). */
+  create(
+    actor: Actor,
+    input: CreateProjectRequest,
+    outer?: Tx,
+  ): Promise<ProjectDetail>;
   update(
     actor: Actor,
     id: string,
@@ -316,7 +321,7 @@ async function projectGet(
 
 async function projectCreate(
   deps: ProjectDeps,
-  ...[actor, input]: Parameters<ProjectService['create']>
+  ...[actor, input, outer]: Parameters<ProjectService['create']>
 ) {
   requiredName(input?.name);
   const id = deps.ids.next();
@@ -361,8 +366,8 @@ async function projectCreate(
     );
     if (leadUserId && leadUserId !== viewer.userId)
       await upsertProjectMember(tx, deps.ids, id, leadUserId, 'lead');
-  });
-  return detail(deps, deps.tx.read(), id);
+  }, outer);
+  return detail(deps, outer?.conn ?? deps.tx.read(), id);
 }
 
 async function projectUpdate(

@@ -177,12 +177,12 @@ export async function enqueueFor(
   const { issue, agentId, threadScope, actorUserId } = target;
   const attempt = { agentId, issueId: issue.id, triggerType: trigger.type };
   if (!(await canTriggerAgent(tx, actorUserId, agentId))) {
-    recordRunAttempt({ ...attempt, started: false });
+    recordRunAttempt({ ...attempt, started: false, skipped: 'denied' });
     return null;
   }
   const blockers = await blockersOf(tx.conn, deps.workflows, issue as IssueV1);
   if (blockers.length > 0) {
-    recordRunAttempt({ ...attempt, started: false });
+    recordRunAttempt({ ...attempt, started: false, skipped: 'blocked' });
     await deps.activity.record(tx.conn, {
       issueId: issue.id,
       actor: { type: 'system', id: null },

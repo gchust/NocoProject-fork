@@ -41,12 +41,16 @@ export interface ProposalService {
     issueIdOrKey: string,
     proposalId: string,
     input: DecideProposalRequest,
+    /** NP-183: joins the caller's transaction (a plan card). */
+    outer?: Tx,
   ): Promise<ExecutorProposal>;
   reject(
     actor: Actor,
     issueIdOrKey: string,
     proposalId: string,
     input: DecideProposalRequest,
+    /** NP-183: joins the caller's transaction (a plan card). */
+    outer?: Tx,
   ): Promise<ExecutorProposal>;
   acceptAll(
     actor: Actor,
@@ -302,6 +306,7 @@ function decideOne(
   issueIdOrKey: string,
   proposalId: string,
   input: DecideProposalRequest,
+  outer?: Tx,
 ): Promise<ExecutorProposal> {
   return deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
@@ -315,7 +320,7 @@ function decideOne(
       status,
       optionalText(input?.reason, 'reason', 2000),
     );
-  });
+  }, outer);
 }
 
 async function acceptAll(
@@ -355,10 +360,10 @@ async function acceptAll(
 
 export function createProposalService(deps: ProposalDeps): ProposalService {
   return {
-    accept: (actor, issueIdOrKey, proposalId, input) =>
-      decideOne(deps, 'accepted', actor, issueIdOrKey, proposalId, input),
-    reject: (actor, issueIdOrKey, proposalId, input) =>
-      decideOne(deps, 'rejected', actor, issueIdOrKey, proposalId, input),
+    accept: (actor, issueIdOrKey, proposalId, input, outer) =>
+      decideOne(deps, 'accepted', actor, issueIdOrKey, proposalId, input, outer),
+    reject: (actor, issueIdOrKey, proposalId, input, outer) =>
+      decideOne(deps, 'rejected', actor, issueIdOrKey, proposalId, input, outer),
     acceptAll: (actor, parentIdOrKey) => acceptAll(deps, actor, parentIdOrKey),
   };
 }

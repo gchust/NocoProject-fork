@@ -11,8 +11,10 @@ export interface RunAttempt {
   readonly agentId: string;
   readonly issueId: string;
   readonly triggerType: string;
-  /** false: the trigger rules skipped it (no invocation right, or the issue is blocked). */
+  /** false: the trigger rules skipped it. */
   readonly started: boolean;
+  /** Why it was skipped: the invoking member may not invoke the agent, or the issue is blocked (it starts later). */
+  readonly skipped?: 'denied' | 'blocked';
 }
 
 const recording = new AsyncLocalStorage<RunAttempt[]>();

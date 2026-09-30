@@ -10,7 +10,7 @@ import { requireCapability } from '../agent/capabilities.js';
  */
 import type { AccessHolders } from '../shared/authz.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
-import type { Conn, TxRunner } from '../shared/db.js';
+import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { now, str } from '../shared/db.js';
 import { conflict, forbidden, invalid, notFound } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
@@ -112,6 +112,8 @@ export interface KnowledgeService {
     proposalId: string,
     decision: 'accept' | 'reject',
     input: DecideKnowledgeProposalRequest,
+    /** NP-183: joins the caller's transaction (a plan card). */
+    outer?: Tx,
   ): Promise<KnowledgeProposal>;
   /** `q` matches the same fields as the browser list (title, slug, summary, content). */
   agentList(auth: RunAuth, q?: string | null): Promise<KnowledgeDocSummary[]>;
@@ -524,8 +526,8 @@ export function createKnowledgeService(deps: KnowledgeDeps): KnowledgeService {
       setArchived(deps, actor, id, archived),
     projectDocs: (actor, projectId) => list(deps, actor, { projectId }),
     proposals: (actor, status) => listPendingProposals(deps, actor, status),
-    decide: (actor, proposalId, decision, input) =>
-      decideProposal(deps, actor, proposalId, decision, input),
+    decide: (actor, proposalId, decision, input, outer) =>
+      decideProposal(deps, actor, proposalId, decision, input, outer),
     async agentList(auth, q) {
       const conn = deps.tx.read();
       await requireCapability(conn, auth, 'context.read');
