@@ -32,6 +32,9 @@ import {
   npWorkflowProposalServiceToken,
   npCommentServiceToken,
   npDesignServiceToken,
+  npPmActServiceToken,
+  npPmConversationsToken,
+  npPmPlanServiceToken,
   npPmServiceToken,
   npIssueQueriesToken,
   npIssueServiceToken,
@@ -61,7 +64,11 @@ export const npAgentRoutes: AppApiRouteContribution<Application> =
           attachments: container.resolve(npAttachmentServiceToken),
         }),
         createAgentKnowledgeRoutes(container.resolve(npKnowledgeServiceToken)),
-        createAgentPmRoutes(container.resolve(npPmServiceToken)),
+        createAgentPmRoutes(container.resolve(npPmServiceToken), {
+          act: container.resolve(npPmActServiceToken),
+          conversations: container.resolve(npPmConversationsToken),
+          plans: container.resolve(npPmPlanServiceToken),
+        }),
         createAgentChecklistRoutes(container.resolve(npChecklistServiceToken)),
         createAgentWorkflowRoutes(
           container.resolve(npWorkflowProposalServiceToken),

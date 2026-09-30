@@ -6,6 +6,10 @@ import type { LocaleResource } from '@nocobase/i18n';
  * never shadows a Phase 0 group. `np-zh-CN.ts` is checked against the shape derived from this object.
  */
 const npCollabEnUS = {
+  markdown: {
+    mermaidError: 'Diagram syntax error: {{message}}',
+    mermaidLabel: '{{type}} diagram',
+  },
   start: {
     title: 'Start now?',
     description: 'This change hands the issue to an agent.',

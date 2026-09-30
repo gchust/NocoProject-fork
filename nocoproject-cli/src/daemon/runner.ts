@@ -11,6 +11,7 @@ import type {
   DaemonStartRequest,
   FailureReason,
   RunEventInput,
+  RunUsageInput,
 } from '../protocol.js';
 import { AGENT_ENV_REDACT_MIN_LENGTH, SESSION_POISONING_FAILURE_REASONS } from '../protocol.js';
 import { withRetry } from '../util/backoff.js';
@@ -198,7 +199,10 @@ export async function executeRun(claimed: ClaimedRunV1, deps: RunnerDeps): Promi
     const { env, spec, notes } = prepared;
     for (const note of notes) log.warn(note);
     try {
-      await withRetry(() => deps.api.start(runId, { providerSessionId: spec.resumeSessionId, workDir: env.workDir }), reportRetry);
+      await withRetry(
+        () => deps.api.start(runId, { providerSessionId: spec.resumeSessionId, workDir: env.workDir, acceptsInput: deps.adapter.capabilities().resume }),
+        reportRetry,
+      );
     } catch (error) {
       log.warn('could not mark run as started; abandoning', { error: (error as Error).message });
       return { kind: 'abandoned', why: (error as Error).message };
@@ -216,14 +220,13 @@ export async function executeRun(claimed: ClaimedRunV1, deps: RunnerDeps): Promi
 async function runAndReport(deps: RunnerDeps, log: Logger, claimed: ClaimedRunV1, env: RunEnvironment, spec: RunSpec, notes: readonly string[]): Promise<RunOutcome> {
   const runId = claimed.run.id;
   const streamer = new EventStreamer(deps.api, runId, { logger: log, flushIntervalMs: deps.flushIntervalMs });
-  streamer.push({ type: 'status', content: `Starting ${deps.adapter.provider} in ${env.workDir}${spec.resumeSessionId ? ` (resuming ${spec.resumeSessionId})` : ''}`, at: nowIso() });
+  streamer.push({
+    type: 'status',
+    content: `Starting ${deps.adapter.provider} in ${env.workDir}${spec.resumeSessionId ? ` (resuming ${spec.resumeSessionId})` : ''}`,
+    at: nowIso(),
+  });
   for (const note of notes) streamer.push({ type: 'status', content: note, at: nowIso() });
-  let attempt = await runAgent(deps, spec, streamer);
-  if (attempt.result.resumeRejected && !attempt.stopReason) {
-    log.warn('provider rejected the session resume; retrying once with a fresh session');
-    streamer.push({ type: 'status', content: 'Previous session could not be resumed; starting a fresh session', at: nowIso() });
-    attempt = await runAgent(deps, { ...spec, resumeSessionId: undefined }, streamer);
-  }
+  const { attempt, completed } = await runTurns(deps, log, claimed, env, spec, streamer);
   const r = attempt.result;
   const failure = attempt.stopReason ? null : decideFailure(attempt);
   const branch = checkoutExtras(env.workDir);
@@ -240,12 +243,8 @@ async function runAndReport(deps: RunnerDeps, log: Logger, claimed: ClaimedRunV1
     await report(deps, log, runId, 'fail', body);
     return { kind: 'failed', reason: 'runtimeRecovery' };
   }
-  if (!failure) {
-    const summary = r.summary ? redactText(r.summary).slice(0, MAX_SUMMARY) : undefined;
-    await report(deps, log, runId, 'complete', { providerSessionId: r.sessionId, workDir: env.workDir, summary, usage: r.usage, ...branch });
-    log.info('run completed');
-    return { kind: 'completed' };
-  }
+  if (completed) return { kind: 'completed' };
+  if (!failure) return { kind: 'abandoned', why: 'run did not complete' };
   const detail = redactText(r.errorText || (attempt.idle ? `no agent output for ${deps.idleWatchdogMs}ms` : 'agent produced no output')).slice(-MAX_DETAIL);
   const body: DaemonFailRequest & DaemonReportPhase1Extras = {
     reason: failure,
@@ -279,4 +278,87 @@ async function report(deps: RunnerDeps, log: Logger, runId: string, kind: Report
     const status = error instanceof HttpError ? error.status : undefined;
     log.error(`reporting ${kind} failed`, { status, error: (error as Error).message });
   }
+}
+
+/** Same run, token, checkout and provider session across follow-up comments. */
+async function runTurns(
+  deps: RunnerDeps,
+  log: Logger,
+  claimed: ClaimedRunV1,
+  env: RunEnvironment,
+  initial: RunSpec,
+  streamer: EventStreamer,
+): Promise<{ attempt: AgentAttempt; completed: boolean }> {
+  const handled = new Set(claimed.triggers.flatMap((trigger) => (trigger.comment ? [trigger.comment.id] : [])));
+  let spec = initial;
+  let usage: RunUsageInput | undefined;
+  for (;;) {
+    let attempt = await runAgent(deps, spec, streamer);
+    if (attempt.result.resumeRejected && !attempt.stopReason) {
+      streamer.push({ type: 'status', content: 'Previous session could not be resumed; starting a fresh session', at: nowIso() });
+      attempt = await runAgent(deps, { ...spec, resumeSessionId: undefined }, streamer);
+    }
+    usage = sumUsage(usage, attempt.result.usage);
+    attempt = { ...attempt, result: { ...attempt.result, usage } };
+    if (attempt.stopReason || decideFailure(attempt)) return { attempt, completed: false };
+    try {
+      for (;;) {
+        if (deps.shutdownSignal?.aborted) return { attempt: { ...attempt, stopReason: 'shutdown' }, completed: false };
+        const status = await withRetry(() => deps.api.status(claimed.run.id), reportRetry);
+        if (status.cancelRequested) return { attempt: { ...attempt, stopReason: 'cancelRequested' }, completed: false };
+        if (['completed', 'cancelled', 'failed'].includes(status.status)) return { attempt: { ...attempt, stopReason: 'runTerminal' }, completed: false };
+        const pending = (status.inputs ?? []).filter((input) => !handled.has(input.id));
+        if (pending.length) {
+          // The current exec adapters do not accept mid-turn input. Resume at the provider's
+          // turn boundary without releasing the run or its concurrency slot.
+          spec = {
+            ...initial,
+            resumeSessionId: attempt.result.sessionId,
+            prompt: buildTurnPrompt({ ...claimed, triggers: pending.map((comment) => ({ type: 'comment' as const, comment })) }, { resumed: Boolean(attempt.result.sessionId) }),
+          };
+          for (const input of pending) handled.add(input.id);
+          streamer.push({ type: 'status', content: `Continuing current run with ${pending.length} new comment(s)`, at: nowIso() });
+          break;
+        }
+        try {
+          await withRetry(
+            () =>
+              deps.api.complete(claimed.run.id, {
+                providerSessionId: attempt.result.sessionId,
+                workDir: env.workDir,
+                summary: attempt.result.summary ? redactText(attempt.result.summary).slice(0, MAX_SUMMARY) : undefined,
+                usage,
+                handledInputIds: [...handled],
+                ...checkoutExtras(env.workDir),
+              }),
+            reportRetry,
+          );
+          log.info('run completed');
+          return { attempt, completed: true };
+        } catch (error) {
+          if (error instanceof HttpError && error.code === 'RUN_INPUT_PENDING') continue;
+          if (error instanceof HttpError && error.code === 'RUN_CANCEL_REQUESTED') return { attempt: { ...attempt, stopReason: 'cancelRequested' }, completed: false };
+          throw error;
+        }
+      }
+    } catch (error) {
+      return {
+        attempt: { ...attempt, result: { ...attempt.result, classifiedFailure: 'runtimeRecovery', errorText: `Run input/completion request failed: ${(error as Error).message}` } },
+        completed: false,
+      };
+    }
+  }
+}
+
+function sumUsage(a: RunUsageInput | undefined, b: RunUsageInput | undefined): RunUsageInput | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    provider: b.provider,
+    model: b.model,
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: (a.cacheReadTokens ?? 0) + (b.cacheReadTokens ?? 0),
+    cacheWriteTokens: (a.cacheWriteTokens ?? 0) + (b.cacheWriteTokens ?? 0),
+  };
 }

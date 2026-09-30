@@ -16,7 +16,7 @@ import {
   type AiAgentFactory,
   type IntakeAiResponse,
 } from '../../server/modules/intake/ai-parser.ts';
-import { createAttachmentTextReader } from '../../server/modules/intake/attachment-text.ts';
+import { createAttachmentTextReader } from '../../server/modules/attachment/attachment-text.ts';
 import type { NpServices } from '../../server/modules/services.ts';
 import {
   ALICE,

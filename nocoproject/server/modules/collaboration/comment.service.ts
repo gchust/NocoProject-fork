@@ -12,7 +12,16 @@ import {
   viewerOf,
 } from '../shared/authz.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
-import { iso, isoOrNull, now, str, toDate, unique } from '../shared/db.js';
+import {
+  fromJson,
+  iso,
+  isoOrNull,
+  now,
+  str,
+  toDate,
+  toJson,
+  unique,
+} from '../shared/db.js';
 import { invalid, notFound } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import { decodeCursor, encodeCursor } from '../shared/pagination.js';
@@ -22,13 +31,17 @@ import type {
   CommentPage,
   CommentReaction,
   CommentV2,
+  CommentPmFields,
   CreateCommentRequest,
+  CreateCommentRequestPm,
   CreateCommentResponse,
+  PmResolvedContext,
 } from '../shared/protocol.js';
 import { REACTION_EMOJIS } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import { findIssue } from '../issue/issue.records.js';
 import { agentNames } from '../run/run.queries.js';
+import type { ConversationService } from '../pm/pm.conversations.js';
 import type { TriggerService } from '../trigger/trigger.service.js';
 import { isNote, parseMentions, parseUserMentions } from './mentions.js';
 
@@ -87,6 +100,8 @@ export interface CommentDeps {
   readonly users: UserDirectory;
   readonly activity: ActivityRecorder;
   readonly triggers: () => TriggerService;
+  /** NP-183: project manager conversations (page context, titles, agent binding); absent = none. */
+  readonly conversations?: () => Pick<ConversationService, 'onMessage'>;
 }
 
 function isActorType(value: unknown): value is ActorType {
@@ -127,11 +142,15 @@ export async function reactionsFor(
   return result;
 }
 
+const COMMENT_KINDS = ['system', 'proposal', 'plan', 'plan_result'];
+
+type CommentV5 = CommentV2 & CommentPmFields;
+
 async function mapComments(
   conn: Conn,
   users: UserDirectory,
   rows: readonly Record<string, unknown>[],
-): Promise<CommentV2[]> {
+): Promise<CommentV5[]> {
   const userIds = rows
     .filter((row) => row.authorType === 'user')
     .map((row) => str(row.authorId));
@@ -164,8 +183,9 @@ async function mapComments(
       authorId,
       authorName,
       content: str(row.content) ?? '',
-      // Iteration 4 adds `proposal` (CommentKindV4); the iteration-1 type lists only comment / system.
-      kind: (row.kind === 'system' || row.kind === 'proposal'
+      // Iteration 4 adds `proposal` (CommentKindV4), NP-183 `plan` / `plan_result`; the iteration-1 type lists only
+      // comment / system.
+      kind: (COMMENT_KINDS.includes(String(row.kind))
         ? row.kind
         : 'comment') as CommentV2['kind'],
       parentId: str(row.parentId),
@@ -179,6 +199,8 @@ async function mapComments(
       resolvedByName: str(row.resolvedById)
         ? (userNames.get(str(row.resolvedById) ?? '') ?? null)
         : null,
+      context: fromJson<PmResolvedContext>(row.context) ?? null,
+      via: row.via === 'pm' ? 'pm' : null,
     };
   });
 }
@@ -205,11 +227,12 @@ async function create(
     );
     let issue;
     if (actor.type === 'user') {
-      // Members see and comment on visible issues; mentioning an agent needs access to it (contract §B).
+      // Members see and comment on visible issues; mentioning an agent needs access to it (contract §B). The project
+      // manager's comments in a member's name (NP-183) never invoke an agent, so their mentions are plain text.
       const viewer = await viewerOf(tx.conn, actor);
       issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
       requireEditIssues(viewer);
-      if (!isNote(content))
+      if (!isNote(content) && actor.via !== 'pm')
         for (const agentId of parseMentions(content))
           await requireInvokeAgent(tx.conn, viewer.userId, agentId);
     } else {
@@ -224,7 +247,14 @@ async function create(
         content = `/note\n${content}`;
     }
     if (!issue) throw notFound('Issue');
-    let parent: CommentV2 | null = null;
+    const message = await deps.conversations?.().onMessage(tx, {
+      issue,
+      actor,
+      content,
+      context: (input as CreateCommentRequestPm | undefined)?.context,
+    });
+    if (message) issue = message.issue;
+    let parent: CommentV5 | null = null;
     if (input.parentId) {
       const parentRow = await tx.conn.query
         .selectFrom('comments')
@@ -252,6 +282,8 @@ async function create(
       // The thread root is the parent's root: resolving it once at insert makes "topmost parent" a column read.
       rootId: parent?.rootId ?? id,
       sourceRunId: actor.runId ?? null,
+      context: message?.context ? toJson(message.context) : null,
+      via: actor.via === 'pm' ? 'pm' : null,
       createdAt: timestamp,
       updatedAt: timestamp,
     };

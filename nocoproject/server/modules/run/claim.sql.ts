@@ -1,7 +1,8 @@
 /**
  * Claim SQL (PostgreSQL), verbatim from protocol.md §4 apart from `updated_at` and bound parameters.
  *
- * Bindings: [runtimeId (SET runtime_id), runtimeId (a.runtime_id)].
+ * Bindings: [runtimeId (SET runtime_id), runtimeId (a.runtime_id), whether the daemon may take project manager
+ * conversation runs (NP-183: a daemon older than `PM_ASSISTANT_MIN_CLI` leaves them queued)].
  *
  * The NocoBase QueryAdapter has no `FOR UPDATE SKIP LOCKED` or `RETURNING`, so this runs through the transaction's
  * Knex client (`await connection.client()` inside `db.transaction()` is the Knex transaction itself).
@@ -22,6 +23,8 @@ UPDATE runs
     WHERE r.status = 'queued'
       AND a.runtime_id = ?
       AND a.archived_at IS NULL
+      AND (?::boolean OR NOT EXISTS (
+        SELECT 1 FROM pm_conversations c WHERE c.issue_id = r.subject_id))
       AND NOT EXISTS (
         SELECT 1 FROM runs x
          WHERE x.agent_id = r.agent_id

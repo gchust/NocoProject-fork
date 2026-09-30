@@ -1,6 +1,6 @@
 import { AGENT_CAPABILITIES } from '../../server/modules/shared/protocol.capabilities.js';
 import {
-  LATEST_CLI_VERSION,
+  PM_ASSISTANT_MIN_CLI,
   PROTOCOL_VERSION,
 } from '../../server/modules/shared/protocol.ts';
 /**
@@ -39,6 +39,7 @@ import { createSecretBox } from '../../server/modules/shared/crypto.ts';
 import {
   membersTableRoleStore,
   membersTableRoles,
+  roleAccess,
   withRoleAccess,
 } from './np-role-double.ts';
 import { guarded } from '../../server/modules/shared/http.ts';
@@ -108,6 +109,14 @@ export const NP_INVITATION_TABLES = ['np_invitations'] as const;
 
 /** Tables of the computer credentials migration (NP-150). */
 export const NP_COMPUTER_TABLES = ['np_computers'] as const;
+
+/** Tables of the project manager assistant migration (NP-183). */
+export const NP_PM_ASSISTANT_TABLES = [
+  'pm_conversations',
+  'pm_plans',
+  'pm_plan_ops',
+  'pm_act_writes',
+] as const;
 
 /** Tables of the Phase 2 workflow proposals migration (NP-77 stage 2). */
 export const NP_PHASE2_PROPOSAL_TABLES = [
@@ -264,7 +273,10 @@ export function buildServices(
     idGenerator: new SnowflakeIdGenerator({ workerId }),
     bus,
     secrets: createSecretBox(TEST_SECRET_KEY),
-    roles: () => membersTableRoles,
+    roles: () => ({
+      ...membersTableRoles,
+      accessOf: async (userId: string) => roleAccess(database, userId),
+    }),
     roleStore: () => membersTableRoleStore,
     ...options,
   });
@@ -275,7 +287,7 @@ export function buildServices(
 /** Empties every NocoProject table (keeping the seeded workflow template) and restores the settings row. */
 export async function resetData(db: NpTestDatabase): Promise<void> {
   await db.knex.raw(
-    `TRUNCATE ${[...NP_TABLES, ...NP_PHASE1_TABLES, ...NP_PHASE1_ITER2_TABLES, ...NP_PHASE1_ITER3_TABLES, ...NP_PHASE2_WORKFLOW_TABLES, ...NP_ATTACHMENT_TABLES, ...NP_INVITATION_TABLES, ...NP_PHASE2_PROPOSAL_TABLES, ...NP_COMPUTER_TABLES].map((table) => `"${db.schema}"."${table}"`).join(', ')}`,
+    `TRUNCATE ${[...NP_TABLES, ...NP_PHASE1_TABLES, ...NP_PHASE1_ITER2_TABLES, ...NP_PHASE1_ITER3_TABLES, ...NP_PHASE2_WORKFLOW_TABLES, ...NP_ATTACHMENT_TABLES, ...NP_INVITATION_TABLES, ...NP_PHASE2_PROPOSAL_TABLES, ...NP_COMPUTER_TABLES, ...NP_PM_ASSISTANT_TABLES].map((table) => `"${db.schema}"."${table}"`).join(', ')}`,
   );
   await db.knex.raw(
     `INSERT INTO "${db.schema}".system_settings (id, issue_prefix, issue_counter) VALUES ('default', 'NP', 0)`,
@@ -324,7 +336,8 @@ export async function registerRuntime(
   const response = await services.runtimes.register(owner.id as string, {
     daemonId,
     deviceName: 'test-device',
-    version: LATEST_CLI_VERSION,
+    // NP-183: new enough for project manager conversation runs (`PM_ASSISTANT_MIN_CLI`).
+    version: PM_ASSISTANT_MIN_CLI,
     protocolVersion: PROTOCOL_VERSION,
     runtimes: [
       {

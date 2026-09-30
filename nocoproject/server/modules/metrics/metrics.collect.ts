@@ -20,6 +20,7 @@
  */
 import type { Expression, ExpressionBuilder, SqlBool } from '@nocobase/db';
 
+import { notConversation } from '../shared/conversation.js';
 import type { Conn } from '../shared/db.js';
 import { fromJson, str, toDate } from '../shared/db.js';
 import type {
@@ -55,7 +56,9 @@ function inScope(
     let issues = eb
       .selectFrom('issues')
       .select('id')
-      .where('deletedAt', 'is', null);
+      .where('deletedAt', 'is', null)
+      // NP-183: project manager conversations count nowhere in the metrics.
+      .where(notConversation());
     if (scope.projectId)
       issues = issues.where('projectId', '=', scope.projectId);
     if (scope.hidden.length > 0)

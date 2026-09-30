@@ -33,6 +33,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - Column widths go in `meta.className`: fixed widths for identifier, status, priority, people and dates; the title column `w-full max-w-0` with a single-line truncated cell capped at `max-w-[30rem]` and a `title` tooltip. One long title never stretches a table.
 - Sortable headers use `DataTableColumnHeader`: a click cycles ascending → descending → unsorted, the icon shows the state, there is no menu on the header. Column hiding lives in `DataTableViewOptions`.
 - `/issues` and `/my-issues` open on the board. The list / board choice is remembered per page in `localStorage` (`nocoproject:issues-view:<page>`, every access in try/catch); `?view=` overrides and is always written explicitly.
+- `/runtimes` lists runtimes grouped under their computer (`GroupedDataTable`, one header row per daemon: credential name or device, online state, CLI, owner); its computer credentials are split into valid and a folded "Revoked (n)" table. `/agents` offers List / By computer (`nocoproject:agents-grouping` in `localStorage`, try/catch); agents without a visible runtime group last as "No computer" (NP-188).
 - Loading: `NpListSkeleton` (or a skeleton shaped like the content). Empty: `NpEmpty` (icon, title, one sentence of fact, the create action). Failed: `NpLoadError` (retry, none on 403).
 
 ## 3. Detail pages
@@ -79,6 +80,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 ## 7. Colour, motion, themes
 
 - Colours are tokens only. Neutrals, primary and charts come from the theme presets; NocoProject's own semantic colours (`--agent`, `--attention`, `--success`, `--np-tint-*` / `--np-ink-*`) live in `client/np-tones.css`. Accent (primary) only for primary actions, focus and live state; amber only for "needs you".
+- Markdown (`NpMarkdown`) draws ` ```mermaid ` blocks as diagrams through `NpMermaid` (NP-167): mermaid is imported only when a diagram mounts, runs with `securityLevel: 'strict'` and no HTML labels, takes its palette from the tokens (converted from `oklch` to hex on a canvas, because mermaid cannot parse `oklch`) and redraws when the mode or preset changes; a diagram that does not parse stays code with one error line. Wide diagrams keep their natural size and scroll inside their frame. The Tiptap editor shows the source; only rendered Markdown draws.
 - Motion explains change and respects reduced motion: realtime inbox arrivals slide in, resolved decisions dim, running work pulses (`NpPulse`, `np-live-ring`), progress rings animate.
 
 ## 8. Keyboard

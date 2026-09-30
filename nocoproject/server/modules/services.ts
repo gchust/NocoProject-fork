@@ -159,7 +159,7 @@ import {
   type TriggerService,
 } from './trigger/trigger.service.js';
 
-import type { AttachmentTextReader } from './intake/attachment-text.js';
+import type { AttachmentTextReader } from './attachment/attachment-text.js';
 import {
   createAttachmentService,
   type AttachmentService,
@@ -210,6 +210,10 @@ export interface NpServices {
   // Iteration 4.
   readonly design: Iteration4Services['design'];
   readonly pm: Iteration4Services['pm'];
+  readonly pmConversations: Iteration4Services['pmConversations'];
+  readonly pmAgents: Iteration4Services['pmAgents'];
+  readonly pmAct: Iteration4Services['pmAct'];
+  readonly pmPlans: Iteration4Services['pmPlans'];
   readonly pullRequestMerges: Iteration4Services['pullRequestMerges'];
   // Phase 2 (NP-77).
   readonly checklists: ChecklistService;
@@ -378,6 +382,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       users,
       activity,
       triggers: () => services.triggers,
+      conversations: () => services.pmConversations,
     }),
     agents: createAgentService({ tx, ids, users, activity }),
     runtimes: createRuntimeService({ tx, ids, users }),
@@ -403,7 +408,17 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       services,
     ),
     ...createIteration4Services(
-      { tx, ids, secrets, github, users, activity, settings, workflows },
+      {
+        tx,
+        ids,
+        secrets,
+        github,
+        users,
+        activity,
+        settings,
+        workflows,
+        roles: deps.roles,
+      },
       services,
     ),
     checklists: createChecklistService({ tx, ids, users, activity }),
@@ -421,6 +436,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       activity,
       objects: deps.fileObjects ?? { remove: async () => undefined },
       onObjectError: deps.onFileObjectError,
+      text: deps.attachmentText ?? null,
     }),
     invitations: createInvitationService({
       tx,

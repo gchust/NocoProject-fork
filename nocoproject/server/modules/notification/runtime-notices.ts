@@ -4,6 +4,7 @@
  * | event                        | item                                                                              |
  * | ---------------------------- | --------------------------------------------------------------------------------- |
  * | runtime.compatibilityChanged | info `runtime_upgrade_required` to the computer's owner (`user:<uid>:runtime_upgrade_required:<daemonId>`); resolved when the daemon is compatible again |
+ * | ... with `feature: 'pmAssistant'` (NP-183) | the same item for conversation runs only (`...:<daemonId>:pmAssistant`, `reason: 'pmAssistant'`) |
  *
  * The item has no issue; the browser opens the runtimes page and renders the upgrade command from `payload`
  * (`daemonId`, `deviceName`, `daemonVersion`, `latestVersion`, `reason`).
@@ -16,7 +17,7 @@ export async function onRuntimeCompatibilityChanged(
   round: Round,
   event: Extract<DomainEvent, { type: 'runtime.compatibilityChanged' }>,
 ): Promise<void> {
-  const suffix = `:runtime_upgrade_required:${event.daemonId}`;
+  const suffix = `:runtime_upgrade_required:${event.daemonId}${event.feature ? `:${event.feature}` : ''}`;
   if (!event.upgradeRequired) {
     round.touch(
       await resolveByDedupeSuffix(round.tx, 'runtime_upgrade_required', suffix),
@@ -33,7 +34,9 @@ export async function onRuntimeCompatibilityChanged(
       type: 'runtime_upgrade_required',
       issueId: null,
       title: device,
-      body: `The daemon on "${device}" (CLI ${event.daemonVersion ?? 'unknown'}) must be upgraded to ${event.latestVersion} before it can run agents.`,
+      body: event.feature
+        ? `The daemon on "${device}" (CLI ${event.daemonVersion ?? 'unknown'}) must be upgraded to ${event.latestVersion} before it can run project manager conversations.`
+        : `The daemon on "${device}" (CLI ${event.daemonVersion ?? 'unknown'}) must be upgraded to ${event.latestVersion} before it can run agents.`,
       actorType: 'system',
       actorId: null,
       actorName: null,

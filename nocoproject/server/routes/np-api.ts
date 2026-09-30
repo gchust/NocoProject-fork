@@ -46,7 +46,10 @@ import { createUsageRoutes } from '../modules/usage/usage.routes.js';
 import { createDesignRoutes } from '../modules/issue/design.routes.js';
 import { createChecklistRoutes } from '../modules/workflow/checklist.routes.js';
 import { createIssueRoutes } from '../modules/issue/issue.routes.js';
-import { createPmRoutes } from '../modules/pm/pm.routes.js';
+import {
+  createPmAgentRoutes,
+  createPmRoutes,
+} from '../modules/pm/pm.routes.js';
 import { createLabelRoutes } from '../modules/label/label.routes.js';
 import {
   createMemberRoutes,
@@ -92,7 +95,9 @@ import {
   npWorkflowProposalServiceToken,
   npDesignServiceToken,
   npKnowledgeServiceToken,
-  npPmServiceToken,
+  npPmAgentServiceToken,
+  npPmPlanServiceToken,
+  npPmConversationsToken,
   npMetricsServiceToken,
   npCommentServiceToken,
   npDependencyServiceToken,
@@ -157,6 +162,11 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
       }),
     );
 
+    // NP-183: the member's choice of project manager.
+    me.route(
+      '/pm-agent',
+      createPmAgentRoutes(container.resolve(npPmAgentServiceToken)),
+    );
     router.route('/np/me', guarded(guard, me));
     const roles = container.resolve(npRoleServiceToken);
     router.route(
@@ -210,7 +220,10 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
             ? container.resolve(loggingToken).getLogger('nocoproject')
             : undefined,
         }),
-        createCommentRoutes(container.resolve(npCommentServiceToken)),
+        createCommentRoutes(
+          container.resolve(npCommentServiceToken),
+          container.resolve(npPmConversationsToken),
+        ),
         createSubtaskRoutes({
           dependencies: container.resolve(npDependencyServiceToken),
           proposals: container.resolve(npProposalServiceToken),
@@ -342,6 +355,12 @@ function mountIteration2(
   // Iteration 4.
   router.route(
     '/np/pm',
-    guarded(guard, createPmRoutes(container.resolve(npPmServiceToken))),
+    guarded(
+      guard,
+      createPmRoutes(
+        container.resolve(npPmConversationsToken),
+        container.resolve(npPmPlanServiceToken),
+      ),
+    ),
   );
 }

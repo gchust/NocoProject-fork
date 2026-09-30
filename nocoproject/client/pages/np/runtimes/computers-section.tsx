@@ -2,6 +2,7 @@ import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
+import { ChevronRightIcon } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
 
 import { DataTable } from '@/components/data-table';
@@ -19,6 +20,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { toast } from '@/components/ui/toast';
 
 import { fetchComputers, revokeComputer } from '../api-computers.js';
@@ -29,7 +35,7 @@ import type { NpComputer } from '../types-computers.js';
 /**
  * The computer credentials (NP-150), under the runtimes: one per added computer, each revocable on its own (the
  * daemon on it stops at its next request and its runtimes go offline). Owners see their own, owner/admin everyone's.
- * Hidden while there are none.
+ * Valid and revoked ones are separate tables, the revoked one folded (NP-188). Hidden while there are none.
  */
 export function ComputersSection(): ReactElement | null {
   const { t } = useTranslation();
@@ -91,9 +97,7 @@ export function ComputersSection(): ReactElement | null {
         id: 'state',
         header: t('np.computers.columns.state'),
         cell: ({ row }) =>
-          row.original.revokedAt ? (
-            <NpTag tone='grey'>{t('np.computers.state.revoked')}</NpTag>
-          ) : row.original.lastUsedAt ? (
+          row.original.lastUsedAt ? (
             <NpTag tone='green' dot>
               {t('np.computers.state.active')}
             </NpTag>
@@ -156,6 +160,28 @@ export function ComputersSection(): ReactElement | null {
     [t, format, revoke.isPending],
   );
 
+  // NP-188: revoked credentials are history; they sit in their own folded table under the valid ones.
+  const revokedColumns = useMemo<ColumnDef<NpComputer, unknown>[]>(
+    () => [
+      ...columns.filter(
+        (column) => column.id !== 'state' && column.id !== 'actions',
+      ),
+      {
+        accessorKey: 'revokedAt',
+        header: t('np.computers.columns.revokedAt'),
+        cell: ({ row }) => (
+          <span
+            className='text-sm whitespace-nowrap text-muted-foreground'
+            title={format.dateTime(row.original.revokedAt)}
+          >
+            {format.relative(row.original.revokedAt)}
+          </span>
+        ),
+      },
+    ],
+    [columns, t, format],
+  );
+
   const rows = computers.data;
   if (computers.isError && !rows)
     return (
@@ -167,6 +193,8 @@ export function ComputersSection(): ReactElement | null {
     );
   if (!rows) return <NpListSkeleton rows={2} />;
   if (rows.length === 0) return null;
+  const valid = rows.filter((computer) => !computer.revokedAt);
+  const revoked = rows.filter((computer) => computer.revokedAt);
 
   return (
     <section className='space-y-3 pt-6' aria-labelledby='np-computers-heading'>
@@ -183,11 +211,40 @@ export function ComputersSection(): ReactElement | null {
       </div>
       <DataTable
         columns={columns}
-        data={rows}
+        data={valid}
         pageSize={20}
         showSelectedCount={false}
         getRowId={(computer) => computer.id}
+        emptyMessage={t('np.computers.noneValid')}
       />
+      {revoked.length > 0 ? (
+        <Collapsible>
+          <CollapsibleTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='sm'
+                className='group/fold -ml-2 gap-1.5 px-2 text-muted-foreground'
+              />
+            }
+          >
+            <ChevronRightIcon
+              data-icon='inline-start'
+              className='transition-transform group-data-panel-open/fold:rotate-90'
+            />
+            {t('np.computers.revokedList', { count: revoked.length })}
+          </CollapsibleTrigger>
+          <CollapsibleContent className='pt-3'>
+            <DataTable
+              columns={revokedColumns}
+              data={revoked}
+              pageSize={20}
+              showSelectedCount={false}
+              getRowId={(computer) => computer.id}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      ) : null}
       <AlertDialog
         open={revoking !== null}
         onOpenChange={(open) => {

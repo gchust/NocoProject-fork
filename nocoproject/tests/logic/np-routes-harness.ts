@@ -31,6 +31,10 @@ import {
   npChecklistServiceToken,
   npWorkflowProposalServiceToken,
   npDesignServiceToken,
+  npPmActServiceToken,
+  npPmPlanServiceToken,
+  npPmAgentServiceToken,
+  npPmConversationsToken,
   npPmServiceToken,
   npPullRequestMergeServiceToken,
   npKnowledgeServiceToken,
@@ -288,6 +292,12 @@ export async function build(
   container.instance(npDeliveryServiceToken, {} as never);
   container.instance(npDesignServiceToken, {} as never);
   container.instance(npPmServiceToken, {} as never);
+  container.instance(npPmConversationsToken, {
+    detailOf: async () => null,
+  } as never);
+  container.instance(npPmAgentServiceToken, {} as never);
+  container.instance(npPmActServiceToken, {} as never);
+  container.instance(npPmPlanServiceToken, {} as never);
   container.instance(npPullRequestMergeServiceToken, {} as never);
   container.instance(npChecklistServiceToken, {} as never);
   container.instance(npWorkflowProposalServiceToken, {} as never);

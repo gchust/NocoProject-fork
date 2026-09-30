@@ -12,7 +12,7 @@ import { requireCapability } from '../agent/capabilities.js';
  *   `KNOWLEDGE_PROPOSAL_STALE` (with `currentVersion`), unless the request confirms it with `confirmStale` (NP-139).
  */
 import type { Actor } from '../shared/activity.js';
-import type { Conn } from '../shared/db.js';
+import type { Conn, Tx } from '../shared/db.js';
 import { now, num, str } from '../shared/db.js';
 import {
   conflict,
@@ -428,6 +428,7 @@ export async function decideProposal(
   proposalId: string,
   decision: 'accept' | 'reject',
   input: DecideKnowledgeProposalRequest,
+  outer?: Tx,
 ): Promise<KnowledgeProposal> {
   const comment = validateComment(input?.comment);
   const confirmStale = input?.confirmStale === true;
@@ -512,8 +513,9 @@ export async function decideProposal(
       issueId: issue?.id ?? null,
       actor: { type: 'user', id: actor.id },
     });
-  });
-  const conn = deps.tx.read();
+  }, outer);
+  // NP-183: inside a caller's transaction, read through it (on SQLite the application connection waits for it).
+  const conn = outer?.conn ?? deps.tx.read();
   const scope = await scopeOf(conn, actor);
   return loadProposal(deps, conn, proposalId, (projectId) =>
     canEdit(scope, projectId),

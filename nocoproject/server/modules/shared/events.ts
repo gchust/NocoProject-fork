@@ -65,6 +65,8 @@ export type DomainEvent =
       readonly daemonVersion: string | null;
       readonly latestVersion: string;
       readonly reason: string;
+      /** NP-183: set when only one feature (conversation runs) needs the upgrade; the item is kept apart. */
+      readonly feature?: 'pmAssistant';
     }
   | {
       readonly type: 'daemon.workAvailable';

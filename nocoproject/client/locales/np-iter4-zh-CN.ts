@@ -20,6 +20,8 @@ const npIter4ZhCN: NpIter4Resource = {
     checklist_write: '更新检查清单',
     workflow_propose: '提出流程建议',
     pullRequest_link: '关联 PR',
+    member_act: '以提问者身份行动（项目经理）',
+    repo_read: '只读检出仓库',
   },
   entries: {
     conversation: '对话入口',

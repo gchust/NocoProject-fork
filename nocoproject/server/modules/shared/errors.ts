@@ -36,8 +36,12 @@ export class NpError extends Error {
   }
 }
 
-export function invalid(code: string, message: string): NpError {
-  return new NpError('invalid', code, message);
+export function invalid(
+  code: string,
+  message: string,
+  details?: Readonly<Record<string, unknown>>,
+): NpError {
+  return new NpError('invalid', code, message, details);
 }
 
 export function notFound(what: string): NpError {
@@ -53,10 +57,18 @@ export function runtimeNotFound(runtimeId: string): NpError {
   );
 }
 
-export function forbidden(code: string, message: string): NpError {
-  return new NpError('forbidden', code, message);
+export function forbidden(
+  code: string,
+  message: string,
+  details?: Readonly<Record<string, unknown>>,
+): NpError {
+  return new NpError('forbidden', code, message, details);
 }
 
-export function conflict(code: string, message: string): NpError {
-  return new NpError('conflict', code, message);
+export function conflict(
+  code: string,
+  message: string,
+  details?: Readonly<Record<string, unknown>>,
+): NpError {
+  return new NpError('conflict', code, message, details);
 }

@@ -11,6 +11,7 @@
 import type { Viewer } from '../shared/authz.js';
 import { NP_BUSINESS } from '../shared/access.js';
 import { hiddenProjectIds, scopeIn } from '../shared/authz.js';
+import { notConversation } from '../shared/conversation.js';
 import type { Conn } from '../shared/db.js';
 import { iso, num, str, unique } from '../shared/db.js';
 import { decodeCursor, encodeCursor, pageLimit } from '../shared/pagination.js';
@@ -152,13 +153,8 @@ async function filteredQuery(
     query = query.where((eb) =>
       eb.or([eb('projectId', 'is', null), eb('projectId', 'not in', hidden)]),
     );
-  // Iteration 4: project manager conversations are private to their owner.
-  query = query.where((eb) =>
-    eb.or([
-      eb('originType', '!=', 'pm'),
-      eb('ownerUserId', '=', viewer.userId),
-    ]),
-  );
+  // NP-183: project manager conversations are not tasks; no list shows them, not even to their owner.
+  query = query.where(notConversation());
   if (filter.updatedSince)
     query = query.where('updatedAt', '>=', filter.updatedSince);
   if (filter.statusKey) query = query.where('statusKey', '=', filter.statusKey);
