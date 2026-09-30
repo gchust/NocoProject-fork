@@ -40,7 +40,7 @@ export function runTokenContext(env: NodeJS.ProcessEnv = process.env): RunTokenC
 
 export const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 
-const sameKey = (a: string | undefined, b: string): boolean => Boolean(a && a.toUpperCase() === b.toUpperCase());
+const sameKey = (a: string | null | undefined, b: string): boolean => Boolean(a && a.toUpperCase() === b.toUpperCase());
 
 /** Resolves `NP-12` style identifiers for URL paths (the server also accepts identifiers there). */
 export async function resolveIssueId(arg: string | undefined, ctx: RunTokenContext): Promise<string> {

@@ -3,15 +3,14 @@
  * through the browser API with their API key, so it can do exactly what that person can do in the UI. Refused inside
  * agent runs (`NOCOPROJECT_TOKEN`); the server labels the activities it writes `via: 'cli'`.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readText, issueRef } from './input.js';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { HttpError } from '../api/client.js';
 import type { IssueDetailView, IssueListQuery, Page } from '../api/user-client.js';
 import type { AgentListItem, Comment, CreateIssueRequestV1, InboxItem, IssueListItemV1, IssuePriority, Label, ProjectListItem } from '../protocol.js';
 import { CliError, EXIT, failAndExit, printJson, printLine } from './output.js';
-import { action, IDENTIFIER, type JsonOpt, splitList } from './run-token.js';
+import { action, type JsonOpt, splitList } from './run-token.js';
 import { NameResolver, refuseInsideRun, userContext, type UserContext } from './user-context.js';
 import { registerUserSkillCommand } from './user-skill.js';
 
@@ -20,14 +19,6 @@ const out = <T>(opts: JsonOpt, data: T, text: (d: T) => void): void => (opts.jso
 /** Like `action`, but refuses inside an agent run before anything else happens. */
 function userAction<A extends unknown[]>(fn: (ctx: UserContext, ...args: A) => Promise<void>): (...args: A) => Promise<void> {
   return action(async (...args: A) => fn(userContext(), ...args));
-}
-
-function readText(inline: string | undefined, file: string | undefined, what: string): string | undefined {
-  if (inline !== undefined && file !== undefined) throw new CliError(`pass either --${what} or --${what}-file, not both`, EXIT.validation, 'CONFLICTING_OPTIONS');
-  if (file === undefined) return inline;
-  const path = resolve(file);
-  if (!existsSync(path)) throw new CliError(`file not found: ${path}`, EXIT.validation, 'FILE_NOT_FOUND');
-  return readFileSync(path, 'utf8');
 }
 
 const PRIORITIES: readonly IssuePriority[] = ['urgent', 'high', 'medium', 'low', 'none'];
@@ -175,12 +166,6 @@ async function changeStatus(ctx: UserContext, ref: string, statusKey: string) {
       throw error;
     }
   }
-}
-
-function issueRef(value: string): string {
-  const ref = value.trim();
-  if (!ref) throw new CliError('an issue id or identifier (NP-12) is required', EXIT.validation, 'ISSUE_REQUIRED');
-  return IDENTIFIER.test(ref) ? ref.toUpperCase() : ref;
 }
 
 export function registerUserCommands(program: Command): void {

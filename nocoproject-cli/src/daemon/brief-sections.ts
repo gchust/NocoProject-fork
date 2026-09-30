@@ -47,7 +47,7 @@ function linkedPullRequests(input: Phase1BriefInput): string[] {
 }
 
 export function repositoriesSection(input: Phase1BriefInput): string[] {
-  const key = input.issue.identifier;
+  const key = input.issue.identifier ?? input.issue.id;
   const resources = input.project?.resources ?? [];
   const lines = ['## Repositories', ''];
   if (resources.length === 0) {
@@ -139,7 +139,7 @@ function delegationLine(input: Phase1BriefInput): string {
 }
 
 export function subIssuesSection(input: Phase1BriefInput): string[] {
-  const key = input.issue.identifier;
+  const key = input.issue.identifier ?? input.issue.id;
   const auto = input.issue.autoExecuteSubtasks === true;
   return [
     '## Sub-issues',

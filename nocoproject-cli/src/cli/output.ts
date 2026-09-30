@@ -15,11 +15,14 @@ export class CliError extends Error {
   }
 }
 
+const PM_AUTH_ERRORS = new Set(['PLAN_REQUIRED', 'PLAN_INVALID', 'NOT_CONVERSATION_RUN']);
+
 export function exitCodeFor(error: unknown): number {
   if (error instanceof CliError) return error.exitCode;
   if (error instanceof NetworkError) return EXIT.network;
   if (error instanceof ZodError) return EXIT.validation;
   if (error instanceof HttpError) {
+    if (PM_AUTH_ERRORS.has(error.code)) return EXIT.auth;
     if (error.code === 'TRANSITION_NOT_ALLOWED' || error.code === 'DESIGN_NOT_APPROVED') return EXIT.validation;
     if (error.status === 401 || error.status === 403) return EXIT.auth;
     if (error.status === 404) return EXIT.notFound;
@@ -58,6 +61,9 @@ export function failAndExit(error: unknown, json: boolean): never {
   const details = error instanceof HttpError ? error.details : undefined;
   if (json) process.stdout.write(`${JSON.stringify({ error: { code: errorCode(error), message, exitCode: code, ...(details ? { details } : {}) } })}\n`);
   else process.stderr.write(`error: ${message}\n${detailLines(details).map((line) => `${redactText(line)}\n`).join('')}`);
+  if (error instanceof HttpError && PM_AUTH_ERRORS.has(error.code) && details) {
+    process.stderr.write(JSON.stringify(details) + '\n');
+  }
   process.exit(code);
 }
 
