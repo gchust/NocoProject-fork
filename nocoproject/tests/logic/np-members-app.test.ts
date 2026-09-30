@@ -187,7 +187,13 @@ describe('NocoProject members through the application', () => {
     });
     expect(muted.status).toBe(200);
     await expect(muted.json()).resolves.toEqual({
-      data: { inboxChime: false },
+      data: {
+        inboxChime: false,
+        pmConfirmAll: false,
+        pmAgentMode: 'system',
+        pmAgentId: null,
+        revision: 2,
+      },
     });
     expect(await chime(member)).toBe(false);
     expect(await chime(admin)).toBe(true);

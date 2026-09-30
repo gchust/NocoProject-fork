@@ -33,6 +33,11 @@ const REVIEWED: readonly {
     protocol: 2,
     note: 'NP-150: protocol 2 (negotiation, compatibility in responses, the computer credential type); NP-125 configuration is protocol 1 + configurationProtocol.',
   },
+  {
+    fingerprint: 'c93e7fd8c0040c18',
+    protocol: 2,
+    note: 'NP-114: optional acceptsInput / inputs / handledInputIds, only used by daemons that opt in with acceptsInput. NP-183: ClaimedConversation, only on conversation runs, which daemons older than PM_ASSISTANT_MIN_CLI never claim. Installed daemons can ignore both.',
+  },
 ];
 
 function files(dir: string): string[] {
