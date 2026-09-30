@@ -71,7 +71,12 @@ export { eventActor } from './issue.events.js';
 export type { IssueStatusResult } from './issue.status.js';
 
 export interface IssueService {
-  create(actor: Actor, input: CreateIssueRequestV4): Promise<IssueV4>;
+  /** NP-183: `outer` joins the caller's transaction and uses the heuristic process classifier only. */
+  create(
+    actor: Actor,
+    input: CreateIssueRequestV4,
+    options?: { readonly outer?: Tx },
+  ): Promise<IssueV4>;
   /** `patch` without the approval outcome (the issue is unchanged when the status change waits for approval). */
   update(
     actor: Actor,
@@ -251,18 +256,19 @@ async function create(
   deps: IssueDeps,
   actor: Actor,
   input: CreateIssueRequestV4,
+  outer?: Tx,
 ): Promise<IssueV4> {
   validateCreate(input);
-  // Before the transaction: the classifier may make a model call.
+  // Before the transaction: the classifier may make a model call (never inside a caller's transaction).
   const selection = await selectProcess(
     deps,
-    deps.tx.read(),
+    outer?.conn ?? deps.tx.read(),
     {
       process: input.process,
       title: input.title,
       description: input.description ?? '',
     },
-    { userId: actor.id ?? '', useAi: true },
+    { userId: actor.id ?? '', useAi: !outer },
   );
   return deps.tx.run(async (tx) => {
     const viewer = await viewerOf(tx.conn, actor);
@@ -310,7 +316,7 @@ async function create(
       start: input.start,
     });
     return issue;
-  });
+  }, outer);
 }
 
 async function update(
@@ -449,7 +455,8 @@ async function assignAgentInTx(
 
 export function createIssueService(deps: IssueDeps): IssueService {
   return {
-    create: (actor, input) => create(deps, actor, input),
+    create: (actor, input, options) =>
+      create(deps, actor, input, options?.outer),
     update: async (actor, idOrKey, patch) =>
       (await update(deps, actor, idOrKey, patch)).issue,
     patch: (actor, idOrKey, patch, outer) =>

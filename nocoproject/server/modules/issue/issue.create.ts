@@ -4,6 +4,7 @@
  * (validated here, selected in `process.ts` before the transaction) and refuses a project manager agent as the
  * executor (400 `MANAGER_NOT_EXECUTOR`, in `resolveExecutor`).
  */
+import { requireWorkItem } from '../shared/conversation.js';
 import { requireInvokeAgent, type Viewer } from '../shared/authz.js';
 import type { Tx } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
@@ -70,6 +71,8 @@ export async function resolveNewIssue(
     input.parentIssueId === undefined || input.parentIssueId === null
       ? null
       : await resolveParent(conn, viewer, input.parentIssueId, null);
+  // NP-183: a project manager conversation has no sub-issues.
+  if (parent) requireWorkItem(parent);
   const projectId =
     input.projectId === undefined
       ? (parent?.projectId ?? null)

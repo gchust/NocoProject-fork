@@ -12,10 +12,11 @@ import { invalid } from './errors.js';
 export const CONVERSATION_ORIGIN = 'pm';
 
 /** Whether an issue row is a conversation. */
-export function isConversation(issue: {
-  readonly originType?: string | null;
-}): boolean {
-  return issue.originType === CONVERSATION_ORIGIN;
+export function isConversation(issue: object): boolean {
+  return (
+    (issue as { readonly originType?: unknown }).originType ===
+    CONVERSATION_ORIGIN
+  );
 }
 
 /** `where(notConversation(column))`: the row's issue column (default `originType` on `issues`) is not a conversation. */
@@ -26,9 +27,7 @@ export function notConversation(
 }
 
 /** 400 `CONVERSATION_NOT_ISSUE` when an issue is a conversation (parent, child, dependency, plan row). */
-export function requireWorkItem(issue: {
-  readonly originType?: string | null;
-}): void {
+export function requireWorkItem(issue: object): void {
   if (isConversation(issue))
     throw invalid(
       'CONVERSATION_NOT_ISSUE',

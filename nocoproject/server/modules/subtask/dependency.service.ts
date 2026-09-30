@@ -9,6 +9,7 @@ import {
   requireVisibleIssue,
   viewerOf,
 } from '../shared/authz.js';
+import { requireWorkItemId } from '../shared/conversation.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { isUniqueViolation, now, str } from '../shared/db.js';
 import { conflict, invalid, notFound } from '../shared/errors.js';
@@ -25,13 +26,20 @@ import type { TriggerService } from '../trigger/trigger.service.js';
 const MAX_DEPTH = 100;
 
 export interface DependencyService {
+  /** NP-183: `outer` joins the caller's transaction (the project manager's writes). */
   add(
     actor: Actor,
     issueIdOrKey: string,
     input: AddDependencyRequest,
+    outer?: Tx,
   ): Promise<IssueDependency>;
   /** `target` is a dependency id, or the id / identifier of the issue depended on (type blockedBy). */
-  remove(actor: Actor, issueIdOrKey: string, target: string): Promise<void>;
+  remove(
+    actor: Actor,
+    issueIdOrKey: string,
+    target: string,
+    outer?: Tx,
+  ): Promise<void>;
 }
 
 export interface DependencyDeps {
@@ -88,6 +96,9 @@ export async function insertDependency(
   },
 ): Promise<IssueDependency> {
   const { issue, dependsOn, type, actor } = input;
+  // NP-183: a project manager conversation is never either end of a dependency.
+  await requireWorkItemId(tx.conn, issue.id);
+  await requireWorkItemId(tx.conn, dependsOn.id);
   if (issue.id === dependsOn.id)
     throw invalid('INVALID_DEPENDENCY', 'An issue cannot depend on itself.');
   const mutual = await tx.conn.query
@@ -247,7 +258,7 @@ export function createDependencyService(
   deps: DependencyDeps,
 ): DependencyService {
   return {
-    async add(actor, issueIdOrKey, input) {
+    async add(actor, issueIdOrKey, input, outer) {
       const type = input?.type ?? 'blockedBy';
       if (!isDependencyType(type))
         throw invalid(
@@ -283,10 +294,10 @@ export function createDependencyService(
         if (type === 'blockedBy')
           await deps.triggers().onBlockingAdded(tx, issue);
         return dependency;
-      });
+      }, outer);
     },
 
-    async remove(actor, issueIdOrKey, target) {
+    async remove(actor, issueIdOrKey, target, outer) {
       await deps.tx.run(async (tx) => {
         const viewer = await viewerOf(tx.conn, actor);
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
@@ -299,7 +310,7 @@ export function createDependencyService(
             .triggers()
             .onUnblockCandidate(tx, fresh, removed.dependsOnIssueId);
         }
-      });
+      }, outer);
     },
   };
 }
