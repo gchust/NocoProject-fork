@@ -136,10 +136,12 @@ export function withAttachmentLinks(
   return content.trim() ? `${content.trim()}\n\n${links}` : links;
 }
 
-/** A personal agent that cannot take the message right now: offline, or its CLI needs an upgrade. */
+/** An agent that cannot take the message right now: offline, or its CLI needs an upgrade (no run is dispatched). */
+export function isAgentDown(agent: PmConversationAgent): boolean {
+  return !agent.online || agent.compat === 'upgrade_required';
+}
+
+/** A personal agent that is down: the member may switch this conversation to the default. */
 export function isAgentUnreachable(agent: PmConversationAgent): boolean {
-  return (
-    agent.source === 'personal' &&
-    (!agent.online || agent.compat === 'upgrade_required')
-  );
+  return agent.source === 'personal' && isAgentDown(agent);
 }

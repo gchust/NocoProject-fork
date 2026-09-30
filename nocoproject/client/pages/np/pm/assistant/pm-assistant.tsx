@@ -26,6 +26,7 @@ import {
 } from '../context/pm-context-model.js';
 import {
   drawerStateFromSearch,
+  isPmPage,
   type PmDrawerMode,
   type PmDrawerState,
   type PmDrawerView,
@@ -242,6 +243,17 @@ export function PmAssistantProvider({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [available]);
+
+  // Arriving on the history or a full-width conversation (`/pm`, `/pm/:id`) collapses the drawer: left open (or
+  // expanded) it would cover that page with another conversation. Opening it again there is still possible.
+  const [seenPmPage, setSeenPmPage] = useState(false);
+  const onPmPage = isPmPage(location.pathname);
+  if (onPmPage !== seenPmPage) {
+    setSeenPmPage(onPmPage);
+    if (onPmPage && (state.open || state.mode !== 'docked')) {
+      setState({ ...state, open: false, mode: 'docked' });
+    }
+  }
 
   // `?pm=` opens the drawer (links, the screenshot run), then leaves the URL. The state follows the URL while
   // rendering (React's "adjusting state when a prop changes"); the effect only rewrites the URL.

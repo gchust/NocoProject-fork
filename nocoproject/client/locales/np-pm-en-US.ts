@@ -76,6 +76,11 @@ const npPmEnUS = {
       offline: 'The computer your project manager runs on is offline',
       upgradeRequired:
         'The computer your project manager runs on needs a CLI upgrade',
+      defaultOffline:
+        'The computer the default project manager runs on is offline',
+      defaultUpgradeRequired:
+        'The computer the default project manager runs on needs a CLI upgrade',
+      needsUpgrade: 'Needs upgrade',
       queued: 'Messages wait until it is back.',
       fallback: 'Use the default for this conversation',
       usingDefault:

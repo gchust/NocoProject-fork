@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 import type { PmContextObject } from '../context/pm-context-model.js';
 import { PM_DRAWER_ID, usePmAssistant } from './pm-assistant.js';
+import { isPmPage } from './pm-assistant-state.js';
 
 const HEADER_BUTTON_CLASS =
   'inline-flex size-10 items-center justify-center rounded-xl border border-border/70 bg-background/60 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted';
@@ -56,7 +57,7 @@ export function PmFloatingButton(): ReactElement | null {
   const { t } = useTranslation();
   const assistant = usePmAssistant();
   const { pathname } = useLocation();
-  if (!assistant.available || assistant.open || /^\/pm(\/|$)/u.test(pathname)) {
+  if (!assistant.available || assistant.open || isPmPage(pathname)) {
     return null;
   }
   return (

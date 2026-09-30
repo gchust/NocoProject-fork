@@ -17,7 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 import { settingsCheck } from '../../config/config-access.js';
 import type { PmConversationAgent } from '../../types-pm.js';
-import { isAgentUnreachable } from './pm-conversation-model.js';
+import { isAgentDown, isAgentUnreachable } from './pm-conversation-model.js';
 
 /** The conversation's agent: its name, where it comes from, and whether its computer is online (§5.4, §6.5). */
 export function PmAgentBadge({
@@ -37,7 +37,11 @@ export function PmAgentBadge({
       <NpTag tone={agent.source === 'personal' ? 'violet' : 'grey'}>
         {t(`np.pmAssistant.agent.source.${agent.source}`)}
       </NpTag>
-      <NpOnlineState online={agent.online} />
+      {agent.compat === 'upgrade_required' ? (
+        <NpTag tone='amber'>{t('np.pmAssistant.agent.needsUpgrade')}</NpTag>
+      ) : (
+        <NpOnlineState online={agent.online} />
+      )}
     </span>
   );
 }
@@ -106,6 +110,20 @@ export function PmAgentNotice({
             {t('np.pmAssistant.agent.fallback')}
           </Button>
         </AlertAction>
+      </Alert>
+    );
+  }
+  if (isAgentDown(agent)) {
+    // The default (or the default for now) is down: nothing to switch to, the message waits for it.
+    return (
+      <Alert data-testid='np-pm-default-down'>
+        <UnplugIcon />
+        <AlertTitle>
+          {agent.compat === 'upgrade_required'
+            ? t('np.pmAssistant.agent.defaultUpgradeRequired')
+            : t('np.pmAssistant.agent.defaultOffline')}
+        </AlertTitle>
+        <AlertDescription>{t('np.pmAssistant.agent.queued')}</AlertDescription>
       </Alert>
     );
   }

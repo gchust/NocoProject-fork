@@ -22,6 +22,7 @@ import {
   type PmContextInput,
 } from '../../client/pages/np/pm/context/pm-context-model.js';
 import {
+  isAgentDown,
   isAgentUnreachable,
   liveTurnView,
   pmMessages,
@@ -359,6 +360,10 @@ describe('conversation model', () => {
     expect(
       isAgentUnreachable({ ...agent, source: 'system', online: false }),
     ).toBe(false);
+    expect(isAgentDown({ ...agent, source: 'system', online: false })).toBe(
+      true,
+    );
+    expect(isAgentDown({ ...agent, source: 'system' })).toBe(false);
   });
 });
 

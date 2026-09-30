@@ -1,7 +1,7 @@
 import { ApiClientError } from '@nocobase/app-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route } from 'react-router';
+import { Link, Route } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -461,6 +461,30 @@ describe('a conversation (/pm/:id)', () => {
       }),
     ).toBeVisible();
   });
+
+  it('says the default is waiting on an upgrade, with nothing to switch to', async () => {
+    api.request.mockImplementation(
+      routes({
+        'GET np/pm/conversations/c1': {
+          data: conversation({
+            agent: { ...AGENT, compat: 'upgrade_required' },
+          }),
+        },
+      }),
+    );
+    await renderConversation();
+    expect(
+      await screen.findByText(
+        'The computer the default project manager runs on needs a CLI upgrade',
+      ),
+    ).toBeVisible();
+    expect(screen.getAllByText('Needs upgrade')[0]).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Use the default for this conversation',
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('plan card', () => {
@@ -651,5 +675,34 @@ describe('drawer', () => {
     const drawer = await screen.findByTestId('np-pm-drawer');
     expect(drawer).toHaveAttribute('data-mode', 'expanded');
     expect(await within(drawer).findByText('Plan the release')).toBeVisible();
+  });
+
+  it('collapses on the history and full-width conversation pages', async () => {
+    api.request.mockImplementation(
+      respond({
+        'GET np/pm/conversations/c1': { data: conversation() },
+        'GET np/issues/c1': { data: issueDetail({ comments: [] }) },
+      }),
+    );
+    const user = userEvent.setup();
+    await renderNpRoutes(
+      <Route
+        path='*'
+        element={
+          <PmAssistantProvider available>
+            <Link to='/pm/c2'>Open another conversation</Link>
+            <PmDrawer />
+          </PmAssistantProvider>
+        }
+      />,
+      { url: '/issues?pm=c1&pmMode=expanded' },
+    );
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(drawer).toBeVisible();
+    await user.click(
+      screen.getByRole('link', { name: 'Open another conversation' }),
+    );
+    await waitFor(() => expect(drawer).not.toBeVisible());
+    expect(drawer).not.toHaveAttribute('data-mode', 'expanded');
   });
 });

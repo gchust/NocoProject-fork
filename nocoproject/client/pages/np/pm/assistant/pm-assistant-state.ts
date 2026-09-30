@@ -84,6 +84,11 @@ export function drawerStateFromSearch(
   };
 }
 
+/** The pages that are the project manager itself: the history (`/pm`) and a full-width conversation (`/pm/:id`). */
+export function isPmPage(pathname: string): boolean {
+  return /^\/pm(\/|$)/u.test(pathname);
+}
+
 /** The search string without the drawer's own parameters, once they have been applied. */
 export function withoutDrawerParams(search: URLSearchParams): string {
   const next = new URLSearchParams(search);
