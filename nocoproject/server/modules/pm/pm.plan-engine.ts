@@ -62,7 +62,8 @@ async function baselineOf(
   op: PmOperation,
   refs: PlanRefs,
 ): Promise<Record<string, unknown> | undefined> {
-  if (op.type !== 'issue.update' && op.type !== 'issue.status') return undefined;
+  if (op.type !== 'issue.update' && op.type !== 'issue.status')
+    return undefined;
   const issue = await findIssue(tx.conn, targetId(op.params.issue, refs));
   if (!issue) return undefined;
   const current = issue as unknown as Record<string, unknown>;
@@ -98,7 +99,12 @@ async function flagsOf(
     flags.push('ownerChange');
   if (op.type === 'issue.status') {
     const issue = await findIssue(tx.conn, targetId(op.params.issue, refs));
-    if (issue && (await deps.workflows.forIssue(tx.conn, issue)).isTerminal(op.params.statusKey))
+    if (
+      issue &&
+      (await deps.workflows.forIssue(tx.conn, issue)).isTerminal(
+        op.params.statusKey,
+      )
+    )
       flags.push('terminal');
   }
   return flags;
@@ -108,7 +114,10 @@ async function previewOf(
   tx: Tx,
   attempts: readonly RunAttempt[],
 ): Promise<RunPreview[]> {
-  const names = await agentNames(tx.conn, attempts.map((run) => run.agentId));
+  const names = await agentNames(
+    tx.conn,
+    attempts.map((run) => run.agentId),
+  );
   return attempts.map((run) => ({
     agentId: run.agentId,
     agentName: names.get(run.agentId) ?? null,
@@ -151,11 +160,14 @@ export async function checkPlan(
       const refs: PlanRefs = new Map();
       for (const row of rows) {
         if (row.removed) continue;
-        const baseline = await baselineOf(tx, row.op, refs).catch(() => undefined);
+        const baseline = await baselineOf(tx, row.op, refs).catch(
+          () => undefined,
+        );
+        const emit = (event: Parameters<Tx['emit']>[0]) => tx.emit(event);
         try {
           const { runs } = await tx.conn.transaction(async (inner) =>
             collectRuns(() =>
-              perform(deps, { conn: inner, emit: tx.emit }, actor, row.op, refs),
+              perform(deps, { conn: inner, emit }, actor, row.op, refs),
             ),
           );
           const started = runs.filter((run) => run.started);

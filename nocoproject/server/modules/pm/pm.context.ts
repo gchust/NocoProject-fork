@@ -107,12 +107,8 @@ function parseSelection(
     bad('context.selection.sourceId must be a string.');
   return {
     text: value.text,
-    ...(value.sourceType === undefined
-      ? {}
-      : { sourceType: value.sourceType as PmContextItemType }),
-    ...(value.sourceId === undefined
-      ? {}
-      : { sourceId: value.sourceId as string }),
+    ...(value.sourceType === undefined ? {} : { sourceType: value.sourceType }),
+    ...(value.sourceId === undefined ? {} : { sourceId: value.sourceId }),
   };
 }
 

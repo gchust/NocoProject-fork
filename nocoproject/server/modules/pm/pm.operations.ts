@@ -134,7 +134,7 @@ async function createIssue(
       process: params.process,
       startDate: params.startDate ?? null,
       dueDate: params.dueDate ?? null,
-    } as never,
+    },
     { outer: tx },
   );
   if (op.ref) refs.set(op.ref, { type: 'issue', id: created.id });

@@ -53,7 +53,6 @@ type Data<T> = { data: T };
 let services: NpServices;
 let alice: ApiCall;
 let bob: ApiCall;
-let carol: ApiCall;
 let coderRuntime: Fixture;
 let pmRuntime: Fixture;
 let coder: string;
@@ -68,7 +67,6 @@ beforeEach(async () => {
   await setRole(db, CAROL, 'owner');
   alice = browserApi4(services, ALICE);
   bob = browserApi4(services, BOB);
-  carol = browserApi4(services, CAROL);
   coderRuntime = await registerRuntime(services, ALICE);
   pmRuntime = await registerRuntime(services, CAROL, 'daemon-pm');
   coder = await createKindAgent(

@@ -31,7 +31,10 @@ export interface DecisionDeps {
 type Decision = Extract<PmOperation, { type: 'decision.resolve' }>;
 
 function unsupported(): never {
-  throw invalid('UNSUPPORTED_DECISION', 'This decision cannot be made from a plan.');
+  throw invalid(
+    'UNSUPPORTED_DECISION',
+    'This decision cannot be made from a plan.',
+  );
 }
 
 async function pendingProposals(tx: Tx, parentId: string) {
@@ -56,7 +59,8 @@ async function resolveDecision(
   actor: Actor,
   op: Decision,
 ): Promise<PerformedObject> {
-  const { inboxItemId, action, comment } = op.params ?? ({} as Decision['params']);
+  const { inboxItemId, action, comment } =
+    op.params ?? ({} as Decision['params']);
   const item = await tx.conn.query
     .selectFrom('inboxItems')
     .selectAll()
@@ -79,7 +83,13 @@ async function resolveDecision(
         const decide = action === 'accept' ? 'accept' : 'reject';
         await deps
           .proposals()
-          [decide](actor, String(proposal.issueId), String(proposal.id), {}, tx);
+          [decide](
+            actor,
+            String(proposal.issueId),
+            String(proposal.id),
+            {},
+            tx,
+          );
       }
       return object;
     }
@@ -88,7 +98,9 @@ async function resolveDecision(
       if (action === 'approve')
         await deps.design().approve(actor, issueId, { comment }, tx);
       else if (action === 'request_changes')
-        await deps.design().requestChanges(actor, issueId, { comment: comment ?? '' }, tx);
+        await deps
+          .design()
+          .requestChanges(actor, issueId, { comment: comment ?? '' }, tx);
       else unsupported();
       return object;
     case 'knowledge_proposal': {
@@ -108,14 +120,18 @@ export async function performDecision(
   actor: Actor,
   op: Extract<PmOperation, { type: 'decision.resolve' | 'project.create' }>,
 ): Promise<PerformedObject> {
-  if (op.type === 'decision.resolve') return resolveDecision(deps, tx, actor, op);
+  if (op.type === 'decision.resolve')
+    return resolveDecision(deps, tx, actor, op);
   const project = await deps.projects().create(
     actor,
     {
       name: op.params?.name,
       description: op.params?.description,
       ...(op.params?.visibility
-        ? { visibility: op.params.visibility === 'private' ? 'members' : 'everyone' }
+        ? {
+            visibility:
+              op.params.visibility === 'private' ? 'members' : 'everyone',
+          }
         : {}),
     } as never,
     tx,

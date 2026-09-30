@@ -64,7 +64,7 @@ export async function onConversationRebound(
       const triggered = await deps.enqueue(
         tx,
         {
-          issue: issue as never,
+          issue: issue,
           actorUserId: run.actorUserId,
           agentId: toAgentId,
           threadScope: run.threadScope,
@@ -104,7 +104,7 @@ export async function onPlanFinished(
   return deps.enqueue(
     tx,
     {
-      issue: conversation as never,
+      issue: conversation,
       actorUserId: finished.actorUserId,
       agentId: conversation.executorId,
       threadScope: null,

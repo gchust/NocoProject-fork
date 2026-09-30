@@ -361,9 +361,25 @@ async function acceptAll(
 export function createProposalService(deps: ProposalDeps): ProposalService {
   return {
     accept: (actor, issueIdOrKey, proposalId, input, outer) =>
-      decideOne(deps, 'accepted', actor, issueIdOrKey, proposalId, input, outer),
+      decideOne(
+        deps,
+        'accepted',
+        actor,
+        issueIdOrKey,
+        proposalId,
+        input,
+        outer,
+      ),
     reject: (actor, issueIdOrKey, proposalId, input, outer) =>
-      decideOne(deps, 'rejected', actor, issueIdOrKey, proposalId, input, outer),
+      decideOne(
+        deps,
+        'rejected',
+        actor,
+        issueIdOrKey,
+        proposalId,
+        input,
+        outer,
+      ),
     acceptAll: (actor, parentIdOrKey) => acceptAll(deps, actor, parentIdOrKey),
   };
 }

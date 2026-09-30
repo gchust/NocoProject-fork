@@ -25,6 +25,8 @@ import {
   PM_PLAN_SUMMARY_MAX,
   PM_PLAN_TITLE_MAX,
   PM_PLAN_TTL_HOURS,
+  type PmOperation,
+  type PmOperationType,
   type PmPlan,
   type PmPlanCreateRequest,
   type PmPlanEditRequest,
@@ -61,7 +63,11 @@ export interface PmPlanService {
   /** The plans of one of the member's conversations, newest first. */
   ofConversation(actor: Actor, conversationId: string): Promise<PmPlan[]>;
   edit(actor: Actor, id: string, input: PmPlanEditRequest): Promise<PmPlan>;
-  execute(actor: Actor, id: string, input: { revision?: unknown }): Promise<PmPlan>;
+  execute(
+    actor: Actor,
+    id: string,
+    input: { revision?: unknown },
+  ): Promise<PmPlan>;
   discard(actor: Actor, id: string): Promise<PmPlan>;
 }
 
@@ -74,20 +80,54 @@ export interface PmPlanDeps extends PlanEngineDeps {
 const OPEN: readonly PmPlanStatus[] = ['pending', 'failed'];
 
 function validateOps(input: PmPlanCreateRequest): void {
-  if (typeof input?.title !== 'string' || !input.title.trim() || input.title.length > PM_PLAN_TITLE_MAX)
-    throw invalid('INVALID_PLAN', `title must be 1–${PM_PLAN_TITLE_MAX} characters.`);
-  if (input.summary !== undefined && (typeof input.summary !== 'string' || input.summary.length > PM_PLAN_SUMMARY_MAX))
-    throw invalid('INVALID_PLAN', `summary must be at most ${PM_PLAN_SUMMARY_MAX} characters.`);
-  if (!Array.isArray(input.ops) || input.ops.length === 0 || input.ops.length > PM_PLAN_MAX_OPS)
-    throw invalid('PLAN_TOO_LARGE', `A plan holds 1–${PM_PLAN_MAX_OPS} operations.`);
+  if (
+    typeof input?.title !== 'string' ||
+    !input.title.trim() ||
+    input.title.length > PM_PLAN_TITLE_MAX
+  )
+    throw invalid(
+      'INVALID_PLAN',
+      `title must be 1–${PM_PLAN_TITLE_MAX} characters.`,
+    );
+  if (
+    input.summary !== undefined &&
+    (typeof input.summary !== 'string' ||
+      input.summary.length > PM_PLAN_SUMMARY_MAX)
+  )
+    throw invalid(
+      'INVALID_PLAN',
+      `summary must be at most ${PM_PLAN_SUMMARY_MAX} characters.`,
+    );
+  if (
+    !Array.isArray(input.ops) ||
+    input.ops.length === 0 ||
+    input.ops.length > PM_PLAN_MAX_OPS
+  )
+    throw invalid(
+      'PLAN_TOO_LARGE',
+      `A plan holds 1–${PM_PLAN_MAX_OPS} operations.`,
+    );
   const refs = new Set<string>();
-  for (const op of input.ops) {
-    if (!PM_OPERATION_TYPES.includes(op?.type) || op.type === 'knowledge.propose')
-      throw invalid('UNSUPPORTED_OPERATION', `${String(op?.type)} cannot be part of a plan.`);
-    const ref = (op as { ref?: unknown }).ref;
+  for (const op of input.ops as readonly { type?: unknown; ref?: unknown }[]) {
+    if (
+      !PM_OPERATION_TYPES.includes(op?.type as PmOperationType) ||
+      op.type === 'knowledge.propose'
+    )
+      throw invalid(
+        'UNSUPPORTED_OPERATION',
+        `${String(op?.type)} cannot be part of a plan.`,
+      );
+    const { ref } = op;
     if (ref === undefined) continue;
-    if (typeof ref !== 'string' || !PM_PLAN_REF_PATTERN.test(ref) || refs.has(ref))
-      throw invalid('INVALID_REF', `ref ${String(ref)} is malformed or used twice.`);
+    if (
+      typeof ref !== 'string' ||
+      !PM_PLAN_REF_PATTERN.test(ref) ||
+      refs.has(ref)
+    )
+      throw invalid(
+        'INVALID_REF',
+        `ref ${JSON.stringify(ref)} is malformed or used twice.`,
+      );
     refs.add(ref);
   }
 }
@@ -106,7 +146,13 @@ async function ownPlan(conn: Conn, userId: string, id: string) {
 async function writeComment(
   deps: PmPlanDeps,
   tx: Tx,
-  input: { issueId: string; kind: 'plan' | 'plan_result'; content: string; agentId?: string | null; runId?: string | null },
+  input: {
+    issueId: string;
+    kind: 'plan' | 'plan_result';
+    content: string;
+    agentId?: string | null;
+    runId?: string | null;
+  },
 ): Promise<string> {
   const id = deps.ids.next();
   const timestamp = now();
@@ -135,7 +181,11 @@ async function writeComment(
   return id;
 }
 
-async function create(deps: PmPlanDeps, auth: RunAuth, input: PmPlanCreateRequest): Promise<PmPlan> {
+async function create(
+  deps: PmPlanDeps,
+  auth: RunAuth,
+  input: PmPlanCreateRequest,
+): Promise<PmPlan> {
   validateOps(input);
   const conn = deps.tx.read();
   const conversation = await requireConversationRun(conn, auth);
@@ -149,7 +199,11 @@ async function create(deps: PmPlanDeps, auth: RunAuth, input: PmPlanCreateReques
   }));
   const checks = await checkPlan(deps, { ...actor, via: 'pm_plan' }, rows);
   if (checks.some((check) => !check.ok))
-    throw invalid('PLAN_INVALID', 'Some operations cannot be performed; fix them and propose again.', { rows: checks });
+    throw invalid(
+      'PLAN_INVALID',
+      'Some operations cannot be performed; fix them and propose again.',
+      { rows: checks },
+    );
   const id = deps.ids.next();
   await deps.tx.run(async (tx) => {
     const timestamp = now();
@@ -202,7 +256,10 @@ async function create(deps: PmPlanDeps, auth: RunAuth, input: PmPlanCreateReques
           status: 'pending',
           errorCode: null,
           errorMessage: null,
-          preview: toJson({ runs: check?.preview ?? [], flags: check?.flags ?? [] }),
+          preview: toJson({
+            runs: check?.preview ?? [],
+            flags: check?.flags ?? [],
+          }),
           resultType: null,
           resultId: null,
           warnings: toJson([]),
@@ -213,11 +270,16 @@ async function create(deps: PmPlanDeps, auth: RunAuth, input: PmPlanCreateReques
   return view(deps.tx.read(), (await findPlan(deps.tx.read(), id))!);
 }
 
-async function agentPlan(deps: PmPlanDeps, auth: RunAuth, id: string): Promise<PlanRecord> {
+async function agentPlan(
+  deps: PmPlanDeps,
+  auth: RunAuth,
+  id: string,
+): Promise<PlanRecord> {
   const conn = deps.tx.read();
   const conversation = await requireConversationRun(conn, auth);
   const plan = await findPlan(conn, id);
-  if (!plan || plan.conversationIssueId !== conversation.issueId) throw notFound('Plan');
+  if (!plan || plan.conversationIssueId !== conversation.issueId)
+    throw notFound('Plan');
   return plan;
 }
 
@@ -235,32 +297,58 @@ async function discard(deps: PmPlanDeps, plan: PlanRecord): Promise<PmPlan> {
 }
 
 function requireOpen(plan: PlanRecord): void {
-  if (plan.status === 'expired') throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
-  if (!OPEN.includes(plan.status)) throw conflict('PLAN_NOT_PENDING', `The plan is ${plan.status}.`);
+  if (plan.status === 'expired')
+    throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
+  if (!OPEN.includes(plan.status))
+    throw conflict('PLAN_NOT_PENDING', `The plan is ${plan.status}.`);
 }
 
-async function edit(deps: PmPlanDeps, actor: Actor, id: string, input: PmPlanEditRequest): Promise<PmPlan> {
+async function edit(
+  deps: PmPlanDeps,
+  actor: Actor,
+  id: string,
+  input: PmPlanEditRequest,
+): Promise<PmPlan> {
   const conn = deps.tx.read();
   const plan = await ownPlan(conn, actor.id ?? '', id);
   requireOpen(plan);
   if (input?.revision !== plan.revision)
     throw conflict('REVISION_CONFLICT', 'The plan changed; reload it.');
   const ops = await planOps(conn, id);
-  const edits = new Map((Array.isArray(input.ops) ? input.ops : []).map((item) => [item.seq, item]));
+  const requested: PmPlanEditRequest['ops'] = Array.isArray(input.ops)
+    ? input.ops
+    : [];
+  const edits = new Map(requested.map((item) => [item.seq, item]));
   for (const seq of edits.keys())
-    if (!ops.some((op) => op.seq === seq)) throw invalid('INVALID_PLAN', `Row ${seq} does not exist; plans take no new rows.`);
+    if (!ops.some((op) => op.seq === seq))
+      throw invalid(
+        'INVALID_PLAN',
+        `Row ${seq} does not exist; plans take no new rows.`,
+      );
   const rows = toPlanRows(ops).map((row) => {
     const change = edits.get(row.seq);
     if (!change) return row;
     return {
       ...row,
       removed: change.removed === true ? true : row.removed,
-      op: change.params === undefined ? row.op : ({ ...row.op, params: change.params } as typeof row.op),
+      op:
+        change.params === undefined
+          ? row.op
+          : ({ ...row.op, params: change.params } as PmOperation),
     };
   });
-  const removedRefs = new Set(rows.filter((row) => row.removed && row.ref).map((row) => row.ref as string));
+  const removedRefs = new Set(
+    rows
+      .filter((row) => row.removed && row.ref)
+      .map((row) => row.ref as string),
+  );
   for (const row of rows)
-    if (!row.removed && [...removedRefs].some((ref) => JSON.stringify(row.op.params).includes(`"ref":"${ref}"`)))
+    if (
+      !row.removed &&
+      [...removedRefs].some((ref) =>
+        JSON.stringify(row.op.params).includes(`"ref":"${ref}"`),
+      )
+    )
       throw invalid('INVALID_REF', `Row ${row.seq} uses a removed row.`);
   const checks = await checkPlan(deps, { ...actor, via: 'pm_plan' }, rows);
   await deps.tx.run(async (tx) => {
@@ -269,7 +357,10 @@ async function edit(deps: PmPlanDeps, actor: Actor, id: string, input: PmPlanEdi
       if (change)
         await tx.conn.query
           .updateTable('pmPlanOps')
-          .set({ params: toJson(row.op.params ?? {}), status: row.removed ? 'removed' : 'pending' })
+          .set({
+            params: toJson(row.op.params ?? {}),
+            status: row.removed ? 'removed' : 'pending',
+          })
           .where('planId', '=', id)
           .where('seq', '=', row.seq)
           .execute();
@@ -301,14 +392,22 @@ function resultRows(
         ok: !!done && !failure,
         ...(failed ? { errorCode: failure.errorCode } : {}),
         ...(done?.object && !failure
-          ? { resultType: done.object.type, resultId: done.object.id, identifier: done.object.identifier ?? null }
+          ? {
+              resultType: done.object.type,
+              resultId: done.object.id,
+              identifier: done.object.identifier ?? null,
+            }
           : {}),
         warnings: done?.warnings ? [...done.warnings] : [],
       };
     });
 }
 
-function resultText(status: 'executed' | 'failed', rows: readonly PmPlanResultRow[], failure: PlanRowFailure | null): string {
+function resultText(
+  status: 'executed' | 'failed',
+  rows: readonly PmPlanResultRow[],
+  failure: PlanRowFailure | null,
+): string {
   const lines = rows.map((row) =>
     row.ok
       ? `- ✓ ${row.seq}. ${row.type}${row.identifier ? ` ${row.identifier}` : ''}${row.warnings.includes('runNotStarted') ? ' (run not started)' : ''}`
@@ -316,7 +415,10 @@ function resultText(status: 'executed' | 'failed', rows: readonly PmPlanResultRo
         ? `- ✗ ${row.seq}. ${row.type}: ${row.errorCode} ${failure?.errorMessage ?? ''}`.trimEnd()
         : `- · ${row.seq}. ${row.type}: not run`,
   );
-  const head = status === 'executed' ? 'Plan executed.' : 'Plan failed; nothing was changed.';
+  const head =
+    status === 'executed'
+      ? 'Plan executed.'
+      : 'Plan failed; nothing was changed.';
   return [head, ...lines].join('\n');
 }
 
@@ -370,13 +472,23 @@ async function finish(
     });
 }
 
-async function execute(deps: PmPlanDeps, actor: Actor, id: string, input: { revision?: unknown }): Promise<PmPlan> {
+async function execute(
+  deps: PmPlanDeps,
+  actor: Actor,
+  id: string,
+  input: { revision?: unknown },
+): Promise<PmPlan> {
   const conn = deps.tx.read();
   const plan = await ownPlan(conn, actor.id ?? '', id);
-  if (plan.status === 'expired') throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
+  if (plan.status === 'expired')
+    throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
   const before = await view(conn, plan);
   if (plan.status === 'pending' && !before.executable)
-    throw invalid('PLAN_INVALID', 'Fix or remove the rows that cannot be performed first.', { rows: before.rows });
+    throw invalid(
+      'PLAN_INVALID',
+      'Fix or remove the rows that cannot be performed first.',
+      { rows: before.rows },
+    );
   const moved = await conn.query
     .updateTable('pmPlans')
     .set({ status: 'executing', updatedAt: now() })
@@ -386,25 +498,56 @@ async function execute(deps: PmPlanDeps, actor: Actor, id: string, input: { revi
     .execute();
   if (Number(moved.updatedCount) === 0) {
     const current = await findPlan(conn, id);
-    if (current?.status === 'expired') throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
-    if (current?.status === 'pending' && current.revision !== Number(input?.revision))
+    if (current?.status === 'expired')
+      throw conflict('PLAN_EXPIRED', 'The plan expired; ask for a new one.');
+    if (
+      current?.status === 'pending' &&
+      current.revision !== Number(input?.revision)
+    )
       throw conflict('REVISION_CONFLICT', 'The plan changed; reload it.');
-    throw conflict('PLAN_NOT_PENDING', `The plan is ${current?.status ?? 'gone'}.`);
+    throw conflict(
+      'PLAN_NOT_PENDING',
+      `The plan is ${current?.status ?? 'gone'}.`,
+    );
   }
   const rows = toPlanRows(await planOps(conn, id));
-  const member: Actor = { ...actor, via: 'pm_plan', pm: { conversationId: plan.conversationIssueId, planId: id } };
+  const member: Actor = {
+    ...actor,
+    via: 'pm_plan',
+    pm: { conversationId: plan.conversationIssueId, planId: id },
+  };
   try {
     await deps.tx.run(async (tx) => {
       const outcomes = await executePlan(deps, tx, member, rows);
-      await finish(deps, tx, plan, actor, 'executed', resultRows(outcomes, null, rows), null);
+      await finish(
+        deps,
+        tx,
+        plan,
+        actor,
+        'executed',
+        resultRows(outcomes, null, rows),
+        null,
+      );
     });
   } catch (error) {
     if (!(error instanceof PlanRowFailure)) {
-      await conn.query.updateTable('pmPlans').set({ status: 'pending', updatedAt: now() }).where('id', '=', id).execute();
+      await conn.query
+        .updateTable('pmPlans')
+        .set({ status: 'pending', updatedAt: now() })
+        .where('id', '=', id)
+        .execute();
       throw error;
     }
     await deps.tx.run((tx) =>
-      finish(deps, tx, plan, actor, 'failed', resultRows(error.done, error, rows), error),
+      finish(
+        deps,
+        tx,
+        plan,
+        actor,
+        'failed',
+        resultRows(error.done, error, rows),
+        error,
+      ),
     );
   }
   return view(deps.tx.read(), (await findPlan(deps.tx.read(), id))!);
@@ -413,7 +556,8 @@ async function execute(deps: PmPlanDeps, actor: Actor, id: string, input: { revi
 export function createPmPlanService(deps: PmPlanDeps): PmPlanService {
   return {
     create: (auth, input) => create(deps, auth, input),
-    agentGet: async (auth, id) => view(deps.tx.read(), await agentPlan(deps, auth, id)),
+    agentGet: async (auth, id) =>
+      view(deps.tx.read(), await agentPlan(deps, auth, id)),
     async agentList(auth, status) {
       const conn = deps.tx.read();
       const conversation = await requireConversationRun(conn, auth);
@@ -430,7 +574,8 @@ export function createPmPlanService(deps: PmPlanDeps): PmPlanService {
       }
       return plans;
     },
-    agentDiscard: async (auth, id) => discard(deps, await agentPlan(deps, auth, id)),
+    agentDiscard: async (auth, id) =>
+      discard(deps, await agentPlan(deps, auth, id)),
     get: async (actor, id) => {
       const conn = deps.tx.read();
       return view(conn, await ownPlan(conn, actor.id ?? '', id));

@@ -333,7 +333,10 @@ function mountAgentPlanRoutes(
   );
   routes.get('/pm/plans/:id', async (context) =>
     context.json({
-      data: await plans.agentGet(context.get('runAuth'), context.req.param('id')),
+      data: await plans.agentGet(
+        context.get('runAuth'),
+        context.req.param('id'),
+      ),
     }),
   );
   routes.post('/pm/plans/:id/discard', async (context) =>

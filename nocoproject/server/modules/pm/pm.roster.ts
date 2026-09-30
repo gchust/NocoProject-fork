@@ -6,7 +6,7 @@
  */
 import { canInvokeAgent, loadAgentAccess } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
-import { num, str, unique } from '../shared/db.js';
+import { isoOrNull, num, str, unique } from '../shared/db.js';
 import {
   PM_ROSTER_SUMMARY_FALLBACK,
   type PmRosterAgent,
@@ -157,9 +157,7 @@ export async function roster(
             id: str(runtime.id) ?? '',
             name: str(runtime.name) ?? '',
             online: runtime.status === 'online',
-            lastHeartbeatAt: runtime.lastSeenAt
-              ? new Date(String(runtime.lastSeenAt)).toISOString()
-              : null,
+            lastHeartbeatAt: isoOrNull(runtime.lastSeenAt),
             compat:
               kind === 'manager'
                 ? pmCompatOf(runtime)

@@ -50,11 +50,12 @@ export async function loadPmAgentFacts(
     .where('id', '=', agentId)
     .executeTakeFirst();
   if (!agent || agent.deletedAt) return null;
-  const runtime = agent.runtimeId
+  const runtimeId = str(agent.runtimeId);
+  const runtime = runtimeId
     ? await conn.query
         .selectFrom('runtimes')
         .selectAll()
-        .where('id', '=', String(agent.runtimeId))
+        .where('id', '=', runtimeId)
         .executeTakeFirst()
     : undefined;
   return {

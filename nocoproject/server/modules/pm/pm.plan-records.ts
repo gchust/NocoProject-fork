@@ -4,7 +4,15 @@
  * `errorCode` / `errorMessage`, and `preview` holds `{ runs, flags }`.
  */
 import type { Conn } from '../shared/db.js';
-import { fromJson, iso, isoOrNull, now, num, str, toJson } from '../shared/db.js';
+import {
+  fromJson,
+  iso,
+  isoOrNull,
+  now,
+  num,
+  str,
+  toJson,
+} from '../shared/db.js';
 import type {
   PmOperation,
   PmPlan,
@@ -73,7 +81,9 @@ function mapPlan(row: Record<string, unknown>): PlanRecord {
 }
 
 function mapOp(row: Record<string, unknown>): OpRecord {
-  const preview = fromJson<{ runs?: RunPreview[]; flags?: PmPlanRowFlag[] }>(row.preview) ?? {};
+  const preview =
+    fromJson<{ runs?: RunPreview[]; flags?: PmPlanRowFlag[] }>(row.preview) ??
+    {};
   return {
     id: str(row.id) ?? '',
     seq: num(row.seq),
@@ -96,8 +106,15 @@ export function isExpired(plan: PlanRecord, at = Date.now()): boolean {
 }
 
 /** The plan, with an overdue open plan written back as `expired`. */
-export async function findPlan(conn: Conn, id: string): Promise<PlanRecord | null> {
-  const row = await conn.query.selectFrom('pmPlans').selectAll().where('id', '=', id).executeTakeFirst();
+export async function findPlan(
+  conn: Conn,
+  id: string,
+): Promise<PlanRecord | null> {
+  const row = await conn.query
+    .selectFrom('pmPlans')
+    .selectAll()
+    .where('id', '=', id)
+    .executeTakeFirst();
   if (!row) return null;
   const plan = mapPlan(row);
   if (!isExpired(plan)) return plan;
@@ -124,7 +141,11 @@ export function toPlanRows(ops: readonly OpRecord[]): PlanRow[] {
   return ops.map((op) => ({
     seq: op.seq,
     ref: op.ref,
-    op: { type: op.type, ...(op.ref ? { ref: op.ref } : {}), params: op.params } as PmOperation,
+    op: {
+      type: op.type,
+      ...(op.ref ? { ref: op.ref } : {}),
+      params: op.params,
+    } as PmOperation,
     removed: op.status === 'removed',
     baseline: op.baseline,
   }));
@@ -154,7 +175,9 @@ export function planView(plan: PlanRecord, ops: readonly OpRecord[]): PmPlan {
   const rows: PmPlanRow[] = ops.map((op) => ({
     seq: op.seq,
     ok: op.status === 'removed' || !op.errorCode,
-    ...(op.errorCode ? { errorCode: op.errorCode, errorMessage: op.errorMessage ?? '' } : {}),
+    ...(op.errorCode
+      ? { errorCode: op.errorCode, errorMessage: op.errorMessage ?? '' }
+      : {}),
     preview: op.preview.runs,
     flags: op.preview.flags,
     ...(op.baseline ? { baseline: op.baseline } : {}),
