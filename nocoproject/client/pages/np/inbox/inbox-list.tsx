@@ -30,7 +30,7 @@ type PagedQuery = Pick<
 >;
 
 /**
- * The inbox's left column (nocosolution/guidelines/NocoSolution 前端规范.md §S2): the filter tabs with unread counts, "show archived", and
+ * The inbox's left column (nocosolution/guidelines/frontend-standard.md §S2): the filter tabs with unread counts, "show archived", and
  * the items as two groups — "Needs my decision" first, then "Notifications" — each a labelled list with its own "load more". The keyboard
  * hint sits at the bottom.
  */
