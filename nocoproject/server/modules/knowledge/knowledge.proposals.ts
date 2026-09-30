@@ -148,8 +148,16 @@ async function proposalTarget(
   }
   const title = validateTitle(input.title);
   const slug = input.slug ? validateSlug(input.slug) : slugify(title);
+  const parentRow = input.parentId
+    ? await agentDocRow(conn, input.parentId, runProjectId)
+    : undefined;
+  if (input.parentId && !parentRow) throw notFound('Knowledge parent document');
   const projectId =
-    input.projectId === undefined ? runProjectId : input.projectId || null;
+    input.projectId === undefined
+      ? parentRow
+        ? projectIdOf(parentRow.projectId)
+        : runProjectId
+      : input.projectId || null;
   if (projectId !== null && projectId !== runProjectId)
     throw forbidden(
       'FORBIDDEN',
@@ -161,9 +169,7 @@ async function proposalTarget(
       `A document with slug ${slug} exists; propose a change to it with docId.`,
     );
   let parentId: string | null = null;
-  if (input.parentId) {
-    const parentRow = await agentDocRow(conn, input.parentId, runProjectId);
-    if (!parentRow) throw notFound('Knowledge parent document');
+  if (parentRow) {
     if (str(parentRow.projectId) !== projectKey(projectId))
       throw invalid(
         'INVALID_PARENT',

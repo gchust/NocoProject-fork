@@ -120,6 +120,9 @@ describe('iteration 3 brief', () => {
     expect(brief).toContain('## Capture learnings');
     expect(brief).toContain('Propose at most 3 per run');
     expect(brief).toContain('Do not edit knowledge documents directly');
+    expect(brief).toContain('--title <title> [--parent <slug|id>]');
+    expect(brief).toContain('a new document inherits the parent’s scope: system-level or this project');
+    expect(brief).toContain('Without a parent it defaults to the run’s project');
     expect(brief.indexOf('## Skills')).toBeLessThan(brief.indexOf('## Knowledge'));
     expect(brief.indexOf('## Knowledge')).toBeLessThan(brief.indexOf('## Workflow'));
     expect(brief.indexOf('## Parent coordination')).toBeLessThan(brief.indexOf('## Capture learnings'));
