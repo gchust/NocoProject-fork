@@ -17,7 +17,7 @@ import { registerSubIssueCommands } from './subissue.js';
 export { resolveIssueId, runTokenContext, type RunTokenContext } from './run-token.js';
 
 function printIssue(issue: IssueForAgent): void {
-  printLine(`${issue.identifier}  ${issue.title}`);
+  printLine(`${issue.identifier || issue.id}  ${issue.title}`);
   printLine(`status: ${issue.statusKey}   priority: ${issue.priority}   owner: ${issue.ownerName}`);
   printLine(`executor: ${issue.executor.type}${issue.executor.name ? ` (${issue.executor.name})` : ''}`);
   printLine();
@@ -25,7 +25,7 @@ function printIssue(issue: IssueForAgent): void {
   const attachments = (issue as IssueForAgent & { attachments?: readonly AgentAttachmentInfo[] }).attachments ?? [];
   if (attachments.length > 0) {
     printLine();
-    printLine(`attachments (${attachments.length}; save them with \`nocoproject issue attachment download ${issue.identifier}\`):`);
+    printLine(`attachments (${attachments.length}; save them with \`nocoproject issue attachment download ${issue.identifier || issue.id}\`):`);
     for (const file of attachments) printLine(`  ${file.filename}  (${file.mimeType})`);
   }
 }

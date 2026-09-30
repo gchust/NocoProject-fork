@@ -6,7 +6,6 @@
 import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { which } from '../util/process.js';
-import type { ClaimedRun } from '../protocol.js';
 import { AGENT_ENV_NAME_PATTERN, RESERVED_ENV_NAMES, RESERVED_ENV_PREFIX, RUN_ENV_PHASE1 as RUN_ENV } from '../protocol.js';
 import type { ClaimedRunV1 } from '../run-context.js';
 
@@ -35,8 +34,8 @@ function isDirectory(path: string): boolean {
   }
 }
 
-export function prepareRunEnvironment(root: string, claimed: Pick<ClaimedRun, 'run' | 'issue' | 'session'>, canResume: boolean): RunEnvironment {
-  const envDir = join(root, envDirName(claimed.issue.identifier, claimed.run.id));
+export function prepareRunEnvironment(root: string, claimed: Pick<ClaimedRunV1, 'run' | 'issue' | 'session'>, canResume: boolean): RunEnvironment {
+  const envDir = join(root, envDirName(claimed.issue.identifier || claimed.issue.id, claimed.run.id));
   const logsDir = join(envDir, 'logs');
   mkdirSync(logsDir, { recursive: true, mode: 0o700 });
   const prior = claimed.session.workDir;
@@ -156,7 +155,7 @@ export function buildAgentEnv(input: AgentEnvInput): Record<string, string> {
     [RUN_ENV.runId]: input.claimed.run.id,
     [RUN_ENV.agentId]: input.claimed.agent.id,
     [RUN_ENV.issueId]: input.claimed.issue.id,
-    [RUN_ENV.issueKey]: input.claimed.issue.identifier,
+    [RUN_ENV.issueKey]: input.claimed.issue.identifier || input.claimed.issue.id,
   };
   if (input.workDir) env[RUN_ENV.workDir] = input.workDir;
   if (input.home) env.NOCOPROJECT_HOME = input.home;

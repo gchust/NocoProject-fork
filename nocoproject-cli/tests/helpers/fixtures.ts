@@ -6,7 +6,7 @@ export function claimedRun(overrides: Partial<ClaimedRun> = {}): ClaimedRun {
   return {
     run: { id: '7301234567890123', agentId: 'a1', runtimeId: 'rt1', attempt: 1, priority: 0, createdAt: '2026-01-01T00:00:00.000Z' },
     token: 'npr_0123456789abcdef0123456789abcdef01234567',
-    agent: { capabilities: AGENT_CAPABILITIES, configurationRevision: 1, id: 'a1', name: 'Coder', instructions: 'Write tests first.\nKeep diffs small.', provider: 'claude', model: null },
+    agent: { capabilities: AGENT_CAPABILITIES.filter((c) => c !== 'member.act' && c !== 'repo.read'), configurationRevision: 1, id: 'a1', name: 'Coder', instructions: 'Write tests first.\nKeep diffs small.', provider: 'claude', model: null },
     issue: { id: 'i12', identifier: 'NP-12', title: 'Fix login redirect', statusKey: 'todo', ownerName: 'Alice' },
     statusCatalog: [],
     agentTransitions: [

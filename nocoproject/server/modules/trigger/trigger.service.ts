@@ -40,6 +40,7 @@ import type { Tx } from '../shared/db.js';
 import { fromJson, str } from '../shared/db.js';
 import type {
   Comment,
+  CommentPmFields,
   FailureReason,
   Issue,
   IssueV1,
@@ -90,7 +91,7 @@ export interface IssueChange {
 }
 
 export interface CommentChange {
-  readonly comment: Comment;
+  readonly comment: Comment & CommentPmFields;
   readonly issue: IssueV1;
   /** The direct parent comment, when this is a reply. */
   readonly parent: Comment | null;
@@ -290,6 +291,7 @@ async function onCommentCreated(
             content: comment.content,
             parentId: comment.parentId,
             rootId: comment.rootId,
+            ...(comment.context ? { context: comment.context } : {}),
           },
         },
       },

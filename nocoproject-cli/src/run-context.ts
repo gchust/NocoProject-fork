@@ -11,6 +11,7 @@
  * - `checkout.json` — written by `nocoproject repo checkout`; the daemon reads it back and reports
  *   `branchName` / `repoUrl` on complete / fail.
  */
+import type { ClaimedConversation, PmResolvedContext, PmPlanExecutedPayload, RunTriggerTypeV7 } from './protocol.phase2-pm-assistant.js';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type {
@@ -30,7 +31,6 @@ import type {
   IssueProcess,
   IssueChecklist,
   ReasoningEffort,
-  RunTriggerTypeV6,
   SignalPayload,
   StageEnteredPayload,
 } from './protocol.js';
@@ -45,7 +45,10 @@ import { REASONING_EFFORTS, RUN_ENV_PHASE1 } from './protocol.js';
 export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'triggers'> & {
   readonly project?: ClaimedProject | null;
   readonly knowledge?: readonly ClaimedKnowledgeDoc[] | null;
-  readonly issue: ClaimedRun['issue'] &
+  readonly issue: Omit<ClaimedRun['issue'], 'identifier'> & {
+    readonly identifier: string | null;
+    readonly conversation?: ClaimedConversation;
+  } &
     Partial<ClaimedRunPhase1Extras['issue']> &
     Partial<ClaimedRunPhase2Extras['issue']> &
     Partial<ClaimedRunPhase4Extras['issue']> &
@@ -57,8 +60,9 @@ export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'tri
     Partial<ClaimedRunPhase4Extras['agent']>;
   readonly session: ClaimedRun['session'] & Partial<ClaimedRunPhase1Extras['session']>;
   readonly triggers: readonly {
-    readonly type: RunTriggerTypeV6;
-    readonly comment?: ClaimedTriggerComment;
+    readonly type: RunTriggerTypeV7;
+    readonly comment?: ClaimedTriggerComment & { readonly context?: PmResolvedContext };
+    readonly plan?: PmPlanExecutedPayload;
     readonly stage?: StageEnteredPayload;
     readonly signal?: SignalPayload;
   }[];
@@ -154,7 +158,7 @@ export function buildRunContext(claimed: ClaimedRunV1): RunContextFile {
     agent: { capabilities: claimed.agent.capabilities ?? [], id: claimed.agent.id, name: claimed.agent.name, delegationTargets: claimed.agent.delegationTargets ?? [], kind: agentKindOf(claimed) },
     issue: {
       id: claimed.issue.id,
-      identifier: claimed.issue.identifier,
+      identifier: claimed.issue.identifier || claimed.issue.id,
       title: claimed.issue.title,
       parent: claimed.issue.parent ?? null,
       stage: claimed.issue.stage ?? null,
