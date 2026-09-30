@@ -1,7 +1,10 @@
 /**
  * The signed-in member's inbox and issue subscriptions (docs/phase1/iteration-1-contract.md §E).
  *
- * The list is newest first (`updatedAt`, then id) and pages with an opaque cursor. Unread counts cover items that
+ * The list is newest first (`updatedAt`, then id) and pages with an opaque cursor. The decision list without a
+ * `resolved` filter lists every pending decision before the settled ones (NP-180): settling a card bumps its
+ * `updatedAt`, so newest-first alone pushed older pending decisions past the first page while the badge counted them.
+ * Unread counts cover items that
  * are unread, not archived and not resolved; the pending count covers decisions that are not archived and not
  * resolved, read or not (what the navigation badge shows: opening a decision does not settle it).
  */
@@ -65,18 +68,37 @@ function parseFlag(
   throw invalid('INVALID_QUERY', `${name} must be true or false.`);
 }
 
-function encodeCursor(updatedAt: string, id: string): string {
-  return Buffer.from(JSON.stringify([updatedAt, id])).toString('base64url');
+/** Which part of the split decision list a cursor points into (NP-180); absent for a plain newest-first list. */
+type CursorPart = 'pending' | 'settled';
+
+interface Cursor {
+  readonly part: CursorPart | null;
+  /** Null at the start of the settled part. */
+  readonly position: { updatedAt: Date; id: string } | null;
 }
 
-function decodeCursor(cursor: string): { updatedAt: Date; id: string } {
+function encodeCursor(
+  position: { updatedAt: string; id: string } | null,
+  part: CursorPart | null = null,
+): string {
+  const tuple = position ? [position.updatedAt, position.id] : [null, null];
+  return Buffer.from(JSON.stringify(part ? [...tuple, part] : tuple)).toString(
+    'base64url',
+  );
+}
+
+function decodeCursor(cursor: string): Cursor {
   try {
-    const [updatedAt, id] = JSON.parse(
+    const [updatedAt, id, part] = JSON.parse(
       Buffer.from(cursor, 'base64url').toString('utf8'),
-    ) as [string, string];
+    ) as [string | null, string | null, unknown];
+    const known = part === 'pending' || part === 'settled' ? part : null;
+    if (part !== undefined && !known) throw new Error('bad cursor');
+    if (known === 'settled' && updatedAt === null && id === null)
+      return { part: known, position: null };
     const date = toDate(updatedAt);
     if (!date || typeof id !== 'string') throw new Error('bad cursor');
-    return { updatedAt: date, id };
+    return { part: known, position: { updatedAt: date, id } };
   } catch {
     throw invalid('INVALID_CURSOR', 'cursor is not valid.');
   }
@@ -126,41 +148,67 @@ export function createInboxService(deps: {
       const kind = parseKind(query.kind);
       const archived = parseFlag(query.archived, 'archived') ?? false;
       const resolved = parseFlag(query.resolved, 'resolved');
-      let select = conn.query
-        .selectFrom('inboxItems')
-        .selectAll()
-        .where('userId', '=', viewer.userId)
-        .where('archivedAt', archived ? 'is not' : 'is', null);
-      if (kind) select = select.where('kind', '=', kind);
-      if (resolved !== null)
-        select = select.where('resolvedAt', resolved ? 'is not' : 'is', null);
-      if (query.issueId) select = select.where('issueId', '=', query.issueId);
-      if (query.cursor) {
-        const cursor = decodeCursor(query.cursor);
-        select = select.where((eb) =>
-          eb.or([
-            eb('updatedAt', '<', cursor.updatedAt),
-            eb.and([
-              eb('updatedAt', '=', cursor.updatedAt),
-              eb('id', '<', cursor.id),
+      const cursor = query.cursor ? decodeCursor(query.cursor) : null;
+      const fetch = (
+        resolvedFilter: boolean | null,
+        position: Cursor['position'],
+        limit: number,
+      ) => {
+        let select = conn.query
+          .selectFrom('inboxItems')
+          .selectAll()
+          .where('userId', '=', viewer.userId)
+          .where('archivedAt', archived ? 'is not' : 'is', null);
+        if (kind) select = select.where('kind', '=', kind);
+        if (resolvedFilter !== null)
+          select = select.where(
+            'resolvedAt',
+            resolvedFilter ? 'is not' : 'is',
+            null,
+          );
+        if (query.issueId) select = select.where('issueId', '=', query.issueId);
+        if (position)
+          select = select.where((eb) =>
+            eb.or([
+              eb('updatedAt', '<', position.updatedAt),
+              eb.and([
+                eb('updatedAt', '=', position.updatedAt),
+                eb('id', '<', position.id),
+              ]),
             ]),
-          ]),
-        );
+          );
+        return select
+          .orderBy('updatedAt', 'desc')
+          .orderBy('id', 'desc')
+          .limit(limit)
+          .execute();
+      };
+      let rows: Record<string, unknown>[];
+      let part: CursorPart | null = null;
+      if (kind !== 'decision' || resolved !== null) {
+        rows = await fetch(resolved, cursor?.position ?? null, PAGE_SIZE + 1);
+      } else if (cursor?.part === 'settled') {
+        rows = await fetch(true, cursor.position, PAGE_SIZE + 1);
+        part = 'settled';
+      } else {
+        rows = await fetch(false, cursor?.position ?? null, PAGE_SIZE + 1);
+        part = 'pending';
+        if (rows.length <= PAGE_SIZE) {
+          const settled = await fetch(true, null, PAGE_SIZE - rows.length + 1);
+          rows = [...rows, ...settled];
+          part = 'settled';
+        }
       }
-      const rows = await select
-        .orderBy('updatedAt', 'desc')
-        .orderBy('id', 'desc')
-        .limit(PAGE_SIZE + 1)
-        .execute();
       const page = await mapInboxItems(conn, rows.slice(0, PAGE_SIZE));
       const last = page[page.length - 1];
+      // A page that ends on the last pending decision continues at the start of the settled ones.
+      const position =
+        last && !(part === 'settled' && last.resolvedAt === null) ? last : null;
       return {
         data: page,
         unread: await unread(conn, viewer.userId),
         nextCursor:
-          rows.length > PAGE_SIZE && last
-            ? encodeCursor(last.updatedAt, last.id)
-            : null,
+          rows.length > PAGE_SIZE && last ? encodeCursor(position, part) : null,
       };
     },
 
