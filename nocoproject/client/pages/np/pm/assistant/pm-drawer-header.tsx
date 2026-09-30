@@ -57,6 +57,8 @@ export function PmDrawerHeader({
   const pmTitle = usePmTitle();
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState('');
+  // Same size-10 hit area as the top bar buttons; size-8 / icon-sm shrink to 26px / 22px under the compact preset.
+  const touchClass = "size-10 [&_svg:not([class*='size-'])]:size-5";
   const history = assistant.view === 'history';
   const target = switchTarget(choice.data, conversation);
   const shownTitle = history
@@ -120,6 +122,7 @@ export function PmDrawerHeader({
         <Button
           variant='ghost'
           size='icon-sm'
+          className={touchClass}
           aria-label={t('np.pmAssistant.newConversation')}
           title={t('np.pmAssistant.newConversation')}
           onClick={() => {
@@ -135,6 +138,7 @@ export function PmDrawerHeader({
               <Button
                 variant='ghost'
                 size='icon-sm'
+                className={touchClass}
                 aria-label={t('np.pmAssistant.history.title')}
                 aria-pressed={history}
                 onClick={() => assistant.setView(history ? 'chat' : 'history')}
@@ -152,6 +156,7 @@ export function PmDrawerHeader({
           <Button
             variant='ghost'
             size='icon-sm'
+            className={touchClass}
             aria-label={
               assistant.mode === 'expanded'
                 ? t('np.pmAssistant.restoreSize')
@@ -182,6 +187,7 @@ export function PmDrawerHeader({
                 <Button
                   variant='ghost'
                   size='icon-sm'
+                  className={touchClass}
                   aria-label={t('np.pmAssistant.more')}
                 />
               }
@@ -227,6 +233,7 @@ export function PmDrawerHeader({
         <Button
           variant='ghost'
           size='icon-sm'
+          className={touchClass}
           aria-label={t('np.pmAssistant.close')}
           title={t('np.pmAssistant.close')}
           onClick={assistant.closeAssistant}
