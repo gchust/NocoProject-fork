@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/tooltip';
 
 import { ThemeSettings } from '../../theme/index.js';
+import { PmHeaderButton } from '../../pages/np/pm/assistant/pm-launchers.js';
 import { UserMenu } from './user-menu.js';
 
 const ACTION_LINK_CLASS =
@@ -28,6 +29,8 @@ export function HeaderActions({
   return (
     <TooltipProvider>
       <div className='flex shrink-0 items-center gap-2'>
+        {/* NocoProject (NP-185): the project manager drawer's toggle, first so it sits nearest the page. */}
+        <PmHeaderButton />
         {/* The dev entry sits left of settings and exists only while developing: a production build evaluates this to
           false and drops the link along with the whole dev surface it points at. */}
         {showDev ? (

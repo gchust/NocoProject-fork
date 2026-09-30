@@ -124,6 +124,7 @@ const npIter4ZhCN: NpIter4Resource = {
     openSettings: '前往设置',
     loadFailed: '无法打开对话',
     placeholder: '输入消息…',
+    untitled: '新对话',
   },
   prMerge: {
     merge: '合并',

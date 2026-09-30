@@ -16,6 +16,7 @@ import type {
  * the page keeps working while the server contract settles.
  */
 
+import type { PmResolvedContext } from './types-pm.js';
 import type {
   ApprovalRequest,
   CommentReaction,
@@ -184,7 +185,8 @@ export interface IssueComment {
   readonly authorId: string | null;
   readonly authorName?: string | null;
   readonly content: string;
-  readonly kind?: 'comment' | 'system' | CommentKindPhase1Iter4;
+  readonly kind?:
+    'comment' | 'system' | CommentKindPhase1Iter4 | 'plan' | 'plan_result';
   readonly parentId: string | null;
   readonly sourceRunId?: string | null;
   readonly createdAt: string;
@@ -197,6 +199,11 @@ export interface IssueComment {
   readonly resolvedAt?: string | null;
   readonly resolvedById?: string | null;
   readonly resolvedByName?: string | null;
+  // Project manager 2.0 (protocol-pm-assistant.md §1, §4.4, §8.2): a plan card's `details.planId`, the page context
+  // stored with a conversation message, and `via: 'pm'` on a comment the project manager wrote as its asker.
+  readonly details?: Readonly<Record<string, unknown>> | null;
+  readonly context?: PmResolvedContext | null;
+  readonly via?: 'pm' | null;
 }
 
 /** A top-level comment with every descendant flattened into chronological replies. */

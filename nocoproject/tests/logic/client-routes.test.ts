@@ -96,6 +96,7 @@ describe('app client routes', () => {
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       { name: 'profile', authorizedAs: null },
+      { name: 'np-pm-conversation', authorizedAs: 'np-pm' },
       // Iteration 2's standalone pages are redirects now (no menu entry, so they sort before the ordered menu); the
       // page they forward to checks its own grant.
       { name: 'np-intake-redirect', authorizedAs: null },

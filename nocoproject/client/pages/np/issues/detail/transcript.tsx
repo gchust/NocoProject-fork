@@ -23,6 +23,7 @@ import type { RunTopicPayload } from '../../types.js';
 import { useRealtimeTopic } from '../../use-realtime.js';
 import { TranscriptEvent } from './transcript-event.js';
 import { useRunEvents } from './use-run-events.js';
+import { usePmContextSource } from '../../pm/assistant/pm-assistant.js';
 
 /**
  * Route `/issues/:issueId/runs/:runId`: a run's transcript.
@@ -58,6 +59,17 @@ function TranscriptBody({ runId }: { readonly runId: string }): ReactElement {
     queryKey: npKeys.agents,
     queryFn: () => fetchAgents(api),
   });
+  usePmContextSource(
+    run.data
+      ? {
+          type: 'run',
+          id: runId,
+          label: t('np.pmAssistant.context.run', {
+            agent: run.data.agentName ?? run.data.agentId,
+          }),
+        }
+      : null,
+  );
 
   const active = run.data ? ACTIVE_RUN_STATUSES.has(run.data.status) : true;
   const events = useRunEvents(runId, active);

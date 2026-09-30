@@ -49,6 +49,7 @@ import {
 } from './knowledge-model.js';
 import { KnowledgeTree } from './knowledge-tree.js';
 import { KnowledgePendingProposals } from './pending-proposals.js';
+import { usePmUrlFilter } from '../pm/assistant/pm-assistant.js';
 
 /**
  * Route `/knowledge` (§B, "Knowledge"): the Markdown documents agents read before they work — per project, or for the
@@ -65,6 +66,7 @@ export default function KnowledgePage(): ReactElement {
   const { params, text, setText, scheduleSearch, updateParams, searchRef } =
     useUrlSearch();
   const scope = readKnowledgeScope(params.get('project'));
+  usePmUrlFilter('knowledge', ['q', 'project']);
   const q = params.get('q')?.trim() || undefined;
   // A search always shows the list (the plan's §B); otherwise the person's chosen or remembered view.
   const view = q ? 'list' : resolveKnowledgeView(params);

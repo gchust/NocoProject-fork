@@ -7,6 +7,7 @@ import npDesignEnUS from './np-design-en-US.js';
 import npIter4EnUS from './np-iter4-en-US.js';
 import npSignalsEnUS from './np-signals-en-US.js';
 import npRolesEnUS from './np-roles-en-US.js';
+import npPmEnUS from './np-pm-en-US.js';
 
 const enUS = {
   'auth.welcome': 'Welcome back',
@@ -181,7 +182,7 @@ const enUS = {
     agents: 'Agents',
     runtimes: 'Runtimes',
     myIssues: 'My issues',
-    pm: 'Project manager',
+    pm: 'Conversations',
     work: 'Work',
     agentTeam: 'Agent team',
     skills: 'Skills',
@@ -222,6 +223,7 @@ const enUS = {
     ...npIter4EnUS,
     ...npSignalsEnUS,
     ...npRolesEnUS,
+    ...npPmEnUS,
     common: {
       online: 'Online',
       offline: 'Offline',
@@ -359,6 +361,8 @@ const enUS = {
       via: {
         cli: 'via CLI',
         api_key: 'via API key',
+        pm: 'via the project manager',
+        pm_plan: 'via the project manager',
       },
       actions: {
         created: 'created the issue',

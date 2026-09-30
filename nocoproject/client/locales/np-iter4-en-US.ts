@@ -137,6 +137,7 @@ const npIter4EnUS = {
     openSettings: 'Open settings',
     loadFailed: 'Unable to open the conversation',
     placeholder: 'Write a message…',
+    untitled: 'New conversation',
   },
   prMerge: {
     merge: 'Merge',

@@ -232,6 +232,14 @@ export const npKeys = {
   knowledgeProposals: ['np', 'knowledge', 'proposals'] as const,
   metrics: (query: MetricsQuery) => ['np', 'metrics', query] as const,
   workflow: (id: string) => ['np', 'workflows', id] as const,
+  // Project manager 2.0 (NP-185). A plan sits under its conversation's issue, so the conversation's realtime refresh
+  // refetches the cards in it.
+  pm: ['np', 'pm'] as const,
+  pmConversations: (filters: { q: string; archived: boolean }) =>
+    ['np', 'pm', 'conversations', filters] as const,
+  pmConversation: (id: string) => ['np', 'pm', 'conversation', id] as const,
+  pmAgentChoice: ['np', 'pm', 'agent-choice'] as const,
+  pmPlans: (issueId: string) => ['np', 'issue', issueId, 'plans'] as const,
 };
 
 /** Dormant statuses (§ terminology): backlog, or any status whose category is done or closed. */

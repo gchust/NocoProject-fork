@@ -104,7 +104,8 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // Project manager (iteration 4 §C): the viewer's conversation with the project manager agent, full width.
+    // Project manager 2.0 (NP-185): the conversation history; one conversation opens full width at
+    // `/pm/:conversationId` (`/pm/new` for a new one). The drawer in the shell shows the same conversations.
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-pm' }, action: 'access' },
     breadcrumb: { title: 'navigation.pm' },
@@ -112,6 +113,14 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     name: 'np-pm',
     navigation: { title: 'navigation.pm', icon: BotMessageSquare, order: 3 },
     path: '/pm',
+  },
+  {
+    auth: 'required',
+    authz: { resource: { type: 'page', id: 'np-pm' }, action: 'access' },
+    breadcrumb: { title: 'np.pmAssistant.conversationCrumb' },
+    componentLoader: () => import('./pages/np/pm/conversation-page.js'),
+    name: 'np-pm-conversation',
+    path: '/pm/:conversationId',
   },
   {
     name: 'np-work',

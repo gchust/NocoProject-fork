@@ -30,6 +30,7 @@ import { AgentEnvSection } from './agent-env.js';
 import { AgentForm } from './agent-form.js';
 import { AgentDelete } from './agent-delete.js';
 import { AgentSkillsSection } from './agent-skills.js';
+import { usePmContextSource } from '../../pm/assistant/pm-assistant.js';
 
 /**
  * Route `/agents/:agentId` (§J 5): a covering child page over the agent list with the agent's editable settings,
@@ -69,6 +70,9 @@ function AgentDetailView({
   const { viewer } = useWorkspaceViewer();
 
   const agent = agents.data?.find((candidate) => candidate.id === agentId);
+  usePmContextSource(
+    agent ? { type: 'agent', id: agent.id, label: agent.name } : null,
+  );
 
   if ((agents.isError && !agents.data) || (agents.data && !agent)) {
     return (

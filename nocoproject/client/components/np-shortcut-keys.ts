@@ -20,6 +20,21 @@ export function isSearchShortcut(
   );
 }
 
+/** ⌘J on macOS, Ctrl+J elsewhere: opens, focuses or closes the project manager drawer (NP-185), also while typing. */
+export function isAssistantShortcut(
+  event: Pick<
+    KeyboardEvent,
+    'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'
+  >,
+): boolean {
+  return (
+    (event.metaKey || event.ctrlKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'j'
+  );
+}
+
 /** The modifier to show next to a shortcut that accepts ⌘ or Ctrl: ⌘ on Apple devices, Ctrl elsewhere. */
 export function modifierKeyLabel(
   platform: string = typeof navigator === 'undefined'

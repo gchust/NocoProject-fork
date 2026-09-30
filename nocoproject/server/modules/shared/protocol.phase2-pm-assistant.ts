@@ -279,6 +279,8 @@ export interface PmPlan {
   readonly result: PmPlanResult | null;
   readonly createdAt: string;
   readonly executedAt: string | null;
+  /** NP-185: the conversation's `kind = 'plan'` comment that shows this plan (comments carry no `details`). */
+  readonly commentId?: string | null;
 }
 
 /** `POST /np/agent/pm/plans` */

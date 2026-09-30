@@ -164,6 +164,8 @@ describe.skipIf(!db)('operation plan cards (PostgreSQL)', () => {
       [conversationId],
     );
     expect(card).toMatchObject({ author_type: 'agent', author_id: manager });
+    // NP-185: the browser finds the card's plan by the comment it belongs to.
+    expect(plan.commentId).toBe(card.id);
     // Nobody but the owner sees the plan.
     expect((await bob('GET', `/np/pm/plans/${plan.id}`)).status).toBe(404);
     // The run finishes, so the plan's wake-up becomes a new run.
