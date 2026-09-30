@@ -235,7 +235,9 @@ export function autoTitle(content: string, chars: number): string {
     .replace(/```[\s\S]*?```/gu, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/gu, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1')
-    .replace(/[#>*_`~|-]+/gu, ' ')
+    .replace(/^\s*(?:[#>]+|[-*+]\s|\d+\.\s)/gmu, ' ')
+    .replace(/[*_`~]+/gu, '')
+    .replace(/\|/gu, ' ')
     .replace(/\s+/gu, ' ')
     .trim();
   return [...plain].slice(0, chars).join('');

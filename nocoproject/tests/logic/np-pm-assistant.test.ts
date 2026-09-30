@@ -132,6 +132,8 @@ async function allowPersonal(on = true): Promise<void> {
     agentEntries: {
       ...entries,
       conversation: { ...entries.conversation, allowPersonal: on },
+      // The legacy `pmAgentId` alias also named the manager for completion summaries, which NP-183 refuses.
+      completion: { ...entries.completion, agentId: null, enabled: false },
     },
   });
 }
@@ -150,14 +152,14 @@ describe.skipIf(!db)('conversations (PostgreSQL)', () => {
 
     // The first message names an untitled conversation and moves it to the top.
     await alice('POST', `/np/issues/${first.id}/comments`, {
-      content: '## Which tasks are stuck this week?',
+      content: '## Which tasks are **stuck**?',
     });
     const page = await alice<PmConversationPage>('GET', '/np/pm/conversations');
     expect(page.body.data.map((item) => item.id)).toEqual([
       first.id,
       second.id,
     ]);
-    expect(page.body.data[0]?.title).toBe('Which tasks are stuck this week');
+    expect(page.body.data[0]?.title).toBe('Which tasks are stuck?');
 
     // Search covers titles and messages; archived ones are listed apart.
     const found = await alice<PmConversationPage>(
@@ -421,13 +423,10 @@ describe.skipIf(!db)('direct writes in the asker’s name (PostgreSQL)', () => {
       },
     });
     expect(denied.status).toBe(404);
-    const prefs = await alice<Data<{ revision: number }>>(
-      'GET',
-      '/np/me/preferences',
-    );
-    await alice('PATCH', '/np/me/preferences', {
+    const prefs = await services.members.preferences(ALICE.id!);
+    await services.members.updatePreferences(ALICE.id!, {
       pmConfirmAll: true,
-      revision: prefs.body.data.revision,
+      revision: prefs.revision,
     });
     const confirm = await pm('POST', '/pm/act', {
       op: { type: 'issue.create', params: { title: 'x' } },
@@ -608,10 +607,11 @@ describe.skipIf(!db)('version gate and roster (PostgreSQL)', () => {
   });
 
   it('lists executors without other members’ project managers', async () => {
+    const bobRuntime = await registerRuntime(services, BOB, 'daemon-bob');
     const mine = await createKindAgent(
       services,
       BOB,
-      coderRuntime.runtimeId,
+      bobRuntime.runtimeId,
       'Bob PM',
       'manager',
     );
