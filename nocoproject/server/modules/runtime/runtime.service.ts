@@ -76,7 +76,11 @@ export interface RuntimeService {
    * NP-183: whether a public runtime may run members' personal project managers (`pmAllowed`); whoever may change the
    * general settings (owner / admin) may change it.
    */
-  setPmAllowed(actor: Actor, runtimeId: string, value: unknown): Promise<Runtime>;
+  setPmAllowed(
+    actor: Actor,
+    runtimeId: string,
+    value: unknown,
+  ): Promise<Runtime>;
   /** Whether a daemon authenticated as `userId` may act on `runId` (it must own the run's runtime). */
   runAccess(runId: string, userId: string): Promise<RunAccess>;
 }

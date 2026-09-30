@@ -53,9 +53,7 @@ export async function hasCapability(
     .where('id', '=', agentId)
     .executeTakeFirst();
   return (
-    !!row &&
-    !row.archivedAt &&
-    effectiveCapabilities(row).includes(capability)
+    !!row && !row.archivedAt && effectiveCapabilities(row).includes(capability)
   );
 }
 export async function requireCapability(

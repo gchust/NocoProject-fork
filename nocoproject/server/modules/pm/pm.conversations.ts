@@ -177,7 +177,11 @@ async function pickAgent(deps: ConversationDeps, tx: Tx, userId: string) {
 
 function titleOf(value: unknown): string | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.trim() === '' || [...value].length > 200)
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    [...value].length > 200
+  )
     throw invalid('INVALID_TITLE', 'title must be 1–200 characters.');
   return value.trim();
 }
@@ -186,7 +190,11 @@ async function createConversation(
   deps: ConversationDeps,
   actor: Actor,
   input: PmConversationCreateRequest,
-  switchTo: (tx: Tx, userId: string, mode: 'system' | 'personal') => Promise<void>,
+  switchTo: (
+    tx: Tx,
+    userId: string,
+    mode: 'system' | 'personal',
+  ) => Promise<void>,
 ): Promise<PmConversationDetail> {
   const userId = (await viewerOf(deps.tx.read(), actor)).userId;
   const title = titleOf(input?.title);
@@ -372,10 +380,16 @@ async function switchAgent(
     const { row } = await owned(deps, tx, userId, id);
     if (direction === 'fallback') {
       if (row.agentSource !== 'personal' || !row.agentId)
-        throw conflict('NOT_PERSONAL', 'This conversation uses the system project manager.');
+        throw conflict(
+          'NOT_PERSONAL',
+          'This conversation uses the system project manager.',
+        );
       const system = await systemPmAgent(tx.conn, deps.settings, userId);
       if (!system)
-        throw conflict('PM_NOT_CONFIGURED', 'No system project manager is configured.');
+        throw conflict(
+          'PM_NOT_CONFIGURED',
+          'No system project manager is configured.',
+        );
       await rebindConversation(deps, tx, row, {
         agentId: system.id,
         agentSource: 'fallback',
@@ -395,7 +409,10 @@ async function switchAgent(
         await allowsPersonal(tx.conn, deps.settings),
       ) !== null
     )
-      throw conflict('PERSONAL_UNAVAILABLE', 'Your project manager cannot take this conversation back.');
+      throw conflict(
+        'PERSONAL_UNAVAILABLE',
+        'Your project manager cannot take this conversation back.',
+      );
     await rebindConversation(deps, tx, row, {
       agentId: personal.id,
       agentSource: 'personal',
@@ -411,7 +428,11 @@ async function legacyConversation(
   deps: ConversationDeps,
   actor: Actor,
   create: boolean,
-  switchTo: (tx: Tx, userId: string, mode: 'system' | 'personal') => Promise<void>,
+  switchTo: (
+    tx: Tx,
+    userId: string,
+    mode: 'system' | 'personal',
+  ) => Promise<void>,
 ): Promise<PmConversationResponse> {
   const userId = (await viewerOf(deps.tx.read(), actor)).userId;
   const latest = await deps.tx
@@ -475,7 +496,11 @@ async function onMessage(
   if (!row) return { context: null, issue: message.issue };
   await touchConversation(tx.conn, row.issueId);
   const { actor } = message;
-  if (actor.type !== 'user' || actor.id !== row.ownerUserId || actor.via === 'pm')
+  if (
+    actor.type !== 'user' ||
+    actor.id !== row.ownerUserId ||
+    actor.via === 'pm'
+  )
     return { context: null, issue: message.issue };
   let context: PmResolvedContext | null = null;
   if (message.context !== undefined && message.context !== null)
@@ -506,13 +531,19 @@ async function agentTitle(
     value.trim() === '' ||
     [...value.trim()].length > PM_TITLE_MAX
   )
-    throw invalid('INVALID_TITLE', `title must be 1–${PM_TITLE_MAX} characters.`);
+    throw invalid(
+      'INVALID_TITLE',
+      `title must be 1–${PM_TITLE_MAX} characters.`,
+    );
   const row = await deps.tx.run(async (tx) => {
     const found = await findConversation(tx.conn, issueId);
     const issue = await findIssue(tx.conn, issueId);
     if (!found || !issue) throw notFound('Conversation');
     if (found.titleSource === 'user')
-      throw conflict('TITLE_LOCKED', 'The member named this conversation; keep their title.');
+      throw conflict(
+        'TITLE_LOCKED',
+        'The member named this conversation; keep their title.',
+      );
     await setTitle(tx, issue, value.trim(), 'agent');
     return found;
   });
@@ -527,7 +558,11 @@ async function agentTitle(
 
 export function createConversationService(
   deps: ConversationDeps,
-  switchTo: (tx: Tx, userId: string, mode: 'system' | 'personal') => Promise<void>,
+  switchTo: (
+    tx: Tx,
+    userId: string,
+    mode: 'system' | 'personal',
+  ) => Promise<void>,
 ): ConversationService {
   return {
     list: (actor, query) => listConversations(deps, actor, query),
@@ -536,7 +571,8 @@ export function createConversationService(
     patch: (actor, id, patch) => patchConversation(deps, actor, id, patch),
     fallback: (actor, id) => switchAgent(deps, actor, id, 'fallback'),
     restore: (actor, id) => switchAgent(deps, actor, id, 'restore'),
-    legacy: (actor, create) => legacyConversation(deps, actor, create, switchTo),
+    legacy: (actor, create) =>
+      legacyConversation(deps, actor, create, switchTo),
     agentTitle: (issueId, title) => agentTitle(deps, issueId, title),
     onMessage: (tx, message) => onMessage(deps, tx, message),
     async detailOf(issueId) {

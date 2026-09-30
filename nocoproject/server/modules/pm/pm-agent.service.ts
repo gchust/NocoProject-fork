@@ -35,7 +35,11 @@ export interface PmAgentService {
     input: PmAgentCopyRequest,
   ): Promise<{ agent: AgentListItemV4; choice: PmAgentChoice }>;
   /** Used by `POST /np/pm/conversations { switchTo }` inside its transaction. */
-  switchMode(tx: Tx, userId: string, mode: 'system' | 'personal'): Promise<void>;
+  switchMode(
+    tx: Tx,
+    userId: string,
+    mode: 'system' | 'personal',
+  ): Promise<void>;
 }
 
 export interface PmAgentDeps {
@@ -170,17 +174,22 @@ async function copyFromDefault(
 ): Promise<{ agent: AgentListItemV4; choice: PmAgentChoice }> {
   const conn = deps.tx.read();
   const userId = (await viewerOf(conn, actor)).userId;
-  if (!(await allowsPersonal(conn, deps.settings))) notEligible('personalDisabled');
+  if (!(await allowsPersonal(conn, deps.settings)))
+    notEligible('personalDisabled');
   const system = await systemPmAgent(conn, deps.settings, userId);
   if (!system)
-    throw conflict('PM_NOT_CONFIGURED', 'No system project manager is configured.');
-  const runtime = typeof input?.runtimeId === 'string'
-    ? await conn.query
-        .selectFrom('runtimes')
-        .selectAll()
-        .where('id', '=', input.runtimeId)
-        .executeTakeFirst()
-    : undefined;
+    throw conflict(
+      'PM_NOT_CONFIGURED',
+      'No system project manager is configured.',
+    );
+  const runtime =
+    typeof input?.runtimeId === 'string'
+      ? await conn.query
+          .selectFrom('runtimes')
+          .selectAll()
+          .where('id', '=', input.runtimeId)
+          .executeTakeFirst()
+      : undefined;
   if (!runtime) throw invalid('INVALID_RUNTIME', 'runtimeId is required.');
   if (
     !runtimeFitsPersonal(

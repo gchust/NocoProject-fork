@@ -4,11 +4,7 @@
  * existence does not leak — and stores the rest with their labels in `comments.context`. The agent reads it from the
  * claim (`triggers[].comment.context`).
  */
-import {
-  canSeeIssue,
-  canSeeProject,
-  type Viewer,
-} from '../shared/authz.js';
+import { canSeeIssue, canSeeProject, type Viewer } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
 import { str } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
@@ -57,7 +53,11 @@ export function parsePageContext(value: unknown): PmPageContext {
   if (!Array.isArray(items) || items.length > PM_CONTEXT_ITEMS_MAX)
     bad(`context.items must be a list of at most ${PM_CONTEXT_ITEMS_MAX}.`);
   const parsed = items.map((item) => {
-    if (!isRecord(item) || !isItemType(item.type) || typeof item.id !== 'string')
+    if (
+      !isRecord(item) ||
+      !isItemType(item.type) ||
+      typeof item.id !== 'string'
+    )
       bad('Each context item needs a known type and an id.');
     return { type: item.type, id: item.id };
   });
@@ -65,7 +65,9 @@ export function parsePageContext(value: unknown): PmPageContext {
     route,
     items: parsed,
     ...(filter === undefined ? {} : { filter: parseFilter(filter) }),
-    ...(selection === undefined ? {} : { selection: parseSelection(selection) }),
+    ...(selection === undefined
+      ? {}
+      : { selection: parseSelection(selection) }),
   };
 }
 
@@ -145,8 +147,7 @@ async function resolveItem(
         .select(['id', 'name'])
         .where('id', '=', id)
         .executeTakeFirst();
-      if (!row || !(await canSeeProject(conn, viewer, id)))
-        return null;
+      if (!row || !(await canSeeProject(conn, viewer, id))) return null;
       return { type, id, identifier: null, title: str(row.name) ?? '' };
     }
     case 'knowledgeDoc': {
@@ -156,9 +157,18 @@ async function resolveItem(
         .where('id', '=', id)
         .executeTakeFirst();
       const projectId = str(row?.projectId) || null;
-      if (!row || row.archivedAt || !(await canSeeProject(conn, viewer, projectId)))
+      if (
+        !row ||
+        row.archivedAt ||
+        !(await canSeeProject(conn, viewer, projectId))
+      )
         return null;
-      return { type, id, identifier: str(row.slug), title: str(row.title) ?? '' };
+      return {
+        type,
+        id,
+        identifier: str(row.slug),
+        title: str(row.title) ?? '',
+      };
     }
     case 'inboxItem': {
       const row = await conn.query
@@ -176,7 +186,9 @@ async function resolveItem(
         .where('id', '=', id)
         .executeTakeFirst();
       const issue = await visibleIssue(conn, viewer, str(row?.subjectId));
-      return issue ? { type, id, identifier: issue.identifier, title: issue.title } : null;
+      return issue
+        ? { type, id, identifier: issue.identifier, title: issue.title }
+        : null;
     }
     case 'agent': {
       const row = await conn.query

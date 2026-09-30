@@ -56,7 +56,9 @@ async function askerSummary(
     .where('deletedAt', 'is', null)
     .where('statusKey', 'not in', DONE_STATUSES)
     .execute();
-  const work = owned.filter((row) => !isConversation({ originType: str(row.originType) }));
+  const work = owned.filter(
+    (row) => !isConversation({ originType: str(row.originType) }),
+  );
   const decisions = await conn.query
     .selectFrom('inboxItems')
     .select((eb) => [eb.fn.countAll().as('count')])
@@ -85,7 +87,11 @@ async function askerSummary(
 export async function claimedConversation(
   conn: Conn,
   users: UserDirectory,
-  run: { readonly id: string; readonly subjectId: string; readonly actorUserId: string | null },
+  run: {
+    readonly id: string;
+    readonly subjectId: string;
+    readonly actorUserId: string | null;
+  },
 ): Promise<{ conversation?: ClaimedConversation }> {
   const conversation = await conversationOfRun(conn, run);
   if (!conversation) return {};
@@ -108,9 +114,9 @@ export async function claimedConversation(
 }
 
 /** The stored page context of a trigger comment. */
-export function commentContextOf(row: {
-  readonly context?: unknown;
-}): { context?: PmResolvedContext } {
+export function commentContextOf(row: { readonly context?: unknown }): {
+  context?: PmResolvedContext;
+} {
   const context = fromJson<PmResolvedContext>(row.context);
   return context ? { context } : {};
 }

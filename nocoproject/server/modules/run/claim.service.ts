@@ -390,7 +390,9 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
       // An unsupported daemon gets no work, but a normal answer: it keeps heartbeating and shows why (NP-150).
       if (compatibility.status === 'unsupported')
         return { runs: [], compatibility };
-      const conversations = supportsPmAssistant(storedIdentity(rows[0]?.deviceInfo));
+      const conversations = supportsPmAssistant(
+        storedIdentity(rows[0]?.deviceInfo),
+      );
       await deps.tx.run((tx) =>
         noticePmUpgrade(tx, {
           ownerUserId,

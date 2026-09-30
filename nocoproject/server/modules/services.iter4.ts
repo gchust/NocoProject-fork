@@ -34,10 +34,7 @@ import {
   type PmAgentService,
 } from './pm/pm-agent.service.js';
 import type { RoleAssignments } from './member/member.roles.js';
-import {
-  createPmActService,
-  type PmActService,
-} from './pm/pm-act.service.js';
+import { createPmActService, type PmActService } from './pm/pm-act.service.js';
 import type { NpServices } from './services.js';
 
 export interface Iteration4Services {

@@ -48,7 +48,10 @@ export function createAgentAttachmentRoutes(deps: {
       context.req.param('id'),
     );
     const data: AttachmentTextResponse = {
-      text: await deps.attachments.agentText(issue.id, context.req.param('fileId')),
+      text: await deps.attachments.agentText(
+        issue.id,
+        context.req.param('fileId'),
+      ),
     };
     return context.json({ data });
   });

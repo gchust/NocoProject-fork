@@ -13,7 +13,10 @@ import type { UserDirectory } from '../shared/users.js';
 import { commentContextOf } from './claim.pm.js';
 
 /** The `stage` of a `stageEntered` trigger, from its payload. */
-export function stageOf(type: unknown, payload: unknown): ClaimedTriggerPhase2Extras {
+export function stageOf(
+  type: unknown,
+  payload: unknown,
+): ClaimedTriggerPhase2Extras {
   if (type !== 'stageEntered') return {};
   const value = fromJson<Record<string, unknown>>(payload) ?? {};
   return {
@@ -26,7 +29,10 @@ export function stageOf(type: unknown, payload: unknown): ClaimedTriggerPhase2Ex
 }
 
 /** The `signal` of a `signal` trigger, from its payload. */
-export function signalOf(type: unknown, payload: unknown): ClaimedTriggerSignalExtras {
+export function signalOf(
+  type: unknown,
+  payload: unknown,
+): ClaimedTriggerSignalExtras {
   if (type !== 'signal') return {};
   const value = fromJson<Record<string, unknown>>(payload) ?? {};
   return {
@@ -117,4 +123,3 @@ export async function triggerComments(
   }
   return result;
 }
-

@@ -208,7 +208,10 @@ export function createPmService(deps: PmDeps): PmService {
     async runEvents(auth, runId, limit) {
       await deps.runQueries().assertVisible(await asking(auth), runId);
       const events = await deps.runEvents().list(runId, null);
-      const tail = Math.min(Math.max(limit ?? PM_RUN_EVENTS_MAX, 1), PM_RUN_EVENTS_MAX);
+      const tail = Math.min(
+        Math.max(limit ?? PM_RUN_EVENTS_MAX, 1),
+        PM_RUN_EVENTS_MAX,
+      );
       return { ...events, data: events.data.slice(-tail) };
     },
     pullRequests: async (auth, issueId) =>

@@ -6,7 +6,11 @@ const routes: readonly [string, RegExp, AgentCapability][] = [
     /^\/issues\/[^/]+(?:\/(?:comments|children|pull-requests|checklists))?$/,
     'context.read',
   ],
-  ['GET', /^\/issues\/[^/]+\/attachments\/[^/]+\/(?:content|text)$/, 'context.read'],
+  [
+    'GET',
+    /^\/issues\/[^/]+\/attachments\/[^/]+\/(?:content|text)$/,
+    'context.read',
+  ],
   ['GET', /^\/knowledge(?:\/[^/]+)?$/, 'context.read'],
   ['GET', /^\/workflows(?:\/[^/]+)?$/, 'context.read'],
   [

@@ -36,7 +36,10 @@ export interface MemberService {
   /** The member's own preferences (NP-108); the row exists, `ensureMember` runs before every browser route. */
   preferences(userId: string): Promise<MemberPreferencesV5>;
   /** Changes only the fields given (`preferencesPatch`); anything malformed is 400 `INVALID_PREFERENCES`. */
-  updatePreferences(userId: string, input: unknown): Promise<MemberPreferencesV5>;
+  updatePreferences(
+    userId: string,
+    input: unknown,
+  ): Promise<MemberPreferencesV5>;
 }
 
 interface PreferencesPatch {
@@ -108,7 +111,11 @@ export async function writePreferences(
     throw conflict('REVISION_CONFLICT', 'Preferences changed; reload them.');
   await conn.query
     .updateTable('members')
-    .set({ ...set, preferencesRevision: current.revision + 1, updatedAt: now() })
+    .set({
+      ...set,
+      preferencesRevision: current.revision + 1,
+      updatedAt: now(),
+    })
     .where('userId', '=', userId)
     .where('preferencesRevision', '=', current.revision)
     .execute();

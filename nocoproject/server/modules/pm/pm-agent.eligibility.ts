@@ -119,7 +119,9 @@ export async function allowsPersonal(
   conn: Conn,
   settings: SettingsService,
 ): Promise<boolean> {
-  return (await settings.read(conn)).agentEntries.conversation.allowPersonal === true;
+  return (
+    (await settings.read(conn)).agentEntries.conversation.allowPersonal === true
+  );
 }
 
 /** The system default project manager `userId` may use, or null. */
@@ -153,8 +155,11 @@ export async function boundAgentUsable(
   if (!(await canUse(conn, userId, facts.id))) return false;
   if (source !== 'personal') return true;
   return (
-    personalIneligibility(facts, userId, await allowsPersonal(conn, settings)) ===
-    null
+    personalIneligibility(
+      facts,
+      userId,
+      await allowsPersonal(conn, settings),
+    ) === null
   );
 }
 

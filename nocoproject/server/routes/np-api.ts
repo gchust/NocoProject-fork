@@ -162,7 +162,10 @@ export const npApiRoutes: AppApiRouteContribution<Application> =
     );
 
     // NP-183: the member's choice of project manager.
-    me.route('/pm-agent', createPmAgentRoutes(container.resolve(npPmAgentServiceToken)));
+    me.route(
+      '/pm-agent',
+      createPmAgentRoutes(container.resolve(npPmAgentServiceToken)),
+    );
     router.route('/np/me', guarded(guard, me));
     const roles = container.resolve(npRoleServiceToken);
     router.route(
@@ -351,9 +354,6 @@ function mountIteration2(
   // Iteration 4.
   router.route(
     '/np/pm',
-    guarded(
-      guard,
-      createPmRoutes(container.resolve(npPmConversationsToken)),
-    ),
+    guarded(guard, createPmRoutes(container.resolve(npPmConversationsToken))),
   );
 }

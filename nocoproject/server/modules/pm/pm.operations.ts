@@ -37,10 +37,16 @@ export interface PerformedObject {
   readonly identifier?: string | null;
   readonly title?: string | null;
   /** The issue the write belongs to, for the direct-write budget (a comment or dependency counts on its issue). */
-  readonly budgetKey: { readonly objectType: string; readonly objectId: string };
+  readonly budgetKey: {
+    readonly objectType: string;
+    readonly objectId: string;
+  };
 }
 
-export type PlanRefs = Map<string, { readonly type: PmObjectType; readonly id: string }>;
+export type PlanRefs = Map<
+  string,
+  { readonly type: PmObjectType; readonly id: string }
+>;
 
 /** An `issue` target as an issue id (resolving plan refs); 400 `INVALID_REF` for an unknown ref. */
 export function targetId(target: PmIssueTarget, refs: PlanRefs): string {
@@ -52,11 +58,16 @@ export function targetId(target: PmIssueTarget, refs: PlanRefs): string {
     return found.id;
   }
   if (typeof target?.issue !== 'string')
-    throw invalid('INVALID_OPERATION', 'issue must be an id, an identifier or a ref.');
+    throw invalid(
+      'INVALID_OPERATION',
+      'issue must be an id, an identifier or a ref.',
+    );
   return target.issue;
 }
 
-export function executorOf(input: PmExecutorInput | undefined): ExecutorInput | undefined {
+export function executorOf(
+  input: PmExecutorInput | undefined,
+): ExecutorInput | undefined {
   if (!input) return undefined;
   if (input.type === 'none') return { type: 'none', id: null };
   return { type: input.type, id: input.id };
@@ -166,7 +177,12 @@ export async function performOperation(
       if (op.type === 'dependency.add') {
         const added = await deps
           .dependencies()
-          .add(actor, issue.id, { dependsOnIssueId: blockedBy.id, type: 'blockedBy' }, tx);
+          .add(
+            actor,
+            issue.id,
+            { dependsOnIssueId: blockedBy.id, type: 'blockedBy' },
+            tx,
+          );
         return {
           type: 'dependency',
           id: added.dependencyId,
@@ -186,12 +202,14 @@ export async function performOperation(
         op.params.internal && !op.params.content.startsWith('/note')
           ? `/note\n${op.params.content}`
           : op.params.content;
-      const { comment } = await deps.comments().create(
-        actor,
-        issue.id,
-        { content, parentId: op.params.parentId ?? null },
-        { outer: tx, trigger: actor.via !== 'pm' },
-      );
+      const { comment } = await deps
+        .comments()
+        .create(
+          actor,
+          issue.id,
+          { content, parentId: op.params.parentId ?? null },
+          { outer: tx, trigger: actor.via !== 'pm' },
+        );
       return {
         type: 'comment',
         id: comment.id,

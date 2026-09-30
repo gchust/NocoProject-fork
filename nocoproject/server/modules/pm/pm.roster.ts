@@ -32,7 +32,10 @@ async function countsBy(
   return new Map(rows.map((row) => [str(row.agentId) ?? '', num(row.count)]));
 }
 
-async function doneIssues(conn: Conn, since: Date): Promise<Map<string, number>> {
+async function doneIssues(
+  conn: Conn,
+  since: Date,
+): Promise<Map<string, number>> {
   const rows = await conn.query
     .selectFrom('issues')
     .select((eb) => ['executorId', eb.fn.countAll().as('count')])
@@ -42,7 +45,9 @@ async function doneIssues(conn: Conn, since: Date): Promise<Map<string, number>>
     .where('deletedAt', 'is', null)
     .groupBy('executorId')
     .execute();
-  return new Map(rows.map((row) => [str(row.executorId) ?? '', num(row.count)]));
+  return new Map(
+    rows.map((row) => [str(row.executorId) ?? '', num(row.count)]),
+  );
 }
 
 async function skillsOf(
@@ -54,7 +59,11 @@ async function skillsOf(
   const rows = await conn.query
     .selectFrom('agentSkills')
     .innerJoin('skills', 'skills.id', 'agentSkills.skillId')
-    .select(['agentSkills.agentId as agentId', 'skills.name as name', 'skills.description as description'])
+    .select([
+      'agentSkills.agentId as agentId',
+      'skills.name as name',
+      'skills.description as description',
+    ])
     .where('agentSkills.agentId', 'in', [...agentIds])
     .orderBy('skills.name', 'asc')
     .execute();
@@ -89,10 +98,15 @@ async function delegationOf(
 function summaryOf(row: Record<string, unknown>): string {
   const own = str(row.summary)?.trim();
   if (own) return own;
-  return [...(str(row.instructions) ?? '')].slice(0, PM_ROSTER_SUMMARY_FALLBACK).join('');
+  return [...(str(row.instructions) ?? '')]
+    .slice(0, PM_ROSTER_SUMMARY_FALLBACK)
+    .join('');
 }
 
-export async function roster(conn: Conn, askerId: string): Promise<PmRosterAgent[]> {
+export async function roster(
+  conn: Conn,
+  askerId: string,
+): Promise<PmRosterAgent[]> {
   const agents = await conn.query
     .selectFrom('agents')
     .selectAll()
@@ -103,18 +117,23 @@ export async function roster(conn: Conn, askerId: string): Promise<PmRosterAgent
   const ids = agents.map((row) => str(row.id) ?? '');
   const runtimeIds = unique(agents.map((row) => str(row.runtimeId)));
   const runtimes = runtimeIds.length
-    ? await conn.query.selectFrom('runtimes').selectAll().where('id', 'in', runtimeIds).execute()
+    ? await conn.query
+        .selectFrom('runtimes')
+        .selectAll()
+        .where('id', 'in', runtimeIds)
+        .execute()
     : [];
   const since = new Date(Date.now() - STATS_DAYS * 86_400_000);
-  const [running, queued, runs, failed, done, skills, delegation] = await Promise.all([
-    countsBy(conn, ['dispatched', 'running']),
-    countsBy(conn, ['queued', 'deferred']),
-    countsBy(conn, null, since),
-    countsBy(conn, ['failed'], since),
-    doneIssues(conn, since),
-    skillsOf(conn, ids),
-    delegationOf(conn, ids),
-  ]);
+  const [running, queued, runs, failed, done, skills, delegation] =
+    await Promise.all([
+      countsBy(conn, ['dispatched', 'running']),
+      countsBy(conn, ['queued', 'deferred']),
+      countsBy(conn, null, since),
+      countsBy(conn, ['failed'], since),
+      doneIssues(conn, since),
+      skillsOf(conn, ids),
+      delegationOf(conn, ids),
+    ]);
   const result: PmRosterAgent[] = [];
   for (const row of agents) {
     const id = str(row.id) ?? '';
@@ -138,7 +157,9 @@ export async function roster(conn: Conn, askerId: string): Promise<PmRosterAgent
             id: str(runtime.id) ?? '',
             name: str(runtime.name) ?? '',
             online: runtime.status === 'online',
-            lastHeartbeatAt: runtime.lastSeenAt ? new Date(String(runtime.lastSeenAt)).toISOString() : null,
+            lastHeartbeatAt: runtime.lastSeenAt
+              ? new Date(String(runtime.lastSeenAt)).toISOString()
+              : null,
             compat:
               kind === 'manager'
                 ? pmCompatOf(runtime)

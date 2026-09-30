@@ -36,7 +36,10 @@ import type { RunAuth } from '../run/token.js';
 import { collectRuns } from '../trigger/preview.js';
 import type { WorkflowService } from '../workflow/workflow.service.js';
 import { writtenObjects } from './pm-act.budget.js';
-import { conversationOfRun, type ConversationRow } from './pm.conversation-records.js';
+import {
+  conversationOfRun,
+  type ConversationRow,
+} from './pm.conversation-records.js';
 import { performOperation, type OperationDeps } from './pm.operations.js';
 
 export interface PmActService {
@@ -108,7 +111,9 @@ function isTerminalMove(
   if (!target) return Promise.resolve(false);
   return findIssue(conn, target).then(async (issue) =>
     issue
-      ? (await deps.workflows.forIssue(conn, issue)).isTerminal(op.params.statusKey)
+      ? (await deps.workflows.forIssue(conn, issue)).isTerminal(
+          op.params.statusKey,
+        )
       : false,
   );
 }
@@ -124,9 +129,11 @@ async function staticRules(
     throw invalid('UNSUPPORTED_OPERATION', 'Unknown operation type.');
   if (op.type === 'decision.resolve' || op.type === 'project.create')
     planRequired('planOnly');
-  if ((await preferencesOf(conn, owner)).pmConfirmAll) planRequired('confirmAll');
+  if ((await preferencesOf(conn, owner)).pmConfirmAll)
+    planRequired('confirmAll');
   if (op.type === 'issue.create' || op.type === 'issue.update') {
-    const params = (op.type === 'issue.create' ? op.params : op.params?.set) ?? {};
+    const params =
+      (op.type === 'issue.create' ? op.params : op.params?.set) ?? {};
     if (params.executor?.type === 'agent') planRequired('agentExecutor');
     if (params.ownerUserId !== undefined && params.ownerUserId !== owner)
       planRequired('ownerChange');
@@ -137,8 +144,12 @@ async function staticRules(
 }
 
 /** The issue a direct write touches for the budget, when it exists already. */
-async function knownTarget(conn: Conn, op: PmOperation): Promise<string | null> {
-  if (op.type === 'issue.create' || op.type === 'knowledge.propose') return null;
+async function knownTarget(
+  conn: Conn,
+  op: PmOperation,
+): Promise<string | null> {
+  if (op.type === 'issue.create' || op.type === 'knowledge.propose')
+    return null;
   const target = (op.params as { issue?: unknown }).issue;
   if (typeof target !== 'string') return null;
   return (await findIssue(conn, target))?.id ?? null;
@@ -192,18 +203,24 @@ async function act(
     );
     if (runs.some((run) => run.started))
       planRequired('wouldStartRun', {
-        runs: runs.filter((run) => run.started).map((run) => ({
-          agentId: run.agentId,
-          issueId: run.issueId,
-          triggerType: run.triggerType,
-        })),
+        runs: runs
+          .filter((run) => run.started)
+          .map((run) => ({
+            agentId: run.agentId,
+            issueId: run.issueId,
+            triggerType: run.triggerType,
+          })),
       });
     await record(tx, value.budgetKey);
     return value;
   });
   const used = again ? written.length : written.length + 1;
   const { budgetKey: _key, ...shown } = object;
-  return { op: op.type, object: shown, budget: { used, limit: PM_DIRECT_WRITE_LIMIT } };
+  return {
+    op: op.type,
+    object: shown,
+    budget: { used, limit: PM_DIRECT_WRITE_LIMIT },
+  };
 }
 
 export function createPmActService(deps: PmActDeps): PmActService {
@@ -212,4 +229,3 @@ export function createPmActService(deps: PmActDeps): PmActService {
     conversationRun: (auth) => requireConversationRun(deps.tx.read(), auth),
   };
 }
-
