@@ -20,13 +20,14 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - Page tabs are child routes (`NpRouteTabs` + default-tab redirect). Sections inside a covering detail page use `NpTabBar` with `?tab=`, because the detail's child routes are its dialogs. Both look the same. `/config/members` also splits into Members and Roles with `NpTabBar` and `?tab=roles` (NP-153): it is already a tab of `/config`, and its child route is the covering role page `/config/members/roles/:roleKey`.
 - `/issues` and `/my-issues` fill the content area: header, toolbar, then the board or the table in a bounded area (`PageContainer className='flex h-full min-h-0 flex-col gap-6 space-y-0'`, `IssueBoard fill`, `DataTable fillHeight`). The page itself does not scroll.
 - Every top-level page renders `NpShortcuts` once (§8).
-- A page that is one conversation (`/pm`) fills the content area like `/issues`: header, then `SessionPanel fill` — only its message list scrolls, the composer stays under it, no properties column.
+- `/pm` is the project manager conversation history (NP-185); one conversation opens at `/pm/:conversationId` (`/pm/new` for a new one) and fills the content area like `/issues`: header, then the conversation — only its message list scrolls, the composer stays under it, no properties column.
+- The project manager drawer (`pages/np/pm/assistant/`) lives in the shell, beside `<main>`, so it survives page changes: docked (26.25rem) from 1280px, floating over the content (25rem) from `md`, a full-screen dialog below `md` (opened from a floating button), and "expand" covers the content area. The docked and floating forms are not dialogs, so `C` keeps working. Pages register what they show with `usePmContextSource` (and list filters with `usePmUrlFilter`); mark a block whose selected text belongs to an object with `data-pm-source="<type>:<id>"`. "Ask the project manager" is `AskPmButton`. `?pm=<conversationId|new|history>&pmMode=expanded` opens the drawer from a link.
 
 ## 2. Lists and tables
 
 - Toolbar on the left (search, filters, view switch — `IssueToolbar`), the primary button in the page header.
 - Below `md` the toolbar folds the search and the filters behind one "Filters" button (showing the active count), collapsed on every visit; "Clear filters" and the view switch stay on its row, so the board or table keeps the height (NP-164).
-- Creating issues is one "New issue" button and one dialog (`/issues/new`, `NewIssueButton`), never a split button: tabs AI draft (default; describe or paste, choose the project, "Draft issues" → batch entry's drafts table → create one or many) and Manual (the single-issue form); creating in either tab closes the dialog with a toast (NP-124). The last tab is remembered in `localStorage` (`nocoproject:new-issue-tab`, try/catch), `?tab=` overrides, `?batch=` holds the open draft batch and `?project=` preselects the project. Old batch-entry routes redirect into the AI tab.
+- Creating issues is one "New issue" button and one dialog (`/issues/new`, `NewIssueButton`), never a split button: tabs AI draft (default; describe or paste, choose the project, "Draft issues" → batch entry's drafts table → create one or many) and Manual (the single-issue form); creating in either tab closes the dialog with a toast (NP-124). The last tab is remembered in `localStorage` (`nocoproject:new-issue-tab`, try/catch), `?tab=` overrides, `?batch=` holds the open draft batch and `?project=` preselects the project. Old batch-entry routes redirect into the AI tab. The manual form opens with "Or just tell the project manager", which closes the dialog and opens the drawer with the chosen project and whatever was typed.
 - The board shows the design-first columns (Analysis, Proposal review) only while one holds an issue or a visible issue is design-first (`withoutIdleDesignColumns`).
 - Lists are `DataTable`. Server-paged lists pass `pagination={false}` and put "Load more" under the table; client-paged lists keep `pageSize={20}`.
 - Column widths go in `meta.className`: fixed widths for identifier, status, priority, people and dates; the title column `w-full max-w-0` with a single-line truncated cell capped at `max-w-[30rem]` and a `title` tooltip. One long title never stretches a table.
@@ -84,6 +85,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 
 - `C` opens "New issue" (on `/issues` the create dialog beside the list), ignored while typing or when a dialog is open.
 - `⌘K` / `Ctrl+K` opens the issue search; Enter opens the highlighted issue.
+- `⌘J` / `Ctrl+J` opens the project manager drawer and focuses its composer, brings the focus into it when it is open, and closes it when the focus is already inside (also while typing); Escape restores an expanded drawer, then closes it.
 - `⌘Enter` sends a comment, saves a knowledge document, sends an inline decision comment.
 - In the inbox: `j` / `k` move, `e` archives, Enter opens the issue.
 
