@@ -58,7 +58,10 @@ function browserRouter(services: NpServices, as: Actor): Hono<AuthEnv> {
     createCommentRoutes(services.comments, services.pmConversations),
   );
   root.route('/np/issues', createDesignRoutes(services.design));
-  root.route('/np/pm', createPmRoutes(services.pmConversations));
+  root.route(
+    '/np/pm',
+    createPmRoutes(services.pmConversations, services.pmPlans),
+  );
   root.route('/np/me/pm-agent', createPmAgentRoutes(services.pmAgents));
   root.route('/np/settings', createSettingsRoutes(services.workspaceSettings));
   root.route('/np/agents', createAgentRoutes(services.agents));
@@ -106,6 +109,7 @@ export function agentApi4(services: NpServices, token: string): ApiCall {
     createAgentPmRoutes(services.pm, {
       act: services.pmAct,
       conversations: services.pmConversations,
+      plans: services.pmPlans,
     }),
   );
   return (method, path, body) =>

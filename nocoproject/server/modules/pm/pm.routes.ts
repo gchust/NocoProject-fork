@@ -10,6 +10,8 @@ import {
 } from '../shared/http.js';
 import type {
   PmActRequest,
+  PmPlanCreateRequest,
+  PmPlanEditRequest,
   PmAgentChoiceRequest,
   PmAgentCopyRequest,
   PmConversationCreateRequest,
@@ -17,6 +19,7 @@ import type {
 } from '../shared/protocol.js';
 import type { PmAgentService } from './pm-agent.service.js';
 import type { PmActService } from './pm-act.service.js';
+import type { PmPlanService } from './pm.plans.js';
 import type { ConversationService } from './pm.conversations.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
 import type { PmService } from './pm.service.js';
@@ -30,8 +33,10 @@ import type { PmService } from './pm.service.js';
  */
 export function createPmRoutes(
   conversations: ConversationService,
+  plans?: PmPlanService,
 ): Hono<AuthEnv> {
   const routes = npRouter<AuthEnv>();
+  if (plans) mountPlanRoutes(routes, plans);
   routes.get('/conversation', async (context) =>
     context.json({
       data: await conversations.legacy(sessionActor(context), false),
@@ -118,6 +123,7 @@ export function createAgentPmRoutes(
   assistant?: {
     readonly act: PmActService;
     readonly conversations: ConversationService;
+    readonly plans?: PmPlanService;
   },
 ): Hono<RunTokenEnv> {
   const routes = npRouter<RunTokenEnv>();
@@ -150,6 +156,7 @@ export function createAgentPmRoutes(
       ),
     }),
   );
+  if (assistant?.plans) mountAgentPlanRoutes(routes, assistant.plans);
   if (assistant) {
     // NP-183 (§3, §5.5): direct writes in the asker's name, and the agent's conversation title.
     routes.post('/pm/act', async (context) =>
@@ -250,4 +257,91 @@ export function createPmAgentRoutes(pmAgents: PmAgentService): Hono<AuthEnv> {
     ),
   );
   return routes;
+}
+
+/**
+ * `/np/pm` plan routes (browser, the plan's owner only; NP-183 §4.4): `GET /plans/:id`, `PATCH /plans/:id
+ * { revision, ops }`, `POST /plans/:id/execute { revision }`, `POST /plans/:id/discard`, and
+ * `GET /conversations/:id/plans` (the plans of one conversation, newest first).
+ */
+function mountPlanRoutes(routes: Hono<AuthEnv>, plans: PmPlanService): void {
+  routes.get('/plans/:id', async (context) =>
+    context.json({
+      data: await plans.get(sessionActor(context), context.req.param('id')),
+    }),
+  );
+  routes.patch('/plans/:id', async (context) =>
+    context.json({
+      data: await plans.edit(
+        sessionActor(context),
+        context.req.param('id'),
+        await readJson<PmPlanEditRequest>(context),
+      ),
+    }),
+  );
+  routes.post('/plans/:id/execute', async (context) =>
+    context.json({
+      data: await plans.execute(
+        sessionActor(context),
+        context.req.param('id'),
+        await readJson<{ revision?: unknown }>(context),
+      ),
+    }),
+  );
+  routes.post('/plans/:id/discard', async (context) =>
+    context.json({
+      data: await plans.discard(sessionActor(context), context.req.param('id')),
+    }),
+  );
+  routes.get('/conversations/:id/plans', async (context) =>
+    context.json({
+      data: await plans.ofConversation(
+        sessionActor(context),
+        context.req.param('id'),
+      ),
+    }),
+  );
+}
+
+/**
+ * `/np/agent/pm/plans*` (run token, `member.act`, conversation runs only; NP-183 §4.4): `POST /pm/plans { title,
+ * summary?, ops }` (201; 400 `PLAN_INVALID` with `details.rows`), `GET /pm/plans?status`, `GET /pm/plans/:id`,
+ * `POST /pm/plans/:id/discard`.
+ */
+function mountAgentPlanRoutes(
+  routes: Hono<RunTokenEnv>,
+  plans: PmPlanService,
+): void {
+  routes.post('/pm/plans', async (context) =>
+    context.json(
+      {
+        data: await plans.create(
+          context.get('runAuth'),
+          await readJson<PmPlanCreateRequest>(context),
+        ),
+      },
+      201,
+    ),
+  );
+  routes.get('/pm/plans', async (context) =>
+    context.json({
+      data: await plans.agentList(
+        context.get('runAuth'),
+        queryText(context, 'status'),
+      ),
+    }),
+  );
+  routes.get('/pm/plans/:id', async (context) =>
+    context.json({
+      data: await plans.agentGet(context.get('runAuth'), context.req.param('id')),
+    }),
+  );
+  routes.post('/pm/plans/:id/discard', async (context) =>
+    context.json({
+      data: await plans.agentDiscard(
+        context.get('runAuth'),
+        context.req.param('id'),
+      ),
+    }),
+  );
 }

@@ -66,6 +66,7 @@ import type { DesignService } from '../modules/issue/design.service.js';
 import type { ConversationService } from '../modules/pm/pm.conversations.js';
 import type { PmAgentService } from '../modules/pm/pm-agent.service.js';
 import type { PmActService } from '../modules/pm/pm-act.service.js';
+import type { PmPlanService } from '../modules/pm/pm.plans.js';
 import type { PmService } from '../modules/pm/pm.service.js';
 import type { ChecklistService } from '../modules/workflow/checklist.js';
 import type { WorkflowProposalService } from '../modules/workflow/workflow.proposals.js';
@@ -212,6 +213,8 @@ export const npPmServiceToken: ServiceToken<PmService> =
   createServiceToken<PmService>('nocoproject/pm-service');
 export const npPmConversationsToken: ServiceToken<ConversationService> =
   createServiceToken<ConversationService>('nocoproject/pm-conversations');
+export const npPmPlanServiceToken: ServiceToken<PmPlanService> =
+  createServiceToken<PmPlanService>('nocoproject/pm-plan-service');
 export const npPmActServiceToken: ServiceToken<PmActService> =
   createServiceToken<PmActService>('nocoproject/pm-act-service');
 export const npPmAgentServiceToken: ServiceToken<PmAgentService> =
@@ -323,6 +326,7 @@ export default class NpProvider extends ServiceProvider<Application> {
     bindModule(container, npPmConversationsToken, 'pmConversations');
     bindModule(container, npPmAgentServiceToken, 'pmAgents');
     bindModule(container, npPmActServiceToken, 'pmAct');
+    bindModule(container, npPmPlanServiceToken, 'pmPlans');
     bindModule(container, npPullRequestMergeServiceToken, 'pullRequestMerges');
     bindModule(container, npChecklistServiceToken, 'checklists');
     bindModule(container, npWorkflowProposalServiceToken, 'workflowProposals');

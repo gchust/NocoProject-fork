@@ -213,6 +213,7 @@ export interface NpServices {
   readonly pmConversations: Iteration4Services['pmConversations'];
   readonly pmAgents: Iteration4Services['pmAgents'];
   readonly pmAct: Iteration4Services['pmAct'];
+  readonly pmPlans: Iteration4Services['pmPlans'];
   readonly pullRequestMerges: Iteration4Services['pullRequestMerges'];
   // Phase 2 (NP-77).
   readonly checklists: ChecklistService;

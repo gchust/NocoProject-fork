@@ -35,6 +35,7 @@ import {
 } from './pm/pm-agent.service.js';
 import type { RoleAssignments } from './member/member.roles.js';
 import { createPmActService, type PmActService } from './pm/pm-act.service.js';
+import { createPmPlanService, type PmPlanService } from './pm/pm.plans.js';
 import type { NpServices } from './services.js';
 
 export interface Iteration4Services {
@@ -44,6 +45,7 @@ export interface Iteration4Services {
   readonly pmConversations: ConversationService;
   readonly pmAgents: PmAgentService;
   readonly pmAct: PmActService;
+  readonly pmPlans: PmPlanService;
   /** NP-85: merging linked pull requests from NocoProject. */
   readonly pullRequestMerges: PullRequestMergeService;
 }
@@ -85,6 +87,20 @@ export function createIteration4Services(
   });
   return {
     pmAgents,
+    pmPlans: createPmPlanService({
+      tx,
+      ids,
+      workflows,
+      roles: input.roles,
+      issues: () => services.issues,
+      comments: () => services.comments,
+      dependencies: () => services.dependencies,
+      knowledge: () => services.knowledge,
+      proposals: () => services.proposals,
+      design: () => services.design,
+      projects: () => services.projects,
+      triggers: () => services.triggers,
+    }),
     pmAct: createPmActService({
       tx,
       ids,

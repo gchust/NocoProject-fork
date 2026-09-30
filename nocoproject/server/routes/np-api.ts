@@ -96,6 +96,7 @@ import {
   npDesignServiceToken,
   npKnowledgeServiceToken,
   npPmAgentServiceToken,
+  npPmPlanServiceToken,
   npPmConversationsToken,
   npMetricsServiceToken,
   npCommentServiceToken,
@@ -354,6 +355,12 @@ function mountIteration2(
   // Iteration 4.
   router.route(
     '/np/pm',
-    guarded(guard, createPmRoutes(container.resolve(npPmConversationsToken))),
+    guarded(
+      guard,
+      createPmRoutes(
+        container.resolve(npPmConversationsToken),
+        container.resolve(npPmPlanServiceToken),
+      ),
+    ),
   );
 }
