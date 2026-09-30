@@ -34,7 +34,7 @@ export interface InboxQuery {
   readonly kind?: string | null;
   readonly archived?: string | null;
   readonly resolved?: string | null;
-  /** Only the items about one issue (nocosolution/guidelines/NocoSolution 前端规范.md §S3: the issue page's "Waiting for you" section, np.decision.section.title). */
+  /** Only the items about one issue (nocosolution/guidelines/frontend-standard.md §S3: the issue page's "Waiting for you" section, np.decision.section.title). */
   readonly issueId?: string | null;
   readonly cursor?: string | null;
 }

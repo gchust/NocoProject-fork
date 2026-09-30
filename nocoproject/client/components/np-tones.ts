@@ -1,6 +1,6 @@
-/** Tag hues and their classes (nocosolution/guidelines/NocoSolution 前端规范.md §5.3); the colours are defined in `client/np-tones.css`. */
+/** Tag hues and their classes (nocosolution/guidelines/frontend-standard.md §5.3); the colours are defined in `client/np-tones.css`. */
 
-/** The semantic hues a tag can take (nocosolution/guidelines/NocoSolution 前端规范.md §5.3). */
+/** The semantic hues a tag can take (nocosolution/guidelines/frontend-standard.md §5.3). */
 export type NpTone =
   'grey' | 'blue' | 'violet' | 'amber' | 'green' | 'slate' | 'red' | 'orange';
 

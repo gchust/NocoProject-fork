@@ -30,7 +30,7 @@ type PagedQuery = Pick<
 >;
 
 /**
- * The inbox's left column (nocosolution/guidelines/NocoSolution 前端规范.md §S2): the filter tabs with their counts, "show archived", and
+ * The inbox's left column (nocosolution/guidelines/frontend-standard.md §S2): the filter tabs with their counts, "show archived", and
  * the items as two groups — "Needs my decision" first, then "Notifications" — each a labelled list with its own "load more". The keyboard
  * hint sits at the bottom. The decision tab counts pending decisions, read or not — the same number as the navigation
  * badge (NP-180: it showed the unread count, so a badge of 6 sat beside a tab of 0); the notification tab counts unread.
