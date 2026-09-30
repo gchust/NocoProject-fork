@@ -25,12 +25,12 @@ function renderLayout() {
 
 it('keeps the side column sticky below the page header on desktop widths', () => {
   const content = renderLayout();
-  expect(content).toHaveClass('lg:sticky', 'lg:top-0');
+  expect(content).toHaveClass('@3xl:sticky', '@3xl:top-0');
   expect(content).toHaveTextContent('Properties card');
   // The background stays on the stretched column, so it runs through the whole page height.
   expect(
     screen.getByRole('complementary', { name: 'Properties' }),
-  ).not.toHaveClass('lg:sticky');
+  ).not.toHaveClass('@3xl:sticky');
 });
 
 it('lets a side column taller than the viewport scroll with the page', () => {
@@ -51,5 +51,5 @@ it('lets a side column taller than the viewport scroll with the page', () => {
     },
   );
   const content = renderLayout();
-  expect(content).not.toHaveClass('lg:sticky');
+  expect(content).not.toHaveClass('@3xl:sticky');
 });
