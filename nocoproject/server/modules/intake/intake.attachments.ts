@@ -15,7 +15,7 @@ import type { FileRow } from '../attachment/attachment.records.js';
 import type {
   AttachmentTextReader,
   AttachmentTexts,
-} from './attachment-text.js';
+} from '../attachment/attachment-text.js';
 import { MAX_TITLE_LENGTH } from './parser.js';
 
 export interface IntakeAttachments {

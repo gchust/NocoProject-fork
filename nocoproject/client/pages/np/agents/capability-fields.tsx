@@ -5,19 +5,41 @@ import {
   AGENT_CAPABILITIES,
   AGENT_COMMANDS,
   type AgentCapability,
+  PM_CAPABILITIES,
 } from '../agent-capabilities.js';
 export function CapabilityFields({
   value,
   instructions,
   disabled,
+  fixed,
   onChange,
 }: {
   value: readonly AgentCapability[];
   instructions: string;
   disabled: boolean;
+  /** NP-183 §2.2: a project manager agent always holds `PM_CAPABILITIES`; the area shows them and cannot change. */
+  fixed?: boolean;
   onChange: (value: AgentCapability[]) => void;
 }) {
   const { t } = useTranslation();
+  if (fixed) {
+    return (
+      <Field>
+        <FieldLabel>{t('np.capabilities.title')}</FieldLabel>
+        <FieldDescription>{t('np.pmSetup.capabilitiesFixed')}</FieldDescription>
+        <NpMultiSelect
+          aria-label={t('np.capabilities.title')}
+          options={PM_CAPABILITIES.map((key) => ({
+            value: key,
+            label: t(`np.capabilities.${key.replaceAll('.', '_')}`),
+          }))}
+          value={[...PM_CAPABILITIES]}
+          disabled
+          onChange={() => undefined}
+        />
+      </Field>
+    );
+  }
   return (
     <Field>
       <FieldLabel>{t('np.capabilities.title')}</FieldLabel>

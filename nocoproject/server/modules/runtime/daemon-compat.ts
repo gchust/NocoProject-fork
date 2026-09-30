@@ -11,6 +11,7 @@ import {
   compareVersions,
   LATEST_CLI_VERSION,
   MIN_CLI_VERSION,
+  PM_ASSISTANT_MIN_CLI,
   SUPPORTED_PROTOCOLS,
   type DaemonCompatibility,
   type DaemonCompatibilityInfo,
@@ -79,6 +80,30 @@ export function evaluateDaemon(identity: DaemonIdentity): DaemonCompatibility {
   if (negotiated < SUPPORTED_PROTOCOLS.current)
     return verdict('deprecated', 'protocolDeprecated', negotiated);
   return verdict('ok', 'current', negotiated);
+}
+
+/**
+ * NP-183: whether a daemon may claim project manager conversation runs (CLI ≥ `PM_ASSISTANT_MIN_CLI`). A daemon that
+ * may not still claims every other run; the claim leaves conversation runs queued for it.
+ */
+export function supportsPmAssistant(identity: DaemonIdentity): boolean {
+  const version = versionOf(identity.version);
+  return (
+    evaluateDaemon(identity).status !== 'unsupported' &&
+    !!version &&
+    compareVersions(version, PM_ASSISTANT_MIN_CLI) >= 0
+  );
+}
+
+/** A runtime row's fitness for conversation runs, as the conversation header shows it. */
+export function pmCompatOf(row: {
+  readonly status?: unknown;
+  readonly deviceInfo?: unknown;
+}): 'ok' | 'deprecated' | 'upgrade_required' {
+  if (row.status === 'upgrade_required') return 'upgrade_required';
+  const identity = storedIdentity(row.deviceInfo);
+  if (!supportsPmAssistant(identity)) return 'upgrade_required';
+  return evaluateDaemon(identity).status === 'deprecated' ? 'deprecated' : 'ok';
 }
 
 /** The runtime status a daemon's runtimes get while it is alive. */

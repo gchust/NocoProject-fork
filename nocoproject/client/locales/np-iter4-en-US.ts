@@ -26,6 +26,8 @@ const npIter4EnUS = {
     checklist_write: 'Update checklists',
     workflow_propose: 'Propose process templates',
     pullRequest_link: 'Link pull requests',
+    member_act: 'Act as the asking member (project manager)',
+    repo_read: 'Check out repositories read-only',
   },
   entries: {
     conversation: 'Conversation entry',
@@ -135,6 +137,7 @@ const npIter4EnUS = {
     openSettings: 'Open settings',
     loadFailed: 'Unable to open the conversation',
     placeholder: 'Write a message…',
+    untitled: 'New conversation',
   },
   prMerge: {
     merge: 'Merge',

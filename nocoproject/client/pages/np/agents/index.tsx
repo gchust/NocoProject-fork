@@ -1,7 +1,7 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, Row } from '@tanstack/react-table';
 import { AlertCircleIcon, BotIcon, PlusIcon } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router';
@@ -35,13 +35,22 @@ import { fetchAgents } from '../api.js';
 import { isRuntimeOnline, npKeys } from '../constants.js';
 import type { AgentListItem, AgentsTopicPayload } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
+import {
+  AgentsByComputer,
+  AgentsGroupingToggle,
+} from './agents-by-computer.js';
+import { useAgentsGrouping } from './agents-grouping.js';
 
-/** Route `/agents`: the agents that can execute issues, with their runtime's state; a row opens `/agents/:agentId`. */
+/**
+ * Route `/agents`: the agents that can execute issues, with their runtime's state, as one list or grouped by computer
+ * (NP-188); a row opens `/agents/:agentId`.
+ */
 export default function AgentsPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [grouping, setGrouping] = useAgentsGrouping();
 
   const agents = useQuery({
     queryKey: npKeys.agents,
@@ -51,6 +60,7 @@ export default function AgentsPage(): ReactElement {
   useRealtimeTopic<AgentsTopicPayload>('np:agents', () => {
     void queryClient.invalidateQueries({ queryKey: npKeys.agents });
     void queryClient.invalidateQueries({ queryKey: npKeys.runtimes });
+    void queryClient.invalidateQueries({ queryKey: npKeys.computers });
   });
 
   const columns = useMemo<ColumnDef<AgentListItem, unknown>[]>(
@@ -206,15 +216,30 @@ export default function AgentsPage(): ReactElement {
       </Empty>
     );
   } else {
+    const openAgent = (row: Row<AgentListItem>) =>
+      void navigate(encodeURIComponent(row.original.id));
     content = (
-      <DataTable
-        columns={columns}
-        data={agents.data}
-        getRowId={(agent) => agent.id}
-        pageSize={20}
-        showSelectedCount={false}
-        onRowClick={(row) => void navigate(encodeURIComponent(row.original.id))}
-      />
+      <div className='flex flex-col gap-3'>
+        <div className='flex justify-end'>
+          <AgentsGroupingToggle value={grouping} onChange={setGrouping} />
+        </div>
+        {grouping === 'computer' ? (
+          <AgentsByComputer
+            agents={agents.data}
+            columns={columns}
+            onRowClick={openAgent}
+          />
+        ) : (
+          <DataTable
+            columns={columns}
+            data={agents.data}
+            getRowId={(agent) => agent.id}
+            pageSize={20}
+            showSelectedCount={false}
+            onRowClick={openAgent}
+          />
+        )}
+      </div>
     );
   }
 

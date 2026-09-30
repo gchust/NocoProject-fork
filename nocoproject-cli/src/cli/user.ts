@@ -7,8 +7,10 @@ import { readText, issueRef } from './input.js';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { HttpError } from '../api/client.js';
+import { loadConfig } from '../config.js';
+import { describeStorage } from '../secrets/index.js';
 import type { IssueDetailView, IssueListQuery, Page } from '../api/user-client.js';
-import type { AgentListItem, Comment, CreateIssueRequestV1, InboxItem, IssueListItemV1, IssuePriority, Label, ProjectListItem } from '../protocol.js';
+import { DEFAULT_PROCESSES, type AgentListItem, type Comment, type CreateIssueRequestV1, type DefaultProcess, type InboxItem, type IssueListItemV1, type IssuePhase4Input, type IssuePriority, type Label, type ProjectListItem } from '../protocol.js';
 import { CliError, EXIT, failAndExit, printJson, printLine } from './output.js';
 import { action, type JsonOpt, splitList } from './run-token.js';
 import { NameResolver, refuseInsideRun, userContext, type UserContext } from './user-context.js';
@@ -18,7 +20,7 @@ const out = <T>(opts: JsonOpt, data: T, text: (d: T) => void): void => (opts.jso
 
 /** Like `action`, but refuses inside an agent run before anything else happens. */
 function userAction<A extends unknown[]>(fn: (ctx: UserContext, ...args: A) => Promise<void>): (...args: A) => Promise<void> {
-  return action(async (...args: A) => fn(userContext(), ...args));
+  return action(async (...args: A) => fn(await userContext(), ...args));
 }
 
 const PRIORITIES: readonly IssuePriority[] = ['urgent', 'high', 'medium', 'low', 'none'];
@@ -65,15 +67,19 @@ export interface UserCreateOpts extends JsonOpt {
   status?: string;
   parent?: string;
   blockedBy?: string;
+  process?: string;
 }
 
 /** Builds the `POST /np/issues` body; names become ids, and no `ownerUserId` unless `--owner` (the server defaults to you). */
-export async function userCreateBody(opts: UserCreateOpts, names: NameResolver): Promise<CreateIssueRequestV1> {
+export async function userCreateBody(opts: UserCreateOpts, names: NameResolver): Promise<CreateIssueRequestV1 & IssuePhase4Input> {
   const title = opts.title.trim();
   if (!title) throw new CliError('--title is empty', EXIT.validation, 'TITLE_REQUIRED');
   const description = readText(opts.description, opts.descriptionFile, 'description');
   if (opts.priority && !PRIORITIES.includes(opts.priority as IssuePriority)) {
     throw new CliError(`--priority must be one of ${PRIORITIES.join(', ')}`, EXIT.validation, 'INVALID_PRIORITY');
+  }
+  if (opts.process !== undefined && !DEFAULT_PROCESSES.includes(opts.process as DefaultProcess)) {
+    throw new CliError(`--process must be one of ${DEFAULT_PROCESSES.join(', ')}`, EXIT.validation, 'INVALID_PROCESS');
   }
   const labels = splitList(opts.label);
   const blockedBy = splitList(opts.blockedBy);
@@ -89,7 +95,8 @@ export async function userCreateBody(opts: UserCreateOpts, names: NameResolver):
     ...(opts.status ? { statusKey: STATUS_KEY.parse(opts.status) } : {}),
     ...(opts.parent ? { parentIssueId: opts.parent.trim() } : {}),
     ...(blockedBy.length ? { blockedBy } : {}),
-  } as CreateIssueRequestV1;
+    ...(opts.process !== undefined ? { process: opts.process as DefaultProcess } : {}),
+  } as CreateIssueRequestV1 & IssuePhase4Input;
 }
 
 function printIssueRow(i: IssueListItemV1): void {
@@ -183,12 +190,15 @@ export function registerUserCommands(program: Command): void {
 
   user
     .command('whoami')
-    .description('Who the saved API key belongs to, and the server')
+    .description('Who the saved API key belongs to, the server, and where the key is stored')
     .option('--json', 'JSON output')
     .action(
       userAction(async (ctx, opts: JsonOpt) => {
         const me = await ctx.api.me();
-        out(opts, { userId: me.userId, name: me.name, serverUrl: ctx.serverUrl }, (d) => printLine(`${d.name} (${d.userId}) on ${d.serverUrl}`));
+        const where = describeStorage(ctx.keyStorage, loadConfig().home);
+        out(opts, { userId: me.userId, name: me.name, serverUrl: ctx.serverUrl, keyStorage: ctx.keyStorage }, (d) =>
+          printLine(`${d.name} (${d.userId}) on ${d.serverUrl} — key ${ctx.keyStorage === 'env' ? 'from' : 'in'} ${where}`),
+        );
       }),
     );
 
@@ -252,6 +262,7 @@ export function registerUserCommands(program: Command): void {
     .option('--status <key>', 'initial status key (default todo)')
     .option('--parent <issue>', 'parent issue id or identifier')
     .option('--blocked-by <issues>', 'comma-separated issue ids or identifiers')
+    .option('--process <process>', '`direct` (execute right away), `design_first` (proposal first) or `auto` (classifier); default: workspace setting')
     .option('--json', 'JSON output')
     .action(
       userAction(async (ctx, opts: UserCreateOpts) => {

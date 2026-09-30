@@ -19,6 +19,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { ChimePreferenceSection } from './chime-preference.js';
+import { PmAgentSection } from './pm-agent-section.js';
+import { PmConfirmPreference } from './pm-confirm-preference.js';
 import { ProfileForm, PasswordForm } from './profile-forms.js';
 
 export default function ProfilePage(): ReactElement {
@@ -93,6 +95,8 @@ export default function ProfilePage(): ReactElement {
           <ProfileForm key={profile.data.id} user={profile.data} />
           <PasswordForm />
           <ChimePreferenceSection />
+          <PmAgentSection />
+          <PmConfirmPreference />
           <Card>
             <CardHeader>
               <CardTitle>{t('profile.computer')}</CardTitle>

@@ -14,14 +14,14 @@ export const DESIGN_APPROVED_OPENING = '方案已批准，按方案实现';
 /** `issue design-proposal` in `## Available Commands` (design-first issues only). */
 export function designCommands(input: Iter4BriefInput): string[] {
   if (issueProcessOf(input) !== 'design_first') return [];
-  const key = input.issue.identifier ?? input.issue.id;
+  const key = input.issue.identifier || input.issue.id;
   return [`- \`nocoproject issue design-proposal ${key} --content-file ./proposal.md --json\` — submit (or resubmit) the design proposal of ${key} (see Design first)`];
 }
 
 /** `## Design first`: the whole design loop while unapproved; a short reminder once approved. */
 export function designFirstSection(input: Iter4BriefInput): string[] {
   if (issueProcessOf(input) !== 'design_first') return [];
-  const key = input.issue.identifier ?? input.issue.id;
+  const key = input.issue.identifier || input.issue.id;
   if (!designPendingOf(input)) {
     return [
       '## Design first',

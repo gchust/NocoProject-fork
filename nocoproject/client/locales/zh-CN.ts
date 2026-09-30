@@ -6,6 +6,7 @@ import npDesignZhCN from './np-design-zh-CN.js';
 import npIter4ZhCN from './np-iter4-zh-CN.js';
 import npSignalsZhCN from './np-signals-zh-CN.js';
 import npRolesZhCN from './np-roles-zh-CN.js';
+import npPmZhCN from './np-pm-zh-CN.js';
 
 const zhCN: AppResource = {
   'auth.welcome': '欢迎回来',
@@ -167,7 +168,7 @@ const zhCN: AppResource = {
     agents: 'Agent',
     runtimes: '运行时',
     myIssues: '我的任务',
-    pm: '项目经理',
+    pm: '对话历史',
     work: '工作',
     agentTeam: 'Agent 团队',
     skills: '技能',
@@ -208,6 +209,7 @@ const zhCN: AppResource = {
     ...npIter4ZhCN,
     ...npSignalsZhCN,
     ...npRolesZhCN,
+    ...npPmZhCN,
     common: {
       online: '在线',
       offline: '离线',
@@ -342,6 +344,8 @@ const zhCN: AppResource = {
       via: {
         cli: '通过 CLI',
         api_key: '通过 API Key',
+        pm: '通过项目经理',
+        pm_plan: '通过项目经理',
       },
       actions: {
         created: '创建了任务',
@@ -477,6 +481,11 @@ const zhCN: AppResource = {
         activeRuns: '活动运行',
         access: '可见范围',
       },
+      grouping: {
+        label: '分组',
+        list: '列表',
+        computer: '按电脑',
+      },
       access: {
         ownerOnly: '仅所有者',
         specificUsers: '指定成员',
@@ -529,7 +538,15 @@ const zhCN: AppResource = {
         key: '凭证',
         state: '状态',
         lastUsed: '最近使用',
+        revokedAt: '吊销时间',
         actions: '操作',
+      },
+      noneValid: '没有有效的凭证',
+      revokedList: '已吊销（{{count}}）',
+      group: {
+        runtimes: '{{count}} 个运行时',
+        agents: '{{count}} 个 Agent',
+        none: '无电脑',
       },
       state: {
         active: '使用中',

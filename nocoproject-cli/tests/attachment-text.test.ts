@@ -42,7 +42,7 @@ beforeAll(async () => {
     }
     res.end(
       JSON.stringify({
-        data: { id: "conversation1", identifier: null, attachments: files },
+        data: { id: "conversation1", identifier: "", attachments: files },
       }),
     );
   });

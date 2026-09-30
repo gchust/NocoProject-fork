@@ -226,6 +226,20 @@ describe("PM assistant transport", () => {
     );
   });
 
+  it("honors run limits and preserves event cursors", async () => {
+    const runs = [{ id: "r3" }, { id: "r2" }, { id: "r1" }];
+    response.body = { data: runs };
+    const limited = await run(["pm", "runs", "i12", "--limit", "2", "--json"]);
+    expect(JSON.parse(limited.out)).toEqual(runs.slice(0, 2));
+    const events = {
+      data: [{ seq: 7, type: "text", content: "Finished" }],
+      last: 7,
+    };
+    response.body = events;
+    const result = await run(["pm", "run", "r3", "--events", "--json"]);
+    expect(JSON.parse(result.out)).toEqual(events);
+  });
+
   it("renames the conversation and preserves title lock errors", async () => {
     const r = await run([
       "pm",

@@ -14,11 +14,16 @@ import { iso, num, str, unique } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
 import type {
   ModelPrice,
-  UsageGroupBy,
   UsageResponse,
   UsageRow,
 } from '../shared/protocol.js';
-import { USAGE_GROUP_BYS } from '../shared/protocol.js';
+import {
+  USAGE_CONVERSATION_KEY,
+  USAGE_GROUP_BYS_V5,
+  type UsageGroupByV5,
+} from '../shared/protocol.js';
+import { isConversation } from '../shared/conversation.js';
+import type { UserDirectory } from '../shared/users.js';
 import { validateDate } from '../shared/validate.js';
 import type { SettingsService } from '../system/settings.service.js';
 import { agentNames } from '../run/run.queries.js';
@@ -45,6 +50,9 @@ export interface UsageRecord {
   readonly agentId: string;
   readonly issueId: string;
   readonly projectId: string | null;
+  /** NP-183: the member the run acted for, and whether it was a project manager conversation run. */
+  readonly actorUserId?: string | null;
+  readonly conversation?: boolean;
   readonly provider: string;
   readonly model: string | null;
   readonly day: string;
@@ -88,7 +96,7 @@ export function costOf(price: ModelPrice, record: UsageRecord): number {
   );
 }
 
-function keyOf(record: UsageRecord, groupBy: UsageGroupBy): string {
+function keyOf(record: UsageRecord, groupBy: UsageGroupByV5): string {
   switch (groupBy) {
     case 'agent':
       return record.agentId;
@@ -98,6 +106,10 @@ function keyOf(record: UsageRecord, groupBy: UsageGroupBy): string {
       return record.projectId ?? 'none';
     case 'day':
       return record.day;
+    case 'actor':
+      return record.actorUserId ?? 'none';
+    case 'conversation':
+      return record.conversation ? USAGE_CONVERSATION_KEY : record.agentId;
     default:
       return record.model ?? 'unknown';
   }
@@ -160,7 +172,7 @@ function toRow(key: string, name: string, acc: Accumulator): UsageRow {
 /** Groups records; `names` maps a group key to its display name (the key itself when missing). */
 export function aggregateUsage(
   records: readonly UsageRecord[],
-  groupBy: UsageGroupBy,
+  groupBy: UsageGroupByV5,
   prices: readonly ModelPrice[],
   names: ReadonlyMap<string, string> = new Map(),
 ): UsageResponse {
@@ -220,15 +232,18 @@ export async function usageRecords(
   if (usage.length === 0) return [];
   const runs = await conn.query
     .selectFrom('runs')
-    .select(['id', 'agentId', 'subjectId'])
+    .select(['id', 'agentId', 'subjectId', 'actorUserId'])
     .where('id', 'in', unique(usage.map((row) => str(row.runId))))
     .execute();
   const runById = new Map(runs.map((row) => [str(row.id) ?? '', row]));
   const issues = await conn.query
     .selectFrom('issues')
-    .select(['id', 'projectId'])
+    .select(['id', 'projectId', 'originType'])
     .where('id', 'in', unique(runs.map((row) => str(row.subjectId))))
     .execute();
+  const conversations = new Set(
+    issues.filter(isConversation).map((row) => str(row.id) ?? ''),
+  );
   const projectOf = new Map(
     issues.map((row) => [str(row.id) ?? '', str(row.projectId)]),
   );
@@ -242,6 +257,8 @@ export async function usageRecords(
       agentId: str(run.agentId) ?? '',
       issueId,
       projectId: projectOf.get(issueId) ?? null,
+      actorUserId: str(run.actorUserId),
+      conversation: conversations.has(issueId),
       provider: str(row.provider) ?? '',
       model: str(row.model),
       day: iso(row.createdAt).slice(0, 10),
@@ -291,10 +308,17 @@ function dateRange(query: UsageQuery): { from: Date; to: Date } {
 
 async function groupNames(
   conn: Conn,
-  groupBy: UsageGroupBy,
+  users: UserDirectory,
+  groupBy: UsageGroupByV5,
   keys: readonly string[],
 ): Promise<Map<string, string>> {
   if (groupBy === 'agent') return agentNames(conn, keys);
+  if (groupBy === 'conversation')
+    return agentNames(
+      conn,
+      keys.filter((key) => key !== USAGE_CONVERSATION_KEY),
+    );
+  if (groupBy === 'actor') return users.names(conn, keys);
   const ids = keys.filter((key) => key !== 'none');
   if (ids.length === 0) return new Map();
   if (groupBy === 'issue') {
@@ -324,14 +348,15 @@ async function groupNames(
 export function createUsageService(deps: {
   tx: TxRunner;
   settings: SettingsService;
+  users: UserDirectory;
 }): UsageService {
   return {
     async query(actor, query) {
-      const groupBy = (query.groupBy ?? 'agent') as UsageGroupBy;
-      if (!USAGE_GROUP_BYS.includes(groupBy))
+      const groupBy = (query.groupBy ?? 'agent') as UsageGroupByV5;
+      if (!USAGE_GROUP_BYS_V5.includes(groupBy))
         throw invalid(
           'INVALID_GROUP_BY',
-          `groupBy must be one of ${USAGE_GROUP_BYS.join(', ')}.`,
+          `groupBy must be one of ${USAGE_GROUP_BYS_V5.join(', ')}.`,
         );
       const { from, to } = dateRange(query);
       const conn = deps.tx.read();
@@ -349,6 +374,7 @@ export function createUsageService(deps: {
       const result = aggregateUsage(records, groupBy, modelPrices);
       const names = await groupNames(
         conn,
+        deps.users,
         groupBy,
         result.rows.map((row) => row.key),
       );

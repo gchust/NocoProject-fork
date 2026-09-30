@@ -48,6 +48,7 @@ import {
   readInboxFilter,
   stepSelection,
 } from './inbox-model.js';
+import { usePmUrlFilter } from '../pm/assistant/pm-assistant.js';
 
 type InboxPages = InfiniteData<InboxPage, unknown>;
 
@@ -88,6 +89,7 @@ export default function InboxPage(): ReactElement {
   const filter = readInboxFilter(params.get('tab'));
   const archived = params.get('archived') === '1';
   const selectedParam = params.get('item');
+  usePmUrlFilter('inbox', ['tab', 'archived']);
 
   const decisions = useInboxPages('decision', archived, filter !== 'info');
   const notices = useInboxPages('info', archived, filter !== 'decision');

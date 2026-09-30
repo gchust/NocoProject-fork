@@ -22,16 +22,26 @@ Without a global install, run `node dist/cli.js ...`. The daemon also writes shi
 ## Log in
 
 ```bash
-nocoproject login --server http://127.0.0.1:13000/main --computer-key <credential from "Add a computer">
-nocoproject login --server http://127.0.0.1:13000/main --api-key <NocoBase API key>   # user commands, older servers
+nocoproject login --server http://127.0.0.1:13000/main --computer-key-stdin   # the daemon: credential from "Add a computer"
+nocoproject login --server http://127.0.0.1:13000/main --api-key-stdin        # you: personal API key, for `nocoproject user …`
 ```
 
-- **The daemon uses a computer credential** (NP-150): "Add a computer" in the app issues one per computer. It reaches only the daemon API (`/np/daemon/*`, header `x-np-computer-key`), is bound to this computer's daemon at its first register, and can be revoked on its own from the runtimes page. Saving one removes a personal API key from the config unless `--keep-api-key`; `--computer-key-stdin` reads it from stdin. A revoked credential pauses the daemon (it keeps running, `daemon status` and the log say how to log in again).
-- A personal API key is still what `nocoproject user …` uses, and the daemon falls back to it when there is no computer credential (older setups; the runtimes page flags such computers).
+A computer has up to **two credentials, side by side** (NP-190). Logging in with one never touches the other, and
+`login` ends by printing both:
+
+```
+Computer credential: saved (the daemon uses it)
+Personal API key:    saved in the macOS Keychain (for `nocoproject user …`)
+```
+
+- **The computer credential is the daemon's** (NP-150): "Add a computer" in the app issues one per computer. It reaches only the daemon API (`/np/daemon/*`, header `x-np-computer-key`), is bound to this computer's daemon at its first register, and can be revoked on its own from the runtimes page. It cannot act as you. `--computer-key-stdin` reads it from stdin. A revoked credential pauses the daemon (it keeps running, `daemon status` and the log say how to log in again).
+- **The personal API key is yours**: `nocoproject user …` acts as you with it. It is saved in the **system keychain** — the macOS Keychain (`/usr/bin/security`) or libsecret on Linux (`secret-tool`, needs a desktop session bus) — as service `nocoproject-cli`, account = the `NOCOPROJECT_HOME` path; `config.json` only records `apiKeyStorage`. The key goes to the tool on stdin, never in its arguments. Where there is no keychain (a server without a desktop, CI, containers, or `NOCOPROJECT_KEYCHAIN=off`), it is saved in plain text in `config.json` (0600) and login warns that agents dispatched to this computer can read it. A plain-text key from an older CLI moves into the keychain on the next `login` or `nocoproject user …`. `NOCOPROJECT_API_KEY` still overrides the saved key. The daemon falls back to the personal key only when there is no computer credential (older setups; the runtimes page flags such computers).
+- `--keep-api-key` is accepted for compatibility and has no effect: both credentials are always kept.
 
 - `--server` is the application URL **including its mount path** (`APP_BASE_PATH`, `/main` by default). If you give only an origin, login probes `<origin>/api/healthz` and then `<origin>/main/api/healthz`.
 - The key is verified with `GET /api/np/me`. Use `--no-verify` to save the key without contacting the server. `--api-key-stdin` keeps the key out of the shell history: on a terminal it prompts and reads one line without echoing; from a pipe it reads to EOF (`printf '%s' "$KEY" | nocoproject login --server <url> --api-key-stdin`).
-- The config is saved to `~/.nocoproject/config.json` with mode 0600: `{ serverUrl, apiKey, daemonId, deviceName }`. `daemonId` is a UUID generated once per machine.
+- The config is saved to `~/.nocoproject/config.json` with mode 0600: `{ serverUrl, computerKey, apiKeyStorage | apiKey, daemonId, deviceName }`. `daemonId` is a UUID generated once per machine.
+- `--json` adds `computerCredential` (boolean), `personalKey` (`{ storage: 'keychain' | 'libsecret' | 'file' | 'env' }` or `null`) and `warning` when the key went into plain text; `removedApiKey` stays for older scripts and is always `false`.
 
 ## Run the daemon
 
@@ -76,7 +86,8 @@ The daemon offers protocols 1 to 2 (`minProtocolVersion`, `protocolVersion`) and
 | Variable | Meaning |
 |---|---|
 | `NOCOPROJECT_HOME` | State directory (default `~/.nocoproject`) |
-| `NOCOPROJECT_SERVER_URL` / `NOCOPROJECT_API_KEY` | Override the saved server URL and API key |
+| `NOCOPROJECT_SERVER_URL` / `NOCOPROJECT_API_KEY` | Override the saved server URL and personal API key |
+| `NOCOPROJECT_KEYCHAIN` | `off` keeps the personal API key out of the system keychain (plain text in `config.json`, 0600) |
 | `NOCOPROJECT_DAEMON_ID` / `NOCOPROJECT_DEVICE_NAME` | Override the daemon identity |
 | `NOCOPROJECT_PROVIDERS` | Providers to register, e.g. `opencode,echo` |
 | `NOCOPROJECT_MAX_CONCURRENT` | Concurrent run limit (default 20) |
@@ -233,12 +244,14 @@ Deployment checklist: deploy the matching server protocol, configure the system 
 ## User mode (`nocoproject user`, NP-86)
 
 For a person at their own terminal, and for the Claude Code / Codex sessions they drive there. The commands call the
-browser API (`/api/np/*`) with the API key saved by `nocoproject login` (or `NOCOPROJECT_API_KEY`), so they act **as
-that person**, with exactly the permissions they have in the UI; the server adds none. There is no `--api-key` flag:
-change the key with `login --api-key-stdin`.
+browser API (`/api/np/*`) with the personal API key saved by `nocoproject login --api-key-stdin` (in the system
+keychain, see "Log in"; or `NOCOPROJECT_API_KEY`), so they act **as that person**, with exactly the permissions they
+have in the UI; the server adds none. The computer credential does not work here: a computer logged in only with it
+gets exit 3 `NOT_LOGGED_IN` with the `login --api-key-stdin` command for the current server. There is no `--api-key`
+flag: change the key with `login --api-key-stdin`.
 
 ```bash
-nocoproject user whoami [--json]                    # GET /np/me (+ serverUrl; never the key)
+nocoproject user whoami [--json]                    # GET /np/me (+ serverUrl and where the key is stored; never the key)
 nocoproject user issues [--mine] [--owner me|<userId>] [--project <name|id>] [--status <key>] [--label <name|id>] \
   [--executor <agent name|id>] [--q <text>] [--limit n] [--cursor c] [--json]
                                                     # GET /np/issues → { data, nextCursor }; no filter = --mine
@@ -248,7 +261,8 @@ nocoproject user inbox [--kind decision|info] [--all] [--cursor c] [--json]
                                                     # GET /np/inbox (resolved=false unless --all)
 nocoproject user create --title T [--description-file F | --description D] [--project <name|id>] [--label a,b] \
   [--executor <agent name|id>|none] [--owner me|<userId>] [--priority p] [--status key] [--parent NP-1] \
-  [--blocked-by NP-2,NP-3] [--json]                 # POST /np/issues (owner defaults to you on the server)
+  [--blocked-by NP-2,NP-3] [--process direct|design_first|auto] [--json]
+                                                    # POST /np/issues (owner defaults to you on the server)
 nocoproject user comment <NP-12> (--content-file F | --content T) [--parent <commentId>] [--json]
                                                     # POST /np/issues/:id/comments
 nocoproject user status <NP-12> <statusKey> [--json]
@@ -258,10 +272,16 @@ nocoproject user projects | labels | agents [--json]
 nocoproject user skill install [--claude] [--codex] [--force] [--json]
 ```
 
-- **Refused inside agent runs.** When `NOCOPROJECT_TOKEN` or `NOCOPROJECT_RUN_ID` is set (the daemon sets both for
-  every run), every `user` command exits 3 `USER_MODE_IN_RUN` before reading the config or sending anything; runs use
-  the run-token commands above. This guards the normal path only: an agent runs as the same OS user and could read
-  `~/.nocoproject/config.json` itself. Real isolation needs a separate OS user for the daemon or scoped keys.
+- **Refused inside agent runs, and the key kept away from them** (NP-190). When `NOCOPROJECT_TOKEN` or
+  `NOCOPROJECT_RUN_ID` is set (the daemon sets both for every run), every `user` command exits 3 `USER_MODE_IN_RUN`
+  before reading the config or sending anything; runs use the run-token commands above. The key is not in
+  `config.json` (unless there is no keychain), and the daemon puts `security` and `secret-tool` guards first on the
+  agents' `PATH` (`$NOCOPROJECT_HOME/bin`) that refuse their reading subcommands (`find-generic-password`,
+  `find-internet-password`, `dump-keychain`, `export`, `-i`, `lookup`, `search`) inside a run and pass everything else
+  through. **What is left:** an agent runs as the same OS user, so one that calls `/usr/bin/security` by its absolute
+  path, or talks to the keyring over D-Bus itself, can still read the key. The guards stop an agent that goes looking
+  on the normal path, not a deliberate bypass; real isolation needs a separate OS user for the daemon (Phase 2 server
+  runtimes).
 - **Traceable.** Requests send `x-api-key` and `x-np-client: nocoproject-cli/<version>` (never `Authorization`). The
   server records the key owner as the actor and `details.via = 'cli'` on the activities the write produces (another
   API-key client gets `'api_key'`); the issue timeline shows "via CLI". `via` is a label, never a permission.
@@ -269,6 +289,12 @@ nocoproject user skill install [--claude] [--codex] [--force] [--json]
   agent": it has their permissions, the run's asker is them, and the activity shows it came from the CLI. Agents
   dispatched by NocoProject cannot take this path (see the refusal above), so delegation lists and approvals still hold
   for them.
+- **`create --process`** (NP-196) fixes the issue's process at creation, so the first run already gets the right
+  context (a later `PATCH { process }` can be too late: the run may have started). `direct` is for small changes with
+  clear bounds that can be done right away; `design_first` for work that needs an agreed proposal first (the agent
+  moves it to `analysis` and writes a design proposal); `auto` asks the server's classifier. Without the flag the body
+  has no `process` and the workspace default (`settings.defaultProcess`) applies. Any other value exits 5
+  `INVALID_PROCESS` before a request is sent.
 - Names (`--project`, `--label`, `--executor`) match an id first, then a case-insensitive name; no match exits 4
   `NAME_NOT_FOUND`, several exit 5 `AMBIGUOUS_NAME` — nothing is guessed. `--owner me` / the default "mine" use
   `GET /np/me`. Labels are workspace-wide.
@@ -356,3 +382,16 @@ npm pack --dry-run
 ```
 
 The tests use an in-process mock server (`tests/helpers/mock-server.ts`) that implements the daemon API, the agent API (including the Phase 1 endpoints and claim extras, the iteration-2 pull-request endpoints, `agent.env` / `agent.skills` / `issue.executionMode` / `issue.pullRequests` in the claim payload via `enqueue` options, and a 202 approval gate for issues created with `approvalRequired: true | string[]`, the iteration-3 knowledge endpoints in `tests/helpers/mock-knowledge.ts` with `knowledge` in the claim payload via `enqueue({ knowledge })`, and the iteration-4 `design-proposal` and `pm/*` endpoints in `tests/helpers/mock-pm.ts` (`mock.pm.managerOnly`, on by default, answers 403 `MANAGER_ONLY` unless `agentExtras.kind` is `manager`; `agentExtras.reasoningEffort`; `process` / `designApprovedAt` / `designProposal` on `addIssue` or `issueExtras`; the `analysis` / `proposal_review` transitions and the `DESIGN_NOT_APPROVED` gate) and the realtime socket. Repository checkout is tested against local bare repositories in temp directories (no network). The Codex fixtures in `tests/fixtures/codex/` are real `codex-cli 0.154.0` captures.
+
+
+### Comments received during a run (NP-114)
+
+On a server with migration `2026100800001_np_run_input`, this CLI opts resumable runs into `acceptsInput` when starting. New human comments addressed to that run are retained server-side, then processed at the current provider turn's end using the same run id, token, checkout and provider session. No additional queued run is created. Current exec adapters do not interrupt an in-flight tool or inject messages mid-turn; if the provider refuses a session resume, the existing fresh-session fallback applies.
+
+The status response adds `inputs` (comment id, author, content and thread root). Completion sends `handledInputIds`; `409 RUN_INPUT_PENDING` means another comment arrived and the daemon must continue before completing. Usage is aggregated across turns. Explicit mentions/replies retain their recipient, and `/note` or agent-authored comments never trigger a run. Implicit delivery requires a unique running agent with the same triggering human's authorization context. Old CLI runs and ambiguous targets retain queued routing; new CLI versions also work against servers that omit `inputs`.
+
+The merged server returns the complete available run list, so `pm runs --limit` also limits displayed rows locally. `pm run --events --json` preserves the server's `{ data, last }` event envelope. Unnumbered conversations use their id when the legacy identifier is empty or null.
+
+Repository checkout continues to require the server-provided project resource whitelist. A projectless conversation with no whitelist cannot check out a repository, even with `repo.read`; the brief reports this restriction. URLs in page context never grant access. A server-side conversation repository discovery/authorization path is still needed for that case.
+
+For CLI/server integration, build `nocoproject-cli` first, then run `tests/logic/np-pm-cli.test.ts` from the application with `NP_PM_CLI_INTEGRATION=1` and `NP_TEST_DATABASE_URL` pointing to an isolated PostgreSQL database. The integration is opt-in because the application unit-test job does not install or build the CLI. This exercises actual CLI processes and run-token routes, claim version gating, page context, direct-write budgeting, human test-actor plan execution, and the subsequent claim/brief. It does not invoke a paid model or change an installed daemon.

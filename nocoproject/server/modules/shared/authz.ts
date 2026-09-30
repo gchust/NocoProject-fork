@@ -34,6 +34,7 @@ import {
   type NpScopes,
   type NpSettingsAction,
   type NpSettingsId,
+  type ActorAccess,
 } from './access.js';
 import {
   ADMIN_APPROVER_CHECK,
@@ -493,4 +494,28 @@ export async function resolveApproverIds(
       ...(await deciderUserIds(conn, directory, ADMIN_APPROVER_CHECK)),
     );
   return unique(result);
+}
+
+/**
+ * NP-183 (protocol-pm-assistant.md §2.3): the member `userId` as an actor carrying their own access, exactly what a
+ * browser request of theirs would carry, for the project manager reading and writing in their name. A disabled or
+ * deleted account, or one whose access cannot be built, is 403 `ASKER_UNAVAILABLE`: never a narrower fallback. Call
+ * it before opening a transaction.
+ */
+export async function memberAccessOf(
+  conn: Conn,
+  roles: { accessOf?(userId: string): Promise<ActorAccess> },
+  userId: string,
+): Promise<ActorAccess> {
+  const user = await conn.query
+    .selectFrom('user')
+    .select(['disabledAt', 'deletedAt'])
+    .where('id', '=', userId)
+    .executeTakeFirst();
+  if (!user || user.disabledAt || user.deletedAt || !roles.accessOf)
+    throw forbidden(
+      'ASKER_UNAVAILABLE',
+      'The asking member cannot act any more (the account is disabled or has no access).',
+    );
+  return roles.accessOf(userId);
 }

@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 
 import type { IssueQueries } from '../issue/issue.queries.js';
 import { npRouter } from '../shared/http.js';
+import type { AttachmentTextResponse } from '../shared/protocol.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
 import type { AttachmentService } from './attachment.service.js';
 
@@ -39,6 +40,20 @@ export function createAgentAttachmentRoutes(deps: {
       'cache-control': 'private, no-store',
       'x-content-type-options': 'nosniff',
     });
+  });
+  /** NP-183: `GET …/:fileId/text` → `{ data: { text: string | null } }` (`AttachmentTextResponse`). */
+  routes.get('/issues/:id/attachments/:fileId/text', async (context) => {
+    const issue = await deps.queries.agentReadable(
+      context.get('runAuth'),
+      context.req.param('id'),
+    );
+    const data: AttachmentTextResponse = {
+      text: await deps.attachments.agentText(
+        issue.id,
+        context.req.param('fileId'),
+      ),
+    };
+    return context.json({ data });
   });
   return routes;
 }

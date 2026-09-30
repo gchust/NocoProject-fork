@@ -38,7 +38,8 @@ function run(args: string[], env: Record<string, string | undefined> = {}): Prom
   const home = mkdtempSync(join(tmpdir(), 'ncp-cli-'));
   const child = spawn(process.execPath, [CLI, ...args], {
     cwd: home,
-    env: { PATH: process.env.PATH, HOME: home, NOCOPROJECT_HOME: home, NOCOPROJECT_SERVER_URL: mock.url, NOCOPROJECT_TOKEN: token, ...env },
+    // NOCOPROJECT_KEYCHAIN=off: never touch the real keychain of the machine running the tests (NP-190).
+    env: { PATH: process.env.PATH, HOME: home, NOCOPROJECT_HOME: home, NOCOPROJECT_KEYCHAIN: 'off', NOCOPROJECT_SERVER_URL: mock.url, NOCOPROJECT_TOKEN: token, ...env },
   });
   let out = '';
   let err = '';
@@ -185,18 +186,33 @@ describe('run-token mode CLI', () => {
     expect(bad.code).toBe(3);
   });
 
-  it('saves a computer credential and drops the personal key from this computer (NP-150)', async () => {
+  it('keeps both credentials: logging in with one never removes the other (NP-190)', async () => {
     const { API_KEY, COMPUTER_KEY } = await import('./helpers/mock-server.js');
     const env = { NOCOPROJECT_SERVER_URL: undefined, NOCOPROJECT_TOKEN: undefined, NOCOPROJECT_HOME: mkdtempSync(join(tmpdir(), 'ncp-login-')) };
+    const saved = () => JSON.parse(readFileSync(join(env.NOCOPROJECT_HOME, 'config.json'), 'utf8')) as Record<string, unknown>;
     expect((await run(['login', '--server', mock.url, '--api-key', API_KEY, '--json'], env)).code).toBe(0);
     const r = await run(['login', '--server', mock.url, '--computer-key', COMPUTER_KEY, '--json'], env);
     expect(r.code).toBe(0);
-    expect(JSON.parse(r.out)).toMatchObject({ credential: 'computer', verified: true, removedApiKey: true });
+    expect(JSON.parse(r.out)).toMatchObject({ credential: 'computer', verified: true, removedApiKey: false, computerCredential: true, personalKey: { storage: 'file' } });
     expect(r.out).not.toContain(COMPUTER_KEY);
-    const saved = JSON.parse(readFileSync(join(env.NOCOPROJECT_HOME, 'config.json'), 'utf8')) as Record<string, unknown>;
-    expect(saved).toMatchObject({ computerKey: COMPUTER_KEY });
-    expect(saved.apiKey).toBeUndefined();
+    expect(saved()).toMatchObject({ computerKey: COMPUTER_KEY, apiKey: API_KEY });
+    // And the other way round, in text mode: the status lines and the plain-text warning.
+    const text = await run(['login', '--server', mock.url, '--api-key', API_KEY], env);
+    expect(text.code).toBe(0);
+    expect(saved()).toMatchObject({ computerKey: COMPUTER_KEY, apiKey: API_KEY });
+    expect(text.out).toContain('Computer credential: saved (the daemon uses it)');
+    expect(text.out).toContain(`Personal API key:    saved in plain text in ${join(env.NOCOPROJECT_HOME, 'config.json')} (0600)`);
+    expect(text.err).toContain('Agents dispatched to this computer run as the same user and can read it');
+    expect(text.out + text.err).not.toContain(API_KEY);
     const bad = await run(['login', '--server', mock.url, '--computer-key', 'npc_wrong-0123456789', '--json'], { NOCOPROJECT_SERVER_URL: undefined });
     expect(bad.code).toBe(3);
+  });
+
+  it('shows a missing credential with the command that adds it, and --keep-api-key as deprecated', async () => {
+    const { COMPUTER_KEY } = await import('./helpers/mock-server.js');
+    const r = await run(['login', '--server', mock.url, '--computer-key', COMPUTER_KEY], { NOCOPROJECT_SERVER_URL: undefined, NOCOPROJECT_TOKEN: undefined });
+    expect(r.out).toContain(`Personal API key:    none — for \`nocoproject user …\`: \`nocoproject login --server ${mock.url} --api-key-stdin\``);
+    const help = await run(['login', '--help']);
+    expect(help.out.replace(/\s+/g, ' ')).toContain('--keep-api-key deprecated, no effect: both credentials are kept');
   });
 });

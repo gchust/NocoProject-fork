@@ -1,4 +1,6 @@
+import { useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
+import { useQuery } from '@tanstack/react-query';
 import { CircleDotIcon, PlayIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
@@ -8,6 +10,8 @@ import { NpPulse, NpStatusBadge } from '@/components/np-badges';
 import { NpTag } from '@/components/np-tag';
 import { NpVirtualList } from '@/components/np-virtual-list';
 
+import { fetchMe } from '../../api.js';
+import { npKeys } from '../../constants.js';
 import { runTriggerType } from '../../detail-normalize.js';
 import { failureReasonKey, useNpFormatters } from '../../format.js';
 import type {
@@ -67,12 +71,82 @@ export function ActivityTimeline({
   );
 }
 
-/** `details.via` (NP-86): set when the actor used an API key — the CLI user mode or another client — not the browser. */
-function activityVia(
-  details: IssueActivity['details'],
-): 'cli' | 'api_key' | null {
+type ActivityVia = 'cli' | 'api_key' | 'pm' | 'pm_plan';
+const VIAS: ReadonlySet<string> = new Set<ActivityVia>([
+  'cli',
+  'api_key',
+  'pm',
+  'pm_plan',
+]);
+
+/**
+ * `details.via` (NP-86): set when the actor used an API key — the CLI user mode or another client — not the browser;
+ * `pm` / `pm_plan` (NP-185, `protocol-pm-assistant.md` §2.4) when the project manager wrote as the person, or the
+ * person executed its plan.
+ */
+function activityVia(details: IssueActivity['details']): ActivityVia | null {
   const via = details?.via;
-  return via === 'cli' || via === 'api_key' ? via : null;
+  return typeof via === 'string' && VIAS.has(via) ? (via as ActivityVia) : null;
+}
+
+/**
+ * "Via the project manager" links to the conversation only for the person the activity is recorded under — the
+ * conversation's owner; everyone else reads the words alone, since conversations are private.
+ */
+function ViaMarker({
+  via,
+  activity,
+}: {
+  readonly via: ActivityVia;
+  readonly activity: IssueActivity;
+}): ReactElement {
+  const { t } = useTranslation();
+  const conversationId = activity.details?.conversationId;
+  if (
+    (via === 'pm' || via === 'pm_plan') &&
+    typeof conversationId === 'string'
+  ) {
+    return (
+      <PmViaMarker
+        via={via}
+        conversationId={conversationId}
+        actorId={activity.actorType === 'user' ? activity.actorId : null}
+      />
+    );
+  }
+  return (
+    <span className='text-xs' data-np-via={via}>
+      {t(`np.activity.via.${via}`)}
+    </span>
+  );
+}
+
+function PmViaMarker({
+  via,
+  conversationId,
+  actorId,
+}: {
+  readonly via: 'pm' | 'pm_plan';
+  readonly conversationId: string;
+  readonly actorId: string | null;
+}): ReactElement {
+  const { t } = useTranslation();
+  const api = useApiClient();
+  const me = useQuery({ queryKey: npKeys.me, queryFn: () => fetchMe(api) });
+  const text = t(`np.activity.via.${via}`);
+  return actorId !== null && me.data?.userId === actorId ? (
+    <Link
+      to={`/pm/${encodeURIComponent(conversationId)}`}
+      className='text-xs hover:text-foreground hover:underline'
+      data-np-via={via}
+    >
+      {text}
+    </Link>
+  ) : (
+    <span className='text-xs' data-np-via={via}>
+      {text}
+    </span>
+  );
 }
 
 export function ActivityRow({
@@ -100,11 +174,7 @@ export function ActivityRow({
       <CircleDotIcon className='size-3.5 shrink-0' aria-hidden='true' />
       <NpActorAvatar type={activity.actorType} name={actor} size='xs' />
       <span className='font-medium text-foreground'>{actor}</span>
-      {via ? (
-        <span className='text-xs' data-np-via={via}>
-          {t(`np.activity.via.${via}`)}
-        </span>
-      ) : null}
+      {via ? <ViaMarker via={via} activity={activity} /> : null}
       <span>{t(`np.activity.actions.${label}`)}</span>
       {STATUS_CHANGE_LABELS.has(label) && change.to ? (
         <>

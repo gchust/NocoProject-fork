@@ -133,7 +133,8 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
       expect(patched).toEqual([
         expect.objectContaining({
           configurationRevision: 3,
-          capabilities: ['context.read', 'comment.create'],
+          // A project manager type agent always sends the fixed set (NP-183 §2.2).
+          capabilities: expect.arrayContaining(['member.act', 'repo.read']),
           reasoningEffort: null,
         }),
       ]),

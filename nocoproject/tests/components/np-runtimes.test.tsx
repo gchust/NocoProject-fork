@@ -19,6 +19,7 @@ const runtime = (
   daemon: Record<string, unknown> | null,
 ) => ({
   id,
+  daemonId: `${id}-d`,
   name: `${id} (claude)`,
   provider: 'claude',
   kind: 'personal',
@@ -30,6 +31,10 @@ const runtime = (
 });
 
 // The page subscribes to `np:agents`; the realtime client is not part of this test.
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 vi.mock('@/components/ui/toast', () => ({ toast: { add: vi.fn() } }));
 vi.mock('../../client/pages/np/use-realtime.js', () => ({
   useRealtimeTopic: () => undefined,
@@ -102,24 +107,28 @@ describe('runtimes page (NP-150)', () => {
     );
     await renderNp(<RuntimesPage />, { url: '/runtimes' });
 
-    await screen.findByText('old (claude)');
+    await screen.findByText('old-mac');
     const [table] = screen.getAllByRole('table');
-    const rows = within(table!).getAllByRole('row');
+    // NP-188: one group row per computer (its CLI in the header), its runtimes right under it.
+    const header = (name: string) =>
+      table!.querySelector<HTMLElement>(`[data-group="${name}-d"]`)!;
     const row = (name: string) =>
-      rows.find((item) => item.textContent?.includes(`${name} (claude)`));
-    const [old, window, current] = [row('old'), row('window'), row('current')];
+      header(name).nextElementSibling as HTMLElement;
+    const [old, window] = [row('old'), row('window')];
     expect(old).toHaveTextContent('Upgrade required');
     expect(old).not.toHaveTextContent('Offline');
     expect(window).toHaveTextContent('Online');
-    expect(current).toHaveTextContent(CLI_VERSION);
+    expect(header('current')).toHaveTextContent(CLI_VERSION);
     expect(
-      within(current!).queryByRole('button', {
+      within(header('current')).queryByRole('button', {
         name: 'Show the upgrade command',
       }),
     ).toBeNull();
 
     await user.click(
-      within(old!).getByRole('button', { name: 'Show the upgrade command' }),
+      within(header('old')).getByRole('button', {
+        name: 'Show the upgrade command',
+      }),
     );
     expect(
       await screen.findByText('Upgrade the CLI on old-mac'),
@@ -132,7 +141,7 @@ describe('runtimes page (NP-150)', () => {
         ),
       ),
     ).toBeInTheDocument();
-    expect(row('legacy')).toHaveTextContent('Personal API key');
+    expect(header('legacy')).toHaveTextContent('Personal API key');
 
     // The computer credentials: revoking asks first, then calls the API.
     await user.keyboard('{Escape}');
@@ -151,5 +160,77 @@ describe('runtimes page (NP-150)', () => {
         expect.objectContaining({ path: 'np/computers/c1', method: 'DELETE' }),
       ),
     );
+  });
+});
+
+describe('runtimes grouped by computer (NP-188)', () => {
+  const computer = (
+    id: string,
+    daemonId: string,
+    revokedAt: string | null,
+  ) => ({
+    id,
+    ownerUserId: 'u1',
+    ownerName: 'Alice',
+    name: `Computer ${id}`,
+    keyStart: `npc_${id}`,
+    daemonId,
+    deviceName: null,
+    lastUsedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    revokedAt,
+    canRevoke: !revokedAt,
+  });
+
+  it('puts a computer’s runtimes under one row named after its credential, and folds revoked credentials apart', async () => {
+    const user = userEvent.setup();
+    const sameDaemon = (id: string, provider: string) => ({
+      ...runtime(id, 'online', null),
+      daemonId: 'studio',
+      provider,
+      deviceInfo: { deviceName: 'studio.local' },
+    });
+    api.request.mockImplementation(
+      answer({
+        'GET np/runtimes': {
+          data: [
+            sameDaemon('r1', 'claude'),
+            sameDaemon('r2', 'codex'),
+            runtime('other', 'offline', null),
+          ],
+        },
+        'GET np/computers': {
+          data: [
+            computer('old', 'studio', new Date().toISOString()),
+            computer('new', 'studio', null),
+            computer('gone', 'gone-d', new Date().toISOString()),
+          ],
+        },
+      }),
+    );
+    await renderNp(<RuntimesPage />, { url: '/runtimes' });
+
+    const [table] = await screen.findAllByRole('table');
+    const groups = table!.querySelectorAll('[data-group]');
+    // The computer with a runtime online comes first; the active credential names it.
+    expect([...groups].map((row) => row.getAttribute('data-group'))).toEqual([
+      'studio',
+      'other-d',
+    ]);
+    expect(groups[0]).toHaveTextContent('Computer new');
+    expect(groups[0]).toHaveTextContent('studio.local');
+    expect(groups[0]).toHaveTextContent('2 runtimes');
+    expect(groups[1]).toHaveTextContent('other-mac');
+    expect(groups[1]).toHaveTextContent('Offline');
+
+    const region = within(
+      screen.getByRole('region', { name: 'Computer credentials' }),
+    );
+    expect(region.getByText('npc_new…')).toBeInTheDocument();
+    expect(region.queryByText('npc_old…')).toBeNull();
+    await user.click(region.getByRole('button', { name: 'Revoked (2)' }));
+    expect(region.getByText('npc_old…')).toBeInTheDocument();
+    expect(region.getByText('npc_gone…')).toBeInTheDocument();
+    expect(region.getAllByRole('button', { name: 'Revoke' })).toHaveLength(1);
   });
 });

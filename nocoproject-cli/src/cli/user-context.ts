@@ -1,15 +1,15 @@
 /**
- * Plumbing for the CLI user mode (NP-86): the in-run refusal, the API key from `nocoproject login`, and local
- * resolution of project, label and agent names to ids.
+ * Plumbing for the CLI user mode (NP-86): the in-run refusal, the personal API key from `nocoproject login` (in the
+ * system keychain since NP-190), and local resolution of project, label and agent names to ids.
  *
  * The refusal runs before the config is read: a run the daemon dispatched always carries `NOCOPROJECT_TOKEN` and
  * `NOCOPROJECT_RUN_ID`, and such an agent must not borrow the person's key (it uses `nocoproject issue …`).
  */
 import { UserApi } from '../api/user-client.js';
 import { loadConfig } from '../config.js';
+import { defaultSecretStore, resolvePersonalKey, SecretStoreError, type PersonalKeyStorage } from '../secrets/index.js';
 import { RUN_ENV } from '../protocol.js';
 import type { AgentListItem, Label, ProjectListItem } from '../protocol.js';
-import { registerSecret } from '../util/redact.js';
 import { CliError, EXIT } from './output.js';
 
 export const USER_MODE_IN_RUN = 'USER_MODE_IN_RUN';
@@ -28,17 +28,35 @@ export function refuseInsideRun(env: NodeJS.ProcessEnv = process.env): void {
 export interface UserContext {
   readonly api: UserApi;
   readonly serverUrl: string;
+  /** Where the personal key came from (NP-190). */
+  readonly keyStorage: PersonalKeyStorage;
 }
 
-/** Refuses inside a run, then reads the saved server URL and API key (never printed). */
-export function userContext(env: NodeJS.ProcessEnv = process.env): UserContext {
+/** The `NOT_LOGGED_IN` message: user mode needs the personal key, which the computer credential does not replace. */
+export function personalKeyMissing(serverUrl: string | undefined): string {
+  return (
+    "user mode needs your personal API key, which is separate from this computer's credential (the daemon's, which cannot act as you). " +
+    `Create a key in the app, then run: nocoproject login --server ${serverUrl ?? '<url>'} --api-key-stdin`
+  );
+}
+
+/**
+ * Refuses inside a run, then reads the saved server URL and the personal key (never printed); a plain-text key from
+ * an older CLI moves into the keychain here.
+ */
+export async function userContext(env: NodeJS.ProcessEnv = process.env): Promise<UserContext> {
   refuseInsideRun(env);
   const cfg = loadConfig(env);
-  if (!cfg.serverUrl || !cfg.apiKey) {
-    throw new CliError('not logged in: run `nocoproject login --server <url> --api-key-stdin` first', EXIT.auth, 'NOT_LOGGED_IN');
+  let personal;
+  try {
+    const notify = (line: string) => process.stderr.write(`${line}\n`);
+    personal = await resolvePersonalKey({ home: cfg.home, env, store: defaultSecretStore(env), migrate: true, notify });
+  } catch (error) {
+    if (error instanceof SecretStoreError) throw new CliError(error.message, EXIT.auth, 'KEYCHAIN_UNAVAILABLE');
+    throw error;
   }
-  registerSecret(cfg.apiKey);
-  return { api: new UserApi(cfg.serverUrl, cfg.apiKey), serverUrl: cfg.serverUrl };
+  if (!cfg.serverUrl || !personal) throw new CliError(personalKeyMissing(cfg.serverUrl), EXIT.auth, 'NOT_LOGGED_IN');
+  return { api: new UserApi(cfg.serverUrl, personal.key), serverUrl: cfg.serverUrl, keyStorage: personal.storage };
 }
 
 interface Named {

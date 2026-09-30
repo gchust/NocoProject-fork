@@ -6,8 +6,7 @@ import { AlertCircleIcon, MonitorIcon, PlusIcon } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
 import { Link, Outlet } from 'react-router';
 
-import { DataTable } from '@/components/data-table';
-import { NpActorAvatar } from '@/components/np-actor-avatar';
+import { GroupedDataTable } from '@/components/data-table-grouped';
 import { NpShortcuts } from '@/components/np-shortcuts';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
@@ -29,12 +28,16 @@ import {
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { fetchComputers } from '../api-computers.js';
 import { fetchRuntimes } from '../api.js';
 import { npKeys } from '../constants.js';
 import { useNpFormatters } from '../format.js';
 import type { AgentsTopicPayload, Runtime } from '../types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
+import { ComputerGroupHeader } from './computer-group-header.js';
+import { computerKeyOf, groupRuntimesByComputer } from './computer-groups.js';
 import { ComputersSection } from './computers-section.js';
+import { PmAllowedCell } from './pm-allowed-cell.js';
 import { RuntimeCliCell, RuntimeStatusCell } from './runtime-cli.js';
 
 function deviceText(runtime: Runtime, key: string): string | null {
@@ -42,7 +45,10 @@ function deviceText(runtime: Runtime, key: string): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
-/** Route `/runtimes`: the computers (daemons) that registered coding tools with this application. */
+/**
+ * Route `/runtimes`: the computers (daemons) that registered coding tools with this application, each computer's
+ * runtimes under one group row (NP-188).
+ */
 export default function RuntimesPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -52,6 +58,11 @@ export default function RuntimesPage(): ReactElement {
   const runtimes = useQuery({
     queryKey: npKeys.runtimes,
     queryFn: () => fetchRuntimes(api),
+  });
+  // Shared with `ComputersSection` (same key).
+  const computers = useQuery({
+    queryKey: npKeys.computers,
+    queryFn: () => fetchComputers(api),
   });
 
   useRealtimeTopic<AgentsTopicPayload>('np:agents', () => {
@@ -63,29 +74,14 @@ export default function RuntimesPage(): ReactElement {
   const columns = useMemo<ColumnDef<Runtime, unknown>[]>(
     () => [
       {
-        accessorKey: 'name',
-        enableHiding: false,
-        header: t('np.runtimes.columns.name'),
-        cell: ({ row }) => {
-          const device =
-            deviceText(row.original, 'deviceName') ??
-            deviceText(row.original, 'hostname');
-          return (
-            <div className='min-w-0 leading-tight'>
-              <div className='truncate font-medium'>{row.original.name}</div>
-              {device && device !== row.original.name ? (
-                <div className='truncate text-xs text-muted-foreground'>
-                  {device}
-                </div>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
         accessorKey: 'provider',
+        enableHiding: false,
         header: t('np.runtimes.columns.provider'),
-        cell: ({ row }) => <NpTag tone='grey'>{row.original.provider}</NpTag>,
+        cell: ({ row }) => (
+          <span title={row.original.name}>
+            <NpTag tone='grey'>{row.original.provider}</NpTag>
+          </span>
+        ),
       },
       {
         id: 'version',
@@ -101,17 +97,17 @@ export default function RuntimesPage(): ReactElement {
         },
       },
       {
-        id: 'cli',
-        header: t('np.runtimes.columns.cli'),
-        cell: ({ row }) => <RuntimeCliCell runtime={row.original} />,
-      },
-      {
         accessorKey: 'kind',
         header: t('np.runtimes.columns.kind'),
         cell: ({ row }) =>
           t(`np.runtimes.kind.${row.original.kind}`, {
             defaultValue: row.original.kind,
           }),
+      },
+      {
+        id: 'pmAllowed',
+        header: t('np.pmSetup.pmAllowedColumn'),
+        cell: ({ row }) => <PmAllowedCell runtime={row.original} />,
       },
       {
         accessorKey: 'status',
@@ -130,24 +126,14 @@ export default function RuntimesPage(): ReactElement {
           </span>
         ),
       },
-      {
-        id: 'owner',
-        header: t('np.runtimes.columns.owner'),
-        cell: ({ row }) =>
-          row.original.ownerName ? (
-            <NpActorAvatar
-              type='user'
-              name={row.original.ownerName}
-              size='xs'
-              showName
-              className='text-sm'
-            />
-          ) : (
-            <span className='text-muted-foreground'>—</span>
-          ),
-      },
     ],
     [t, format],
+  );
+
+  // NP-188: the runtimes grouped under their computer; the credentials name the computers the viewer added.
+  const groups = useMemo(
+    () => groupRuntimesByComputer(runtimes.data ?? [], computers.data),
+    [runtimes.data, computers.data],
   );
 
   let content: ReactElement;
@@ -212,12 +198,28 @@ export default function RuntimesPage(): ReactElement {
     );
   } else {
     content = (
-      <DataTable
+      <GroupedDataTable
         columns={columns}
         data={runtimes.data}
         getRowId={(runtime) => runtime.id}
-        pageSize={20}
-        showSelectedCount={false}
+        groupOf={computerKeyOf}
+        groups={groups.map((group) => ({
+          id: group.id,
+          header: (
+            <ComputerGroupHeader
+              group={group}
+              count={t('np.computers.group.runtimes', {
+                count: group.runtimes.length,
+              })}
+              extra={
+                <span className='inline-flex items-center gap-1.5 text-xs text-muted-foreground'>
+                  {t('np.runtimes.columns.cli')}
+                  <RuntimeCliCell runtime={group.runtimes[0]} />
+                </span>
+              }
+            />
+          ),
+        }))}
       />
     );
   }

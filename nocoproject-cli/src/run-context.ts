@@ -11,7 +11,7 @@
  * - `checkout.json` — written by `nocoproject repo checkout`; the daemon reads it back and reports
  *   `branchName` / `repoUrl` on complete / fail.
  */
-import type { PmAskerSummary, PmResolvedContext, PmPlanResult } from './protocol.phase2-pm-assistant.js';
+import type { ClaimedConversation, PmResolvedContext, PmPlanExecutedPayload, RunTriggerTypeV7 } from './protocol.phase2-pm-assistant.js';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type {
@@ -31,7 +31,6 @@ import type {
   IssueProcess,
   IssueChecklist,
   ReasoningEffort,
-  RunTriggerTypeV6,
   SignalPayload,
   StageEnteredPayload,
 } from './protocol.js';
@@ -48,7 +47,7 @@ export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'tri
   readonly knowledge?: readonly ClaimedKnowledgeDoc[] | null;
   readonly issue: Omit<ClaimedRun['issue'], 'identifier'> & {
     readonly identifier: string | null;
-    readonly conversation?: { readonly id: string; readonly agentSource: 'system' | 'personal' | 'fallback'; readonly confirmAll: boolean; readonly budget: { readonly used: number; readonly limit: number }; readonly asker: PmAskerSummary };
+    readonly conversation?: ClaimedConversation;
   } &
     Partial<ClaimedRunPhase1Extras['issue']> &
     Partial<ClaimedRunPhase2Extras['issue']> &
@@ -61,9 +60,9 @@ export type ClaimedRunV1 = Omit<ClaimedRun, 'issue' | 'agent' | 'session' | 'tri
     Partial<ClaimedRunPhase4Extras['agent']>;
   readonly session: ClaimedRun['session'] & Partial<ClaimedRunPhase1Extras['session']>;
   readonly triggers: readonly {
-    readonly type: RunTriggerTypeV6 | 'planExecuted';
+    readonly type: RunTriggerTypeV7;
     readonly comment?: ClaimedTriggerComment & { readonly context?: PmResolvedContext };
-    readonly plan?: PmPlanResult;
+    readonly plan?: PmPlanExecutedPayload;
     readonly stage?: StageEnteredPayload;
     readonly signal?: SignalPayload;
   }[];
@@ -159,7 +158,7 @@ export function buildRunContext(claimed: ClaimedRunV1): RunContextFile {
     agent: { capabilities: claimed.agent.capabilities ?? [], id: claimed.agent.id, name: claimed.agent.name, delegationTargets: claimed.agent.delegationTargets ?? [], kind: agentKindOf(claimed) },
     issue: {
       id: claimed.issue.id,
-      identifier: claimed.issue.identifier ?? claimed.issue.id,
+      identifier: claimed.issue.identifier || claimed.issue.id,
       title: claimed.issue.title,
       parent: claimed.issue.parent ?? null,
       stage: claimed.issue.stage ?? null,

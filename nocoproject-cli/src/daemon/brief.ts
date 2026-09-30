@@ -21,7 +21,7 @@ export type BriefInput = Pick<ClaimedRunV1, 'agent' | 'issue' | 'agentTransition
 function permits(input: BriefInput, key: AgentCapability): boolean { return input.agent.capabilities?.includes(key) === true; }
 export function buildBrief(input: BriefInput): string {
   if (input.issue.conversation) return [BRIEF_BEGIN, ...pmBriefSections(input), BRIEF_END].join('\n');
-  const key = input.issue.identifier ?? input.issue.id;
+  const key = input.issue.identifier || input.issue.id;
   const executing = permits(input, 'issue.execute') && executionModeOf(input) !== 'session';
   const commands = input.agent.commandDescriptions ?? (input.agent.capabilities ?? []).flatMap(c => AGENT_COMMANDS[c] ?? []);
   return [BRIEF_BEGIN, '# NocoProject Agent Runtime', '',
@@ -99,12 +99,12 @@ function attachmentLines(input: PromptInput): string[] {
   if (files.length === 0) return [];
   const names = files.map((file) => file.filename).join(', ');
   return [
-    `It has ${files.length} attached file${files.length === 1 ? '' : 's'} (${names}): save them with \`nocoproject issue attachment download ${input.issue.identifier ?? input.issue.id}\` and open the printed paths.`,
+    `It has ${files.length} attached file${files.length === 1 ? '' : 's'} (${names}): save them with \`nocoproject issue attachment download ${input.issue.identifier || input.issue.id}\` and open the printed paths.`,
   ];
 }
 
 function openingLines(input: PromptInput): string[] {
-  const key = input.issue.identifier ?? input.issue.id;
+  const key = input.issue.identifier || input.issue.id;
   if (input.issue.conversation) {
     return [
       'You are assisting the asker in conversation ' + key + ' ' + JSON.stringify(input.issue.title) + '.',
@@ -131,7 +131,7 @@ function openingLines(input: PromptInput): string[] {
 
 /** The per-turn user message (§7); session mode (iteration 2 §J) opens conversationally. */
 export function buildTurnPrompt(input: PromptInput, opts: { readonly resumed: boolean }): string {
-  const key = input.issue.identifier ?? input.issue.id;
+  const key = input.issue.identifier || input.issue.id;
 
   const lines = [...(hasTrigger(input, 'designApproved') ? [DESIGN_APPROVED_OPENING] : []), ...openingLines(input)];
   let rootId: string | undefined;

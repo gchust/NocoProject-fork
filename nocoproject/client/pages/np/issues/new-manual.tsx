@@ -1,7 +1,7 @@
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircleIcon } from 'lucide-react';
+import { AlertCircleIcon, BotMessageSquareIcon } from 'lucide-react';
 import { type FormEvent, type ReactElement, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
@@ -60,6 +60,7 @@ import {
 } from './detail/use-attachments.js';
 import { PropertySelect } from './detail/property-fields.js';
 import { ProcessSelect } from './process-fields.js';
+import { usePmAssistant } from '../pm/assistant/pm-assistant.js';
 
 const FORM_ID = 'np-issue-new-form';
 
@@ -215,6 +216,16 @@ export function ManualIssueForm({
   return (
     <form id={FORM_ID} onSubmit={submit} noValidate>
       <FieldGroup>
+        <TellPmInstead
+          projectId={projectId === 'none' ? null : projectId}
+          projectName={
+            projects.data?.find((project) => project.id === projectId)?.name
+          }
+          draft={[title.trim(), description.trim()]
+            .filter(Boolean)
+            .join('\n\n')}
+          onOpen={() => void close()}
+        />
         {formError ? (
           <Alert variant='destructive'>
             <AlertCircleIcon />
@@ -409,5 +420,51 @@ export function ManualIssueFooter({
         {submitting ? t('np.common.creating') : t('np.common.create')}
       </Button>
     </>
+  );
+}
+
+/**
+ * NP-185 (`protocol-pm-assistant.md` §11.2): the line on top of the form that hands the request to the project
+ * manager instead — it closes the dialog and opens the drawer with the chosen project as context and whatever was
+ * typed as a draft.
+ */
+function TellPmInstead({
+  projectId,
+  projectName,
+  draft,
+  onOpen,
+}: {
+  readonly projectId: string | null;
+  readonly projectName: string | undefined;
+  readonly draft: string;
+  readonly onOpen: () => void;
+}): ReactElement | null {
+  const { t } = useTranslation();
+  const assistant = usePmAssistant();
+  if (!assistant.available) return null;
+  return (
+    <p className='flex items-center gap-1.5 text-sm text-muted-foreground'>
+      <BotMessageSquareIcon className='size-4 shrink-0' aria-hidden='true' />
+      <button
+        type='button'
+        className='rounded-sm text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none'
+        onClick={() => {
+          assistant.openAssistant({
+            view: 'chat',
+            draft: draft || undefined,
+            pin: projectId
+              ? {
+                  type: 'project',
+                  id: projectId,
+                  label: projectName ?? projectId,
+                }
+              : undefined,
+          });
+          onOpen();
+        }}
+      >
+        {t('np.pmAssistant.tellInstead')}
+      </button>
+    </p>
   );
 }

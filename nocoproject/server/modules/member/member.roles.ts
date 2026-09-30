@@ -6,6 +6,7 @@
  * Every method takes the caller's transaction connection, so a role change commits or rolls back with the members row
  * that projects it; `changed` announces it after commit.
  */
+import type { ActorAccess } from '../shared/access.js';
 import type { AccessHolders } from '../shared/authz.js';
 import type { Conn } from '../shared/db.js';
 import type {
@@ -26,6 +27,12 @@ export interface RoleAssignments extends AccessHolders {
   setAdmin(conn: Conn, userId: string, admin: boolean): Promise<void>;
   /** After commit: tells sessions and caches that the user's assignments changed. */
   changed(userId: string): Promise<void>;
+  /**
+   * NP-183: the member's own access as a browser request of theirs would carry it (role and business scopes, the
+   * scopes already resolved), for the project manager acting in their name. Call it before opening a transaction: it
+   * reads through the application's own connection. Absent = no such access can be built (409 on use).
+   */
+  accessOf?(userId: string): Promise<ActorAccess>;
 }
 
 /** A permission set as `/config` reads and writes it (NP-153 stage 2). */

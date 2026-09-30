@@ -347,7 +347,11 @@ const npIter2EnUS = {
       project: 'Project',
       day: 'Day',
       model: 'Model',
+      actor: 'Person',
+      conversation: 'Project manager conversations',
     },
+    pmConversations: 'Project manager conversations',
+    noActor: 'No member',
     columns: {
       runs: 'Runs',
       input: 'Input',

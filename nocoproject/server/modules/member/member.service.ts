@@ -17,13 +17,14 @@ import {
   isUniqueViolation,
   knexOf,
   now,
+  num,
   str,
 } from '../shared/db.js';
-import { invalid, notFound } from '../shared/errors.js';
+import { conflict, invalid, notFound } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type {
   Member,
-  MemberPreferences,
+  MemberPreferencesV5,
   MemberRole,
 } from '../shared/protocol.js';
 import type { RoleAssignments } from './member.roles.js';
@@ -33,32 +34,91 @@ export interface MemberService {
   ensure(userId: string): Promise<void>;
   list(actor: Actor): Promise<Member[]>;
   /** The member's own preferences (NP-108); the row exists, `ensureMember` runs before every browser route. */
-  preferences(userId: string): Promise<MemberPreferences>;
-  /** Changes only the fields given; anything but a boolean `inboxChime` is 400 `INVALID_PREFERENCES`. */
-  updatePreferences(userId: string, input: unknown): Promise<MemberPreferences>;
+  preferences(userId: string): Promise<MemberPreferencesV5>;
+  /** Changes only the fields given (`preferencesPatch`); anything malformed is 400 `INVALID_PREFERENCES`. */
+  updatePreferences(
+    userId: string,
+    input: unknown,
+  ): Promise<MemberPreferencesV5>;
 }
 
-function preferencesPatch(input: unknown): Partial<MemberPreferences> {
+interface PreferencesPatch {
+  readonly inboxChime?: boolean;
+  readonly pmConfirmAll?: boolean;
+  readonly revision?: number;
+}
+
+/**
+ * NP-108 `inboxChime`, NP-183 `pmConfirmAll` ("always confirm first"). `revision` is required with `pmConfirmAll` and
+ * checked whenever it is given (409 `REVISION_CONFLICT`); a bare `inboxChime` change keeps working without it.
+ */
+function preferencesPatch(input: unknown): PreferencesPatch {
   if (typeof input !== 'object' || input === null || Array.isArray(input))
     throw invalid('INVALID_PREFERENCES', 'Preferences must be an object.');
-  const { inboxChime } = input as { inboxChime?: unknown };
-  if (inboxChime === undefined) return {};
-  if (typeof inboxChime !== 'boolean')
+  const { inboxChime, pmConfirmAll, revision } = input as Record<
+    string,
+    unknown
+  >;
+  if (inboxChime !== undefined && typeof inboxChime !== 'boolean')
     throw invalid('INVALID_PREFERENCES', 'inboxChime must be a boolean.');
-  return { inboxChime };
+  if (pmConfirmAll !== undefined && typeof pmConfirmAll !== 'boolean')
+    throw invalid('INVALID_PREFERENCES', 'pmConfirmAll must be a boolean.');
+  if (revision !== undefined && !Number.isInteger(revision))
+    throw invalid('INVALID_PREFERENCES', 'revision must be an integer.');
+  if (pmConfirmAll !== undefined && revision === undefined)
+    throw invalid('REVISION_REQUIRED', 'revision is required.');
+  return {
+    ...(inboxChime === undefined ? {} : { inboxChime }),
+    ...(pmConfirmAll === undefined ? {} : { pmConfirmAll }),
+    ...(revision === undefined ? {} : { revision: revision as number }),
+  };
 }
 
-async function preferencesOf(
+export async function preferencesOf(
   conn: Conn,
   userId: string,
-): Promise<MemberPreferences> {
+): Promise<MemberPreferencesV5> {
   const row = await conn.query
     .selectFrom('members')
-    .select('inboxChime')
+    .select([
+      'inboxChime',
+      'pmConfirmAll',
+      'pmAgentMode',
+      'pmAgentId',
+      'preferencesRevision',
+    ])
     .where('userId', '=', userId)
     .executeTakeFirst();
   if (!row) throw notFound('Member');
-  return { inboxChime: row.inboxChime == null ? true : bool(row.inboxChime) };
+  return {
+    inboxChime: row.inboxChime == null ? true : bool(row.inboxChime),
+    pmConfirmAll: bool(row.pmConfirmAll),
+    pmAgentMode: row.pmAgentMode === 'personal' ? 'personal' : 'system',
+    pmAgentId: str(row.pmAgentId),
+    revision: num(row.preferencesRevision, 1),
+  };
+}
+
+/** Writes `set` when `revision` (if given) is current, bumping it; 409 `REVISION_CONFLICT` otherwise. */
+export async function writePreferences(
+  conn: Conn,
+  userId: string,
+  revision: number | undefined,
+  set: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  const current = await preferencesOf(conn, userId);
+  if (revision !== undefined && revision !== current.revision)
+    throw conflict('REVISION_CONFLICT', 'Preferences changed; reload them.');
+  await conn.query
+    .updateTable('members')
+    .set({
+      ...set,
+      preferencesRevision: current.revision + 1,
+      updatedAt: now(),
+    })
+    .where('userId', '=', userId)
+    .where('preferencesRevision', '=', current.revision)
+    .execute();
 }
 
 async function insertMember(
@@ -217,15 +277,10 @@ export function createMemberService(deps: {
     },
 
     async updatePreferences(userId, input) {
-      const patch = preferencesPatch(input);
+      const { revision, ...patch } = preferencesPatch(input);
       return deps.tx.run(async (tx) => {
-        if (Object.keys(patch).length > 0) {
-          await tx.conn.query
-            .updateTable('members')
-            .set({ ...patch, updatedAt: now() })
-            .where('userId', '=', userId)
-            .execute();
-        }
+        if (Object.keys(patch).length > 0)
+          await writePreferences(tx.conn, userId, revision, patch);
         return preferencesOf(tx.conn, userId);
       });
     },

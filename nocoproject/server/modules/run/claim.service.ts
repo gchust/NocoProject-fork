@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AGENT_COMMANDS } from '../shared/protocol.capabilities.js';
-import { capabilitiesOf } from '../agent/capabilities.js';
+import { effectiveCapabilities } from '../agent/capabilities.js';
 import { createSettingsService } from '../system/settings.service.js';
 /**
  * Batch claim for a daemon (protocol.md §4 `runs/claim`). Iteration 2 adds `agent.env` (decrypted — this payload only
@@ -16,7 +16,6 @@ import { createSettingsService } from '../system/settings.service.js';
 import type { SecretBox } from '../shared/crypto.js';
 import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import {
-  fromJson,
   isArrayValue,
   isPostgres,
   knexOf,
@@ -37,7 +36,6 @@ import {
   type ClaimedRunPhase3Extras,
   type ClaimedRunPhase4Extras,
   type ClaimedRunWorkflowExtras,
-  type ClaimedTriggerComment,
   type ClaimedTriggerPhase2Extras,
   type ClaimedTriggerSignalExtras,
   type DaemonClaimRequest,
@@ -68,7 +66,15 @@ import {
   evaluateDaemon,
   markDaemonSeen,
   storedIdentity,
+  supportsPmAssistant,
 } from '../runtime/daemon-compat.js';
+import {
+  delegationTargets,
+  signalOf,
+  stageOf,
+  triggerComments,
+} from './claim.parts.js';
+import { claimedConversation, noticePmUpgrade, planOf } from './claim.pm.js';
 import { findRun } from './run.records.js';
 import { emitRunStatus } from './run.service.js';
 import { findSession } from './sessions.js';
@@ -83,8 +89,11 @@ export interface ClaimService {
     request: DaemonClaimRequest,
     serverUrl: string,
   ): Promise<DaemonClaimResponse & DaemonCompatibilityResponse>;
-  /** One claim attempt for one runtime; exposed for the concurrency tests. */
-  claimOne(runtimeId: string): Promise<{ runId: string; token: string } | null>;
+  /** One claim attempt for one runtime; exposed for the concurrency tests. `conversations: false` skips conversation runs. */
+  claimOne(
+    runtimeId: string,
+    conversations?: boolean,
+  ): Promise<{ runId: string; token: string } | null>;
 }
 
 export interface ClaimDeps {
@@ -113,58 +122,6 @@ export type ClaimedRunV5 = ClaimedRunV4 &
       ClaimedTriggerPhase2Extras &
       ClaimedTriggerSignalExtras)[];
   };
-
-/** The `stage` of a `stageEntered` trigger, from its payload. */
-function stageOf(type: unknown, payload: unknown): ClaimedTriggerPhase2Extras {
-  if (type !== 'stageEntered') return {};
-  const value = fromJson<Record<string, unknown>>(payload) ?? {};
-  return {
-    stage: {
-      from: str(value.from) ?? '',
-      to: str(value.to) ?? '',
-      instruction: str(value.instruction),
-    },
-  };
-}
-
-/** The `signal` of a `signal` trigger, from its payload. */
-function signalOf(type: unknown, payload: unknown): ClaimedTriggerSignalExtras {
-  if (type !== 'signal') return {};
-  const value = fromJson<Record<string, unknown>>(payload) ?? {};
-  return {
-    signal: {
-      source: str(value.source) ?? '',
-      kind: str(value.kind) ?? '',
-      key: str(value.key) ?? '',
-      title: str(value.title) ?? '',
-      url: str(value.url),
-      instruction: str(value.instruction),
-    },
-  };
-}
-
-async function delegationTargets(
-  conn: Conn,
-  agentId: string,
-): Promise<{ id: string; name: string }[]> {
-  const grants = await conn.query
-    .selectFrom('agentDelegationGrants')
-    .select('targetAgentId')
-    .where('agentId', '=', agentId)
-    .execute();
-  const ids = unique(grants.map((row) => str(row.targetAgentId)));
-  if (ids.length === 0) return [];
-  const rows = await conn.query
-    .selectFrom('agents')
-    .select(['id', 'name'])
-    .where('id', 'in', ids)
-    .orderBy('name', 'asc')
-    .execute();
-  return rows.map((row) => ({
-    id: str(row.id) ?? '',
-    name: str(row.name) ?? '',
-  }));
-}
 
 interface VerifiedSlots {
   readonly runtimeIds: string[];
@@ -209,11 +166,12 @@ async function claimOneInTx(
   tx: Tx,
   ids: IdSource,
   runtimeId: string,
+  conversations: boolean,
 ): Promise<{ runId: string; token: string } | null> {
   const knex = await knexOf(tx.conn);
   await knex.raw(CLAIM_RUNTIME_LOCK_SQL, [claimLockKey(runtimeId)]);
   const row = rawRows<ClaimedRow>(
-    await knex.raw(CLAIM_RUN_SQL, [runtimeId, runtimeId]),
+    await knex.raw(CLAIM_RUN_SQL, [runtimeId, runtimeId, conversations]),
   )[0];
   if (!row) return null;
   const token = await issueRunToken(tx.conn, ids, {
@@ -223,59 +181,6 @@ async function claimOneInTx(
   });
   emitRunStatus(tx, { id: row.id, subjectId: row.subject_id }, 'dispatched');
   return { runId: row.id, token };
-}
-
-async function triggerComments(
-  conn: Conn,
-  users: UserDirectory,
-  commentIds: string[],
-): Promise<Map<string, ClaimedTriggerComment>> {
-  const result = new Map<string, ClaimedTriggerComment>();
-  if (commentIds.length === 0) return result;
-  const rows = await conn.query
-    .selectFrom('comments')
-    .selectAll()
-    .where('id', 'in', commentIds)
-    .execute();
-  const userNames = await users.names(
-    conn,
-    rows
-      .filter((row) => row.authorType === 'user')
-      .map((row) => str(row.authorId)),
-  );
-  const agentIds = unique(
-    rows
-      .filter((row) => row.authorType === 'agent')
-      .map((row) => str(row.authorId)),
-  );
-  const agentRows = agentIds.length
-    ? await conn.query
-        .selectFrom('agents')
-        .select(['id', 'name'])
-        .where('id', 'in', agentIds)
-        .execute()
-    : [];
-  const agentNames = new Map(
-    agentRows.map((row) => [str(row.id) ?? '', str(row.name) ?? '']),
-  );
-  for (const row of rows) {
-    const id = str(row.id) ?? '';
-    const authorId = str(row.authorId) ?? '';
-    const authorName =
-      row.authorType === 'agent'
-        ? agentNames.get(authorId)
-        : row.authorType === 'user'
-          ? userNames.get(authorId)
-          : 'system';
-    result.set(id, {
-      id,
-      authorName: authorName ?? authorId,
-      content: str(row.content) ?? '',
-      parentId: str(row.parentId),
-      rootId: str(row.rootId) ?? id,
-    });
-  }
-  return result;
 }
 
 async function buildClaimedRun(
@@ -334,7 +239,8 @@ async function buildClaimedRun(
   const snapshot = {
     configurationFingerprint,
     configurationRevision: Number(agent.configurationRevision),
-    capabilities: capabilitiesOf(agent.capabilities),
+    // NP-183: a project manager type agent always holds exactly PM_CAPABILITIES (ADR-0009).
+    capabilities: effectiveCapabilities(agent),
     instructions: str(agent.instructions) ?? '',
     taskInstructions,
     skillIds: skills.map((skill) => skill.id),
@@ -412,6 +318,7 @@ async function buildClaimedRun(
       originType: issue.originType,
       checklist: await currentChecklist(conn, deps.users, issue),
       attachments: await agentAttachments(conn, issue.id),
+      ...(await claimedConversation(conn, deps.users, run)),
     },
     project: await claimedProject(conn, issue.projectId),
     statusCatalog: view.catalog,
@@ -423,6 +330,7 @@ async function buildClaimedRun(
       const stage = {
         ...stageOf(row.type, row.payload),
         ...signalOf(row.type, row.payload),
+        ...planOf(row.type, row.payload),
       };
       return comment
         ? { type: str(row.type) as RunTriggerType, comment, ...stage }
@@ -442,8 +350,8 @@ async function buildClaimedRun(
 }
 
 export function createClaimService(deps: ClaimDeps): ClaimService {
-  const claimOne = (runtimeId: string) =>
-    deps.tx.run((tx) => claimOneInTx(tx, deps.ids, runtimeId));
+  const claimOne = (runtimeId: string, conversations = true) =>
+    deps.tx.run((tx) => claimOneInTx(tx, deps.ids, runtimeId, conversations));
 
   return {
     claimOne,
@@ -482,6 +390,19 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
       // An unsupported daemon gets no work, but a normal answer: it keeps heartbeating and shows why (NP-150).
       if (compatibility.status === 'unsupported')
         return { runs: [], compatibility };
+      const conversations = supportsPmAssistant(
+        storedIdentity(rows[0]?.deviceInfo),
+      );
+      await deps.tx.run((tx) =>
+        noticePmUpgrade(tx, {
+          ownerUserId,
+          daemonId: request.daemonId,
+          deviceName: deviceNameOf(rows[0]?.deviceInfo),
+          daemonVersion: compatibility.daemonVersion,
+          runtimeIds,
+          supported: conversations,
+        }),
+      );
       const claimed: { runId: string; token: string }[] = [];
       for (const slot of request.slots) {
         const free = Math.min(
@@ -489,7 +410,7 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
           MAX_CLAIMS_PER_SLOT,
         );
         for (let index = 0; index < free; index += 1) {
-          const result = await claimOne(slot.runtimeId);
+          const result = await claimOne(slot.runtimeId, conversations);
           if (!result) break;
           claimed.push(result);
         }

@@ -1,7 +1,3 @@
-import { useApiClient } from '@nocobase/app-client';
-import { useQuery } from '@tanstack/react-query';
-import { fetchWorkspaceSettings } from '@/pages/np/api-iter2';
-import { npKeys } from '@/pages/np/constants';
 import { useTranslation } from '@nocobase/i18n/client';
 import {
   routeKey,
@@ -57,27 +53,9 @@ interface NavigationTreeProps {
 export function NavigationTree(
   props: NavigationTreeProps,
 ): ReactElement | null {
-  return props.item.route.path === '/pm' ? (
-    <ConversationNavigationTree {...props} />
-  ) : (
-    <NavigationTreeItem {...props} />
-  );
-}
-
-function ConversationNavigationTree(
-  props: NavigationTreeProps,
-): ReactElement | null {
-  const api = useApiClient();
-  const settings = useQuery({
-    queryKey: npKeys.settings,
-    queryFn: () => fetchWorkspaceSettings(api),
-  });
-  return (
-    <NavigationTreeItem
-      {...props}
-      labelOverride={settings.data?.agentEntries?.conversation.name}
-    />
-  );
+  // NP-185: the project manager entry (`/pm`) is the conversation history now, so it keeps its own label instead of
+  // taking the conversation entry's configured name.
+  return <NavigationTreeItem {...props} />;
 }
 
 function NavigationTreeItem({

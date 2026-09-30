@@ -84,7 +84,7 @@ function override(route: string, ...responses: [number, unknown][]): void {
 }
 
 function run(args: string[], env: Record<string, string> = {}, userHome = home): Promise<{ code: number | null; out: string; err: string }> {
-  const child = spawn(process.execPath, [CLI, ...args], { env: { PATH: process.env.PATH, HOME: userHome, NOCOPROJECT_HOME: home, ...env } });
+  const child = spawn(process.execPath, [CLI, ...args], { env: { PATH: process.env.PATH, HOME: userHome, NOCOPROJECT_HOME: home, NOCOPROJECT_KEYCHAIN: 'off', ...env } });
   let out = '';
   let err = '';
   child.stdout.on('data', (d: Buffer) => (out += d.toString()));
@@ -123,7 +123,7 @@ describe('requests', () => {
   it('sends the API key and the client name, never a bearer token, and never prints the key', async () => {
     const r = await run(['user', 'whoami', '--json']);
     expect(r.code).toBe(0);
-    expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url });
+    expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url, keyStorage: 'file' });
     const req = seen[0] as Seen;
     expect(req.headers['x-api-key']).toBe(KEY);
     expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.6.0');
@@ -146,13 +146,21 @@ describe('requests', () => {
   it('asks to log in when no key is saved', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'ncp-user-empty-'));
     const child = await new Promise<{ code: number | null; out: string }>((resolve) => {
-      const p = spawn(process.execPath, [CLI, 'user', 'whoami', '--json'], { env: { PATH: process.env.PATH, HOME: empty, NOCOPROJECT_HOME: empty } });
+      const p = spawn(process.execPath, [CLI, 'user', 'whoami', '--json'], { env: { PATH: process.env.PATH, HOME: empty, NOCOPROJECT_HOME: empty, NOCOPROJECT_KEYCHAIN: 'off' } });
       let out = '';
       p.stdout.on('data', (d: Buffer) => (out += d.toString()));
       p.on('close', (code) => resolve({ code, out }));
     });
     expect(child.code).toBe(3);
     expect(JSON.parse(child.out).error.code).toBe('NOT_LOGGED_IN');
+    expect(JSON.parse(child.out).error.message).toContain("separate from this computer's credential");
+  });
+
+  it('whoami says where the key is stored (NP-190)', async () => {
+    const text = await run(['user', 'whoami']);
+    expect(text.out).toContain(`Ada (u1) on ${url} — key in plain text in ${join(home, 'config.json')} (0600)`);
+    const env = await run(['user', 'whoami'], { NOCOPROJECT_API_KEY: KEY });
+    expect(env.out).toContain('— key from NOCOPROJECT_API_KEY');
   });
 });
 
@@ -194,6 +202,14 @@ describe('flag mapping', () => {
     });
     expect(await userCreateBody({ title: 'x', executor: 'none', owner: 'me' }, names())).toEqual({ title: 'x', executor: { type: 'none' }, ownerUserId: 'u1' });
     await expect(userCreateBody({ title: 'x', priority: 'asap' }, names())).rejects.toMatchObject({ code: 'INVALID_PRIORITY' });
+    expect(await userCreateBody({ title: 'x' }, names())).not.toHaveProperty('process');
+  });
+
+  it('passes --process through as given and refuses anything else locally', async () => {
+    for (const process of ['direct', 'design_first', 'auto']) {
+      expect(await userCreateBody({ title: 'x', process }, names())).toEqual({ title: 'x', process });
+    }
+    await expect(userCreateBody({ title: 'x', process: 'Direct' }, names())).rejects.toMatchObject({ code: 'INVALID_PROCESS', exitCode: 5 });
   });
 });
 
@@ -223,6 +239,16 @@ describe('commands', () => {
     expect(r.code).toBe(0);
     expect(JSON.parse(r.out)).toMatchObject({ identifier: 'NP-2' });
     expect(seen.find((s) => s.method === 'POST')?.body).toEqual({ title: 'New', executor: { type: 'agent', id: 'a1' } });
+  });
+
+  it('creates an issue with a process, and refuses an unknown one before any request', async () => {
+    expect((await run(['user', 'create', '--title', 'New', '--process', 'direct', '--json'])).code).toBe(0);
+    expect(seen.find((s) => s.method === 'POST')?.body).toEqual({ title: 'New', process: 'direct' });
+    seen.length = 0;
+    const bad = await run(['user', 'create', '--title', 'New', '--process', 'quick']);
+    expect(bad.code).toBe(5);
+    expect(bad.err).toContain('--process must be one of auto, direct, design_first');
+    expect(seen.some((s) => s.method === 'POST')).toBe(false);
   });
 
   it('comments from a file', async () => {

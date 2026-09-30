@@ -16,6 +16,7 @@ import type {
  * the page keeps working while the server contract settles.
  */
 
+import type { PmResolvedContext } from './types-pm.js';
 import type {
   ApprovalRequest,
   CommentReaction,
@@ -113,6 +114,10 @@ export interface Me {
 /** `GET /np/me/preferences` (NP-108): the viewer's own preferences, kept with the account. */
 export interface MemberPreferences {
   readonly inboxChime: boolean;
+  /** NP-183: ask before every operation plan runs, even the ones that could run without asking. */
+  readonly pmConfirmAll?: boolean;
+  /** Sent with `pmConfirmAll` (optimistic concurrency); answered by the server. */
+  readonly revision?: number;
 }
 
 export interface Project {
@@ -184,7 +189,8 @@ export interface IssueComment {
   readonly authorId: string | null;
   readonly authorName?: string | null;
   readonly content: string;
-  readonly kind?: 'comment' | 'system' | CommentKindPhase1Iter4;
+  readonly kind?:
+    'comment' | 'system' | CommentKindPhase1Iter4 | 'plan' | 'plan_result';
   readonly parentId: string | null;
   readonly sourceRunId?: string | null;
   readonly createdAt: string;
@@ -197,6 +203,11 @@ export interface IssueComment {
   readonly resolvedAt?: string | null;
   readonly resolvedById?: string | null;
   readonly resolvedByName?: string | null;
+  // Project manager 2.0 (protocol-pm-assistant.md §1, §4.4, §8.2): a plan card's `details.planId`, the page context
+  // stored with a conversation message, and `via: 'pm'` on a comment the project manager wrote as its asker.
+  readonly details?: Readonly<Record<string, unknown>> | null;
+  readonly context?: PmResolvedContext | null;
+  readonly via?: 'pm' | null;
 }
 
 /** A top-level comment with every descendant flattened into chronological replies. */
@@ -279,6 +290,8 @@ export interface AgentListItem extends AgentConfiguration {
   readonly description?: string | null;
   readonly ownerUserId?: string | null;
   readonly instructions?: string | null;
+  /** NP-183: "what it is good at", at most 200 characters; the project manager reads it when choosing an agent. */
+  readonly summary?: string | null;
   readonly runtimeId: string | null;
   readonly runtimeName?: string | null;
   /** Either field may carry the runtime's state; `isRuntimeOnline` reads both. */
@@ -320,6 +333,8 @@ export interface Runtime {
   readonly ownerUserId?: string | null;
   readonly ownerName?: string | null;
   readonly visibility?: 'private' | 'public';
+  /** NP-183: a public runtime may run members' personal project managers. */
+  readonly pmAllowed?: boolean;
   /** `upgrade_required` (NP-150): the daemon is alive but must be upgraded before it runs agents. */
   readonly status: 'online' | 'offline' | 'upgrade_required';
   readonly lastSeenAt: string | null;
@@ -414,6 +429,7 @@ export interface CreateCommentResult {
 export interface CreateAgentInput extends AgentConfiguration {
   readonly name: string;
   readonly description?: string;
+  readonly summary?: string;
   readonly instructions: string;
   readonly runtimeId: string;
   readonly provider: string;
@@ -429,6 +445,7 @@ export interface CreateAgentInput extends AgentConfiguration {
 export interface UpdateAgentInput extends AgentConfiguration {
   readonly name?: string;
   readonly description?: string | null;
+  readonly summary?: string | null;
   readonly instructions?: string;
   readonly runtimeId?: string;
   readonly provider?: string;

@@ -12,7 +12,7 @@ function pmRun(
 ): ClaimedRunV1 {
   return iter4Run(
     {
-      identifier: null,
+      identifier: "",
       process: "direct",
       executionMode: "session",
       parent: null,

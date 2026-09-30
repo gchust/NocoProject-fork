@@ -10,7 +10,7 @@
  * | Agent creates a sub-issue executed by an agent (self or delegated)  | enqueue on behalf of the owner, `assign` |
  * | Human comment mentioning agents                                     | one enqueue per agent, scope = thread root, `mention` |
  * | Human reply (no mention) to an agent's comment                      | that agent, scope = thread root, `reply` |
- * | Human top-level comment (no mention), executor is an agent          | the executor, scope null, `comment`      |
+ * | Human top-level comment (no mention)                                | unique current input-capable run in the same authorization context, otherwise executor |
  * | Comment starting with `/note`, or agent-authored comment            | nothing                                  |
  * | Any of the above while the issue is blocked (`subtask/blocking.ts`) | nothing; activity `run_deferred_blocked` |
  * | An issue reaches a terminal status                                  | release dependents / next-stage siblings (`trigger/release.ts`) |
@@ -19,12 +19,15 @@
  * | Design approved; issue enters done (iteration 4)                    | `designApproved` / `retrospective` (`trigger/retrospective.ts`) |
  * | Any status write enters a status with stage actions (Phase 2)       | `stageEntered` and the other effects (`workflow/stage-actions.ts`) |
  * | A source reports a signal and its rule is on (Phase 2 signals)      | `signal` for the executor, on behalf of the owner (`trigger/signal.ts`) |
+ * | A comment the project manager wrote in a member's name (`via = 'pm'`) | nothing (NP-183)                       |
+ * | A conversation switches agent; a plan card finishes (NP-183)        | see `trigger/pm.ts`                      |
  *
  * Owner changes withdraw queued/deferred work of an executor the new owner cannot invoke; dispatched/running work finishes.
  * Implicit invocations check the invoking user's agent access; unauthorized triggers leave the comment intact.
  *
- * Coalescing into an existing pending run, and "a running run makes the new one wait", are enforced by
- * `run.enqueue` and the claim SQL.
+ * Comment triggers join an input-capable current run before pending-run coalescing. Other triggers and legacy
+ * daemons retain queued delivery. Coalescing into an existing pending run, and "a running run makes the new one
+ * wait", are enforced by `run.enqueue` and the claim SQL.
  */
 import { forbid } from '../shared/authz.js';
 import {
@@ -37,6 +40,7 @@ import type { Tx } from '../shared/db.js';
 import { fromJson, str } from '../shared/db.js';
 import type {
   Comment,
+  CommentPmFields,
   FailureReason,
   Issue,
   IssueV1,
@@ -58,6 +62,13 @@ import type { SettingsService } from '../system/settings.service.js';
 import type { IdSource } from '../shared/ids.js';
 import type { UserDirectory } from '../shared/users.js';
 import { onStageEntered } from '../workflow/stage-actions.js';
+import {
+  onConversationRebound,
+  onPlanFinished,
+  type ConversationRebound,
+  type PlanFinished,
+} from './pm.js';
+import { recordRunAttempt } from './preview.js';
 import { onTerminalEntered, releaseIfUnblocked } from './release.js';
 import { designApprovedRun, retrospectiveRun } from './retrospective.js';
 import {
@@ -80,7 +91,7 @@ export interface IssueChange {
 }
 
 export interface CommentChange {
-  readonly comment: Comment;
+  readonly comment: Comment & CommentPmFields;
   readonly issue: IssueV1;
   /** The direct parent comment, when this is a reply. */
   readonly parent: Comment | null;
@@ -127,6 +138,13 @@ export interface TriggerService {
   onSignal(tx: Tx, report: SignalReport): Promise<TriggeredRun | null>;
   /** ...and that the problem is gone: the streak of that kind ends. */
   onSignalResolved(tx: Tx, resolution: SignalResolution): Promise<void>;
+  /** NP-183: a project manager conversation switched agent (`trigger/pm.ts`). */
+  onConversationRebound(
+    tx: Tx,
+    change: ConversationRebound,
+  ): Promise<TriggeredRun[]>;
+  /** NP-183: a plan card finished executing; wakes the conversation's agent (`trigger/pm.ts`). */
+  onPlanFinished(tx: Tx, finished: PlanFinished): Promise<TriggeredRun | null>;
 }
 
 export interface TriggerDeps {
@@ -159,9 +177,14 @@ export async function enqueueFor(
   trigger: TriggerRecordInput,
 ): Promise<TriggeredRun | null> {
   const { issue, agentId, threadScope, actorUserId } = target;
-  if (!(await canTriggerAgent(tx, actorUserId, agentId))) return null;
+  const attempt = { agentId, issueId: issue.id, triggerType: trigger.type };
+  if (!(await canTriggerAgent(tx, actorUserId, agentId))) {
+    recordRunAttempt({ ...attempt, started: false, skipped: 'denied' });
+    return null;
+  }
   const blockers = await blockersOf(tx.conn, deps.workflows, issue as IssueV1);
   if (blockers.length > 0) {
+    recordRunAttempt({ ...attempt, started: false, skipped: 'blocked' });
     await deps.activity.record(tx.conn, {
       issueId: issue.id,
       actor: { type: 'system', id: null },
@@ -187,7 +210,9 @@ export async function enqueueFor(
     agentId,
     threadScope,
     triggers: [{ ...trigger, createdById: trigger.createdById ?? actorUserId }],
+    appendInput: Boolean(trigger.commentId && trigger.payload?.input),
   });
+  recordRunAttempt({ ...attempt, started: true });
   return { agentId, runId: result.runId };
 }
 
@@ -242,8 +267,10 @@ async function onCommentCreated(
   tx: Tx,
   { comment, issue, parent, actor }: CommentChange,
 ): Promise<TriggeredRun[]> {
-  // Agent-authored (and system) comments never trigger; mentions in them are plain text.
+  // Agent-authored (and system) comments never trigger; mentions in them are plain text. So are the comments the
+  // project manager writes in a member's name (NP-183, `via = 'pm'`): an agent's output never starts a run.
   if (actor.type !== 'user' || comment.authorType !== 'user') return [];
+  if (actor.via === 'pm') return [];
   if (isNote(comment.content)) return [];
   const route = (
     agentId: string,
@@ -254,7 +281,20 @@ async function onCommentCreated(
       deps,
       tx,
       { issue, actorUserId: actor.id, agentId, threadScope },
-      { type, commentId: comment.id },
+      {
+        type,
+        commentId: comment.id,
+        payload: {
+          input: {
+            id: comment.id,
+            authorName: comment.authorName,
+            content: comment.content,
+            parentId: comment.parentId,
+            rootId: comment.rootId,
+            ...(comment.context ? { context: comment.context } : {}),
+          },
+        },
+      },
     );
 
   const mentioned = parseMentions(comment.content);
@@ -271,8 +311,13 @@ async function onCommentCreated(
     if (parent.authorType === 'agent' && parent.authorId) {
       triggered = await route(parent.authorId, comment.rootId, 'reply');
     }
-  } else if (issue.executorType === 'agent' && issue.executorId) {
-    triggered = await route(issue.executorId, null, 'comment');
+  } else {
+    const current = await deps.runs().currentInputRun(tx, issue.id, actor.id);
+    const agentId =
+      current?.agentId ??
+      (issue.executorType === 'agent' ? issue.executorId : null);
+    if (agentId)
+      triggered = await route(agentId, current?.threadScope ?? null, 'comment');
   }
   return triggered ? [triggered] : [];
 }
@@ -430,5 +475,9 @@ export function createTriggerService(deps: TriggerDeps): TriggerService {
     onSignal: (tx, report) => onSignal({ ...deps, enqueue }, tx, report),
     onSignalResolved: (tx, resolution) =>
       onSignalResolved(deps, tx, resolution),
+    onConversationRebound: (tx, change) =>
+      onConversationRebound({ ...deps, enqueue }, tx, change),
+    onPlanFinished: (tx, finished) =>
+      onPlanFinished({ ...deps, enqueue }, tx, finished),
   };
 }

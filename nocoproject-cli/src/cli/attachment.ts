@@ -71,7 +71,7 @@ async function attachmentsOf(
       "ATTACHMENT_DOWNLOAD_UNSUPPORTED",
     );
   }
-  return { identifier: issue.identifier ?? issue.id ?? issueId, items };
+  return { identifier: issue.identifier || issue.id || issueId, items };
 }
 
 export function registerAttachmentCommands(issue: Command): void {

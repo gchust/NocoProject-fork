@@ -6,12 +6,17 @@ import type { UsageGroupBy, UsageRow } from './types.js';
  * number formatting are tested without rendering.
  */
 
+/** The `conversation` grouping's key for every project manager conversation run (NP-183 §6.6). */
+export const USAGE_CONVERSATION_KEY = 'pm';
+
 export const USAGE_GROUPS: readonly UsageGroupBy[] = [
   'agent',
   'issue',
   'project',
   'day',
   'model',
+  'actor',
+  'conversation',
 ];
 
 export function readUsageGroup(value: string | null): UsageGroupBy {

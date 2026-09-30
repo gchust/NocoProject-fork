@@ -14,11 +14,22 @@ import type { ActorType } from './protocol.js';
  * `x-np-client: nocoproject-cli/<version>` header), `api_key` for any other API-key client. Traceability only; never
  * used for permission checks.
  */
-export type ActorVia = 'cli' | 'api_key';
+export type ActorVia = 'cli' | 'api_key' | 'pm' | 'pm_plan';
 
 /**
- * Who performed an operation. `runId` is set when an agent acts through a run token; `via` when a user acts through
- * an API key instead of a browser session; `access` (NP-117) when a signed-in user's request carries the built-in
+ * NP-183: what the project manager acted for. `pm`: its run wrote directly in the asker's name (`agentId`, the run in
+ * `Actor.runId`); `pm_plan`: the member executed its plan card (`planId`). Recorded on activities, never checked.
+ */
+export interface ActorPmContext {
+  readonly conversationId: string;
+  readonly agentId?: string;
+  readonly planId?: string;
+}
+
+/**
+ * Who performed an operation. `runId` is set when an agent acts through a run token (and, with `via: 'pm'`, when the
+ * project manager's run acts in a member's name); `via` when a user acts through an API key instead of a browser
+ * session, or through the project manager; `access` (NP-117) when a signed-in user's request carries the built-in
  * authorization, which then decides the user's role and settings capabilities.
  */
 export interface Actor {
@@ -27,6 +38,7 @@ export interface Actor {
   readonly runId?: string;
   readonly via?: ActorVia;
   readonly access?: ActorAccess;
+  readonly pm?: ActorPmContext;
 }
 
 export const SYSTEM_ACTOR: Actor = { type: 'system', id: null };
@@ -45,13 +57,14 @@ export interface ActivityRecorder {
 export function createActivityRecorder(ids: IdSource): ActivityRecorder {
   return {
     async record(conn, input) {
-      const { runId, via } = input.actor;
+      const { runId, via, pm } = input.actor;
       const details =
         runId !== undefined || via !== undefined
           ? {
               ...input.details,
               ...(runId !== undefined ? { runId } : {}),
               ...(via !== undefined ? { via } : {}),
+              ...(pm ?? {}),
             }
           : input.details;
       await conn.query

@@ -156,7 +156,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       executor: { type: 'agent', id: manager },
     });
     expect(created.status).toBe(400);
-    expect(created.body.code).toBe('CAPABILITY_DENIED');
+    expect(created.body.code).toBe('MANAGER_NOT_EXECUTOR');
     const issue = (await services.issues.create(ALICE, {
       title: 'Task',
     })) as IssueV4;
@@ -164,7 +164,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       executor: { type: 'agent', id: manager },
       revision: issue.revision,
     });
-    expect(patched.body.code).toBe('CAPABILITY_DENIED');
+    expect(patched.body.code).toBe('MANAGER_NOT_EXECUTOR');
     const batch = await alice<
       Data<{ drafts: { validation: { errors: string[] } }[] }>
     >('POST', '/np/intake/batches', {
@@ -241,9 +241,8 @@ describe.skipIf(!db)('workspace settings (PostgreSQL)', () => {
 
 describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
   it('needs a project manager, finds or creates one per member, privately', async () => {
-    expect((await alice('GET', '/np/pm/conversation')).body.code).toBe(
-      'PM_NOT_CONFIGURED',
-    );
+    // NP-183: GET only finds the latest conversation; creating one needs a project manager.
+    expect((await alice('GET', '/np/pm/conversation')).status).toBe(404);
     const unset = await alice('POST', '/np/pm/conversation');
     expect(unset.status).toBe(409);
     await setPm();
@@ -266,7 +265,10 @@ describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
     ).toBe(issueId);
     const [row] = await rows(db!, 'issues', 'id = ?', [issueId]);
     expect(row).toMatchObject({
-      title: 'Assistant · Alice',
+      // NP-183: untitled until the first message, and no NP-n number.
+      title: '',
+      number: null,
+      identifier: null,
       origin_type: 'pm',
       execution_mode: 'session',
       executor_type: 'agent',
@@ -286,7 +288,8 @@ describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
       'GET',
       '/np/issues',
     );
-    expect(aliceList.body.data.map((item) => item.id)).toContain(issueId);
+    // NP-183: conversations are not tasks; their owner's lists leave them out too.
+    expect(aliceList.body.data.map((item) => item.id)).not.toContain(issueId);
     const bobs = await bob<Data<PmConversationResponse>>(
       'POST',
       '/np/pm/conversation',
@@ -305,7 +308,7 @@ describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
     });
     expect((await triggerRows(db!, String(run!.id)))[0]?.type).toBe('comment');
 
-    // A new project manager takes the conversation over.
+    // NP-183: a new system project manager takes new conversations; this one stays with its agent.
     const second = await createKindAgent(
       services,
       CAROL,
@@ -314,18 +317,15 @@ describe.skipIf(!db)('project manager conversation (PostgreSQL)', () => {
       'manager',
     );
     await setPm(second);
-    const followed = await alice<Data<PmConversationResponse>>(
+    const kept = await alice<Data<PmConversationResponse>>(
       'POST',
       '/np/pm/conversation',
     );
-    expect(followed.body.data).toEqual({
+    expect(kept.body.data).toEqual({
       issueId,
-      identifier: row!.identifier,
-      agentId: second,
+      identifier: '',
+      agentId: manager,
     });
-    expect(
-      (await parsedActivities(issueId, 'executor_changed')).at(-1),
-    ).toMatchObject({ reason: 'pmAgentChanged', to: { id: second } });
   });
 });
 
@@ -401,9 +401,7 @@ describe.skipIf(!db)("the manager's reads (PostgreSQL)", () => {
       'GET',
       '/pm/issues?ownerUserId=me',
     );
-    expect(own.body.data.map((item) => item.id).sort()).toEqual(
-      [mine.id, issueId].sort(),
-    );
+    expect(own.body.data.map((item) => item.id)).toEqual([mine.id]);
     expect(
       (await pm<{ data: unknown[] }>('GET', '/pm/issues?updatedSince=7d')).body
         .data.length,

@@ -11,6 +11,7 @@ import type {
   InboxItem,
   Issue,
   IssueListItemV1,
+  IssuePhase4Input,
   Label,
   MeResponse,
   ProjectListItem,
@@ -81,7 +82,7 @@ export class UserApi {
     return page(await this.http.raw<Envelope<Comment[]> | CommentPage>('GET', `/np/issues/${enc(id)}/comments`, { query: { cursor, limit: 100 } }));
   }
   /** 201 `{ data: issue }` — the issue row, without the list's names (`ownerName`, `projectName`, …). */
-  createIssue(body: CreateIssueRequestV1): Promise<Issue> {
+  createIssue(body: CreateIssueRequestV1 & IssuePhase4Input): Promise<Issue> {
     return this.http.data('POST', '/np/issues', { body });
   }
   addComment(id: string, content: string, parentId?: string): Promise<unknown> {

@@ -8,6 +8,14 @@ import type {
   PmRosterAgent,
 } from "../protocol.phase2-pm-assistant.js";
 import {
+  PM_OPERATION_TYPES,
+  PM_PLAN_REF_PATTERN,
+  PM_PLAN_TITLE_MAX,
+  PM_PLAN_SUMMARY_MAX,
+  PM_PLAN_MAX_OPS,
+  PM_TITLE_MAX,
+} from "../protocol.phase2-pm-assistant.js";
+import {
   action,
   type JsonOpt,
   runTokenContext,
@@ -16,30 +24,19 @@ import {
 import { issueRef, readJsonObject } from "./input.js";
 import { CliError, EXIT, printJson, printLine } from "./output.js";
 
-const OP_TYPES = [
-  "issue.create",
-  "issue.update",
-  "issue.status",
-  "dependency.add",
-  "dependency.remove",
-  "comment.create",
-  "decision.resolve",
-  "project.create",
-  "knowledge.propose",
-] as const;
-const refSchema = z.string().regex(/^[a-z][a-z0-9_]{0,15}$/);
+const refSchema = z.string().regex(PM_PLAN_REF_PATTERN);
 const operationSchema = z
   .object({
-    type: z.enum(OP_TYPES),
+    type: z.enum(PM_OPERATION_TYPES),
     params: z.record(z.string(), z.unknown()),
     ref: refSchema.optional(),
   })
   .strict();
 const planSchema = z
   .object({
-    title: z.string().trim().min(1).max(200),
-    summary: z.string().max(2000).optional(),
-    ops: z.array(operationSchema).min(1).max(50),
+    title: z.string().trim().min(1).max(PM_PLAN_TITLE_MAX),
+    summary: z.string().max(PM_PLAN_SUMMARY_MAX).optional(),
+    ops: z.array(operationSchema).min(1).max(PM_PLAN_MAX_OPS),
   })
   .strict();
 const statusSchema = z.enum([
@@ -166,18 +163,22 @@ export function registerPmAssistantCommands(pm: Command): void {
         const issueId = IDENTIFIER.test(normalized)
           ? (await api.pmIssue(normalized)).issue.id
           : normalized;
+        const data = await api.http.data<unknown[]>(
+          "GET",
+          "/np/agent/pm/" + (command === "prs" ? "pull-requests" : "runs"),
+          {
+            query: {
+              issueId,
+              ...(opts.limit === undefined ? {} : { limit: opts.limit }),
+            },
+          },
+        );
+        // Some servers return the complete run list; still honor the CLI's display limit.
         out(
           opts,
-          await api.http.data(
-            "GET",
-            "/np/agent/pm/" + (command === "prs" ? "pull-requests" : "runs"),
-            {
-              query: {
-                issueId,
-                ...(opts.limit === undefined ? {} : { limit: opts.limit }),
-              },
-            },
-          ),
+          command === "runs" && opts.limit !== undefined
+            ? data.slice(0, opts.limit)
+            : data,
         );
       }),
     );
@@ -192,7 +193,7 @@ export function registerPmAssistantCommands(pm: Command): void {
       action(async (id: string, opts: JsonOpt & { limit?: number }) => {
         out(
           opts,
-          await runTokenContext().api.http.data(
+          await runTokenContext().api.http.raw(
             "GET",
             "/np/agent/pm/runs/" + segment(id) + "/events",
             { query: { limit: opts.limit } },
@@ -319,7 +320,7 @@ export function registerPmAssistantCommands(pm: Command): void {
           .trim()
           .min(1)
           .refine(
-            (s) => Array.from(s).length <= 40,
+            (s) => Array.from(s).length <= PM_TITLE_MAX,
             "title must be at most 40 characters",
           )
           .parse(title);
