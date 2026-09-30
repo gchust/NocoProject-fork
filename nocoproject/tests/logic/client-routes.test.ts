@@ -96,6 +96,8 @@ describe('app client routes', () => {
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       { name: 'profile', authorizedAs: null },
+      // The project manager routes only open the drawer (NP-197), so they have no menu entry either.
+      { name: 'np-pm', authorizedAs: 'np-pm' },
       { name: 'np-pm-conversation', authorizedAs: 'np-pm' },
       // Iteration 2's standalone pages are redirects now (no menu entry, so they sort before the ordered menu); the
       // page they forward to checks its own grant.
@@ -106,7 +108,6 @@ describe('app client routes', () => {
       { name: 'np-my-issues', authorizedAs: 'np-my-issues' },
       { name: 'np-my-issues-owned', authorizedAs: 'np-my-issues' },
       { name: 'np-my-issues-executing', authorizedAs: 'np-my-issues' },
-      { name: 'np-pm', authorizedAs: 'np-pm' },
       { name: 'np-issues', authorizedAs: 'np-issues' },
       { name: 'np-issue-new', authorizedAs: 'np-issues' },
       { name: 'np-issue-intake', authorizedAs: 'np-issues' },
@@ -166,12 +167,11 @@ describe('app client routes', () => {
   });
 
   it('groups the NocoProject menu as the product plan §3.1 lays it out', () => {
-    // Iteration 3 §G: Inbox and My issues on top — with Project manager under them since iteration 4 §C — the Work and
-    // Agent team groups, then Reports and Settings, in that order.
+    // Iteration 3 §G: Inbox and My issues on top, the Work and Agent team groups, then Reports and Settings, in that
+    // order. The project manager is the shell's drawer, not a menu entry (NP-197).
     expect(menuTree(resolveRoutes().routes)).toEqual([
       'navigation.inbox',
       'navigation.myIssues',
-      'navigation.pm',
       {
         group: 'navigation.work',
         items: ['navigation.issues', 'navigation.projects'],
@@ -230,12 +230,16 @@ describe('app client routes', () => {
     }
   });
 
-  it('adds the project manager page under my issues', () => {
-    const route = flatten(resolveRoutes().routes).find(
-      (candidate) => candidate.name === 'np-pm',
-    );
-    expect(route?.path).toBe('/pm');
-    expect(route?.navigation?.title).toBe('navigation.pm');
+  it('keeps the project manager routes for links, out of the sidebar', () => {
+    const flat = flatten(resolveRoutes().routes);
+    for (const [name, path] of [
+      ['np-pm', '/pm'],
+      ['np-pm-conversation', '/pm/:conversationId'],
+    ]) {
+      const route = flat.find((candidate) => candidate.name === name);
+      expect(route?.path).toBe(path);
+      expect(route?.navigation).toBeUndefined();
+    }
   });
 });
 

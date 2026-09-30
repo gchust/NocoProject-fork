@@ -100,7 +100,6 @@ const npPmEnUS = {
     },
     history: {
       title: 'Conversation history',
-      description: 'Your conversations with the project manager.',
       search: 'Search conversations',
       filter: 'Show',
       active: 'Active',

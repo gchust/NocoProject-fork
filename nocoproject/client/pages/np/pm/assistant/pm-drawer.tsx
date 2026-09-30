@@ -18,11 +18,12 @@ import {
   PM_DRAWER_ID,
   usePmAssistant,
 } from './pm-assistant.js';
+import { PM_DOCK_QUERY } from './pm-assistant-state.js';
 import { PmDrawerHeader } from './pm-drawer-header.js';
 
 // Docking beside the content needs room for the issue page's two columns next to it: at 1360px (the screenshot
 // width) a docked drawer pushed the issue header's actions off the main column, so it docks from 1536px only.
-const WIDE_QUERY = '(min-width: 1536px)';
+const WIDE_QUERY = PM_DOCK_QUERY;
 
 function subscribeWide(onChange: () => void): () => void {
   if (typeof window === 'undefined' || !window.matchMedia) return () => {};

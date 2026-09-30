@@ -89,7 +89,6 @@ const npPmZhCN: NpPmResource = {
     },
     history: {
       title: '对话历史',
-      description: '你和项目经理的所有对话。',
       search: '搜索对话',
       filter: '显示',
       active: '进行中',

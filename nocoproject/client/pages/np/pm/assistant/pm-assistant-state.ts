@@ -3,7 +3,8 @@ import type { PmAgentChoice, PmConversationDetail } from '../../types-pm.js';
 /**
  * The project manager drawer's state as pure data (NP-185): whether it is open, docked or expanded, showing the
  * conversation or the history, and which conversation. It lives in `sessionStorage`, so a reload in the same tab
- * reopens the drawer where it was; every access is in try/catch (private windows, full storage).
+ * reopens the drawer where it was; every access is in try/catch (private windows, full storage). The first load of
+ * a browser session finds nothing stored and opens the drawer where it docks (NP-197, `firstVisitDrawerState`).
  */
 
 export type PmDrawerMode = 'docked' | 'expanded';
@@ -26,12 +27,22 @@ export const INITIAL_DRAWER_STATE: PmDrawerState = {
   conversationId: null,
 };
 
+/** Docking beside the content needs this width; below it the drawer covers the page (`pm-drawer.tsx`). */
+export const PM_DOCK_QUERY = '(min-width: 1536px)';
+
 export function readDrawerState(storage?: Storage | null): PmDrawerState {
+  return readStoredDrawerState(storage) ?? INITIAL_DRAWER_STATE;
+}
+
+/** The stored state, or null when this browser session has none yet (its first load). */
+export function readStoredDrawerState(
+  storage?: Storage | null,
+): PmDrawerState | null {
   try {
     const raw = (storage ?? window.sessionStorage).getItem(
       PM_DRAWER_STORAGE_KEY,
     );
-    if (!raw) return INITIAL_DRAWER_STATE;
+    if (!raw) return null;
     const value = JSON.parse(raw) as Partial<PmDrawerState> | null;
     if (!value || typeof value !== 'object') return INITIAL_DRAWER_STATE;
     return {
@@ -46,6 +57,27 @@ export function readDrawerState(storage?: Storage | null): PmDrawerState {
   } catch {
     return INITIAL_DRAWER_STATE;
   }
+}
+
+/**
+ * The first load of a browser session (NP-197) opens the drawer where it docks beside the content; on narrower
+ * screens it would cover the page, so it stays closed there. Once the member closes it, the stored state keeps it
+ * closed on reloads until a new session. Returns the state and whether it was opened on its own.
+ */
+export function firstVisitDrawerState(storage?: Storage | null): {
+  readonly state: PmDrawerState;
+  readonly autoOpened: boolean;
+} {
+  const stored = readStoredDrawerState(storage);
+  if (stored) return { state: stored, autoOpened: false };
+  const docks =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(PM_DOCK_QUERY).matches;
+  return {
+    state: { ...INITIAL_DRAWER_STATE, open: docks },
+    autoOpened: docks,
+  };
 }
 
 export function writeDrawerState(
@@ -82,11 +114,6 @@ export function drawerStateFromSearch(
     view: 'chat',
     conversationId: value === 'new' ? null : value,
   };
-}
-
-/** The pages that are the project manager itself: the history (`/pm`) and a full-width conversation (`/pm/:id`). */
-export function isPmPage(pathname: string): boolean {
-  return /^\/pm(\/|$)/u.test(pathname);
 }
 
 /** The search string without the drawer's own parameters, once they have been applied. */

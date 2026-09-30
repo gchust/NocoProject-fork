@@ -1,7 +1,6 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { BotMessageSquareIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useLocation } from 'react-router';
 
 import { modifierKeyLabel } from '@/components/np-shortcut-keys';
 import { Button } from '@/components/ui/button';
@@ -14,17 +13,29 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { PmContextObject } from '../context/pm-context-model.js';
+import { usePmConversationDetail } from '../conversation/use-pm-conversation.js';
 import { PM_DRAWER_ID, usePmAssistant } from './pm-assistant.js';
-import { isPmPage } from './pm-assistant-state.js';
 
+// `np-pm-launcher` (styles.css) is the breathing gradient; it stops while the drawer is open (`aria-expanded`).
 const HEADER_BUTTON_CLASS =
-  'inline-flex size-10 items-center justify-center rounded-xl border border-border/70 bg-background/60 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted';
+  'np-pm-launcher inline-flex size-10 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/** Whether the drawer's conversation has a reply in progress: the launchers glow brighter then (NP-197). */
+function usePmReplying(): boolean {
+  const { conversationId } = usePmAssistant();
+  return usePmConversationDetail(conversationId).data?.running === true;
+}
 
 /** The top bar's project manager button (NP-185): toggles the drawer; the tooltip names ⌘J / Ctrl+J. */
 export function PmHeaderButton(): ReactElement | null {
+  const assistant = usePmAssistant();
+  return assistant.available ? <PmHeaderButtonShown /> : null;
+}
+
+function PmHeaderButtonShown(): ReactElement {
   const { t } = useTranslation();
   const assistant = usePmAssistant();
-  if (!assistant.available) return null;
+  const replying = usePmReplying();
   const label = t('np.pmAssistant.title');
   return (
     <Tooltip>
@@ -38,6 +49,7 @@ export function PmHeaderButton(): ReactElement | null {
             aria-controls={PM_DRAWER_ID}
             aria-keyshortcuts='Meta+J Control+J'
             onClick={assistant.toggleAssistant}
+            data-attention={replying ? '' : undefined}
             data-testid='np-pm-header-button'
           />
         }
@@ -52,22 +64,27 @@ export function PmHeaderButton(): ReactElement | null {
   );
 }
 
-/** Below `md` the drawer opens from a floating button; hidden while it is open and on the conversation pages. */
+/** Below `md` the drawer opens from a floating button, breathing like the top bar's; hidden while it is open. */
 export function PmFloatingButton(): ReactElement | null {
+  const assistant = usePmAssistant();
+  return assistant.available && !assistant.open ? (
+    <PmFloatingButtonShown />
+  ) : null;
+}
+
+function PmFloatingButtonShown(): ReactElement {
   const { t } = useTranslation();
   const assistant = usePmAssistant();
-  const { pathname } = useLocation();
-  if (!assistant.available || assistant.open || isPmPage(pathname)) {
-    return null;
-  }
+  const replying = usePmReplying();
   return (
     <Button
       size='icon'
-      className='fixed right-4 bottom-4 z-40 size-12 rounded-full shadow-lg md:hidden'
+      className='np-pm-launcher fixed right-4 bottom-4 z-40 size-12 rounded-full shadow-lg md:hidden'
       aria-label={t('np.pmAssistant.title')}
       aria-controls={PM_DRAWER_ID}
       aria-expanded={false}
       onClick={() => assistant.openAssistant()}
+      data-attention={replying ? '' : undefined}
       data-testid='np-pm-fab'
     >
       <BotMessageSquareIcon className='size-5' />

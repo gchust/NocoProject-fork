@@ -26,9 +26,10 @@ const ADMIN = { username: 'nocobase', password: 'admin123' };
 const DEFAULT_PAGES =
   'inbox=/inbox,issues-board=/issues?view=board,issues-list=/issues?view=list,issue-detail=/issues/{issue},' +
   'project-detail=/projects/{project},my-issues=/my-issues,knowledge=/knowledge,reports=/reports,' +
-  'agents=/agents,runtimes=/runtimes,pm=/pm,config-general=/config/general,' +
-  // NP-185: the project manager drawer, docked beside an issue and expanded (`?pm=` opens it).
-  'pm-drawer=/issues/{issue}?pm=new,pm-drawer-expanded=/issues/{issue}?pm=new&pmMode=expanded';
+  'agents=/agents,runtimes=/runtimes,config-general=/config/general,' +
+  // NP-185: the project manager drawer beside an issue, expanded, and its history (NP-197: no `/pm` page any more).
+  'pm-drawer=/issues/{issue}?pm=new,pm-drawer-expanded=/issues/{issue}?pm=new&pmMode=expanded,' +
+  'pm-history=/issues/{issue}?pm=history';
 const pages = (process.env.NP_SCREENSHOT_PAGES ?? DEFAULT_PAGES)
   .split(',')
   .map((entry) => entry.trim())

@@ -39,7 +39,7 @@ export const PM_TITLE_MAX = 40;
 
 /**
  * The member's project manager conversations (`protocol-pm-assistant.md` §5.4, NP-185), newest message first: in
- * the drawer's history view and on `/pm`. Search covers titles and messages; "Archived" lists the archived ones.
+ * the drawer's history view (`/pm` opens it there). Search covers titles and messages; "Archived" lists the archived ones.
  * Each row opens its conversation; its menu renames it in place or archives it (undo in the toast).
  */
 export function PmHistoryList({

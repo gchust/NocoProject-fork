@@ -2,7 +2,6 @@ import {
   BarChart3,
   BookOpenText,
   Bot,
-  BotMessageSquare,
   Briefcase,
   CircleUserRound,
   FolderKanban,
@@ -104,21 +103,21 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     ],
   },
   {
-    // Project manager 2.0 (NP-185): the conversation history; one conversation opens full width at
-    // `/pm/:conversationId` (`/pm/new` for a new one). The drawer in the shell shows the same conversations.
+    // Project manager 2.0: the conversations live in the shell's drawer (NP-185), which also holds their history.
+    // `/pm` (history) and `/pm/:conversationId` (`/pm/new` for a new one) stay for links and open the drawer; they
+    // are not in the sidebar (NP-197). `np-pm` is also the grant that offers the drawer at all.
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-pm' }, action: 'access' },
     breadcrumb: { title: 'navigation.pm' },
-    componentLoader: () => import('./pages/np/pm/index.js'),
+    componentLoader: () => import('./pages/np/pm/pm-route.js'),
     name: 'np-pm',
-    navigation: { title: 'navigation.pm', icon: BotMessageSquare, order: 3 },
     path: '/pm',
   },
   {
     auth: 'required',
     authz: { resource: { type: 'page', id: 'np-pm' }, action: 'access' },
     breadcrumb: { title: 'np.pmAssistant.conversationCrumb' },
-    componentLoader: () => import('./pages/np/pm/conversation-page.js'),
+    componentLoader: () => import('./pages/np/pm/pm-route.js'),
     name: 'np-pm-conversation',
     path: '/pm/:conversationId',
   },

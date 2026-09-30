@@ -20,6 +20,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 import { PmAgentBadge } from '../conversation/pm-agent-status.js';
 import {
@@ -34,8 +39,8 @@ import { switchTarget } from './pm-assistant-state.js';
 
 /**
  * The drawer's header (NP-185): the conversation's title (click to rename; Enter saves, Escape cancels) and its
- * agent, then new conversation, history, expand or restore, close, and a menu with "switch and start a new
- * conversation" and "archive".
+ * agent, then new conversation, history (the only way to the history since NP-197 took it out of the sidebar),
+ * expand or restore, close, and a menu with "switch and start a new conversation" and "archive".
  */
 export function PmDrawerHeader({
   compact,
@@ -124,16 +129,25 @@ export function PmDrawerHeader({
         >
           <SquarePenIcon />
         </Button>
-        <Button
-          variant='ghost'
-          size='icon-sm'
-          aria-label={t('np.pmAssistant.history.title')}
-          title={t('np.pmAssistant.history.title')}
-          aria-pressed={history}
-          onClick={() => assistant.setView(history ? 'chat' : 'history')}
-        >
-          <HistoryIcon />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                aria-label={t('np.pmAssistant.history.title')}
+                aria-pressed={history}
+                onClick={() => assistant.setView(history ? 'chat' : 'history')}
+                data-testid='np-pm-history-button'
+              />
+            }
+          >
+            <HistoryIcon />
+          </TooltipTrigger>
+          <TooltipContent side='bottom'>
+            {t('np.pmAssistant.history.title')}
+          </TooltipContent>
+        </Tooltip>
         {compact ? null : (
           <Button
             variant='ghost'

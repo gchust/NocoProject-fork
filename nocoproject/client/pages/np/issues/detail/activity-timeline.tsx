@@ -19,6 +19,7 @@ import type {
   RunSummary,
   StatusCatalogEntry,
 } from '../../types.js';
+import { usePmAssistant } from '../../pm/assistant/pm-assistant.js';
 import { NpProcessBadge } from '../process-fields.js';
 import { ThreadCard, type ThreadContext } from './comment-thread.js';
 import {
@@ -133,12 +134,19 @@ function PmViaMarker({
   const { t } = useTranslation();
   const api = useApiClient();
   const me = useQuery({ queryKey: npKeys.me, queryFn: () => fetchMe(api) });
+  const assistant = usePmAssistant();
   const text = t(`np.activity.via.${via}`);
   return actorId !== null && me.data?.userId === actorId ? (
+    // The link keeps working in a new tab; a plain click opens the conversation in the drawer (NP-197).
     <Link
       to={`/pm/${encodeURIComponent(conversationId)}`}
       className='text-xs hover:text-foreground hover:underline'
       data-np-via={via}
+      onClick={(event) => {
+        if (!assistant.available || event.metaKey || event.ctrlKey) return;
+        event.preventDefault();
+        assistant.openAssistant({ conversationId, view: 'chat' });
+      }}
     >
       {text}
     </Link>

@@ -164,3 +164,79 @@
     box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 45%, transparent);
   }
 }
+
+/* The project manager launcher (NP-197): the top bar button and the mobile floating button breathe in the brand
+   gradient (primary into the agent hue) so the entry is easy to find. Only transform and opacity animate (the glow
+   is a blurred layer whose filter never changes), so nothing reflows and the compositor does the work. A reply in
+   progress brightens the glow; an open drawer stops the motion and dims it; reduced motion keeps the static colors. */
+@keyframes np-pm-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes np-pm-glow {
+  0%,
+  100% {
+    opacity: var(--np-pm-glow-low);
+  }
+  50% {
+    opacity: var(--np-pm-glow-high);
+  }
+}
+
+@layer components {
+  .np-pm-launcher {
+    --np-pm-glow-low: 0.25;
+    --np-pm-glow-high: 0.7;
+    position: relative;
+    isolation: isolate;
+    color: var(--primary-foreground);
+    background-image: linear-gradient(
+      135deg,
+      var(--primary),
+      color-mix(in oklch, var(--primary) 35%, var(--agent))
+    );
+    animation: np-pm-breathe 3.6s ease-in-out infinite;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      z-index: -1;
+      border-radius: inherit;
+      background-image: linear-gradient(135deg, var(--primary), var(--agent));
+      filter: blur(6px);
+      opacity: var(--np-pm-glow-low);
+      animation: np-pm-glow 3.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    &[data-attention] {
+      --np-pm-glow-low: 0.45;
+      --np-pm-glow-high: 1;
+    }
+
+    &[aria-expanded='true'] {
+      animation: none;
+
+      &::before {
+        animation: none;
+        opacity: 0.15;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+
+      &::before {
+        animation: none;
+        opacity: 0.4;
+      }
+    }
+  }
+}

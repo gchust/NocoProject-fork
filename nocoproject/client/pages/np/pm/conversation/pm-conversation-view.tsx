@@ -25,7 +25,7 @@ import {
 } from './use-pm-conversation.js';
 
 /**
- * One project manager conversation — the drawer's body and the full-width `/pm/:conversationId` page (NP-185): the
+ * One project manager conversation — the drawer's body (NP-185; `/pm/:conversationId` opens it there, NP-197): the
  * messages as a log, the turn in progress, notices about who answers, and the composer. With no conversation
  * (`conversationId = null`) it is a new one: an empty log and a composer whose first message creates it.
  */

@@ -10,9 +10,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useApiClient } from '@nocobase/app-client';
 import { useLocation, useNavigate } from 'react-router';
 
 import { isAssistantShortcut } from '@/components/np-shortcut-keys';
+
+import { fetchPmConversations } from '../../api-pm.js';
 
 import {
   clampSelection,
@@ -26,11 +29,10 @@ import {
 } from '../context/pm-context-model.js';
 import {
   drawerStateFromSearch,
-  isPmPage,
+  firstVisitDrawerState,
   type PmDrawerMode,
   type PmDrawerState,
   type PmDrawerView,
-  readDrawerState,
   withoutDrawerParams,
   writeDrawerState,
 } from './pm-assistant-state.js';
@@ -147,7 +149,10 @@ export function PmAssistantProvider({
 }): ReactElement {
   const location = useLocation();
   const navigate = useNavigate();
-  const [state, setState] = useState<PmDrawerState>(() => readDrawerState());
+  const [firstVisit] = useState(() => firstVisitDrawerState());
+  const [state, setState] = useState<PmDrawerState>(firstVisit.state);
+  // The first visit's lookup below, until the member (or a link) picks a conversation first.
+  const [autoPick, setAutoPick] = useState(firstVisit.autoOpened);
   const [pinned, setPinned] = useState<readonly PmContextObject[]>([]);
   const [draft, setDraft] = useState<PmDraft | null>(null);
   const composerFocusRef = useRef<(() => void) | null>(null);
@@ -156,6 +161,16 @@ export function PmAssistantProvider({
   const draftNonceRef = useRef(0);
 
   useEffect(() => writeDrawerState(state), [state]);
+
+  const pickLatest = useCallback((latest: string | null) => {
+    setAutoPick(false);
+    if (!latest) return;
+    setState((current) =>
+      current.conversationId === null && current.view === 'chat'
+        ? { ...current, conversationId: latest }
+        : current,
+    );
+  }, []);
 
   const focusComposer = useCallback(() => {
     if (composerFocusRef.current) composerFocusRef.current();
@@ -178,6 +193,7 @@ export function PmAssistantProvider({
       if (!focusIsInDrawer() && document.activeElement instanceof HTMLElement) {
         returnFocusRef.current = document.activeElement;
       }
+      if (options.conversationId !== undefined) setAutoPick(false);
       setState((current) => ({
         ...current,
         open: true,
@@ -244,17 +260,6 @@ export function PmAssistantProvider({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [available]);
 
-  // Arriving on the history or a full-width conversation (`/pm`, `/pm/:id`) collapses the drawer: left open (or
-  // expanded) it would cover that page with another conversation. Opening it again there is still possible.
-  const [seenPmPage, setSeenPmPage] = useState(false);
-  const onPmPage = isPmPage(location.pathname);
-  if (onPmPage !== seenPmPage) {
-    setSeenPmPage(onPmPage);
-    if (onPmPage && (state.open || state.mode !== 'docked')) {
-      setState({ ...state, open: false, mode: 'docked' });
-    }
-  }
-
   // `?pm=` opens the drawer (links, the screenshot run), then leaves the URL. The state follows the URL while
   // rendering (React's "adjusting state when a prop changes"); the effect only rewrites the URL.
   const [seenSearch, setSeenSearch] = useState<string | null>(null);
@@ -264,7 +269,10 @@ export function PmAssistantProvider({
       new URLSearchParams(location.search),
       state,
     );
-    if (next) setState(next);
+    if (next) {
+      setState(next);
+      setAutoPick(false);
+    }
   }
   const { pathname, search, hash } = location;
   useEffect(() => {
@@ -287,8 +295,10 @@ export function PmAssistantProvider({
       toggleAssistant,
       setMode: (mode) => setState((current) => ({ ...current, mode })),
       setView: (view) => setState((current) => ({ ...current, view })),
-      selectConversation: (conversationId) =>
-        setState((current) => ({ ...current, view: 'chat', conversationId })),
+      selectConversation: (conversationId) => {
+        setAutoPick(false);
+        setState((current) => ({ ...current, view: 'chat', conversationId }));
+      },
       pinned,
       clearPinned: () => setPinned([]),
       draft,
@@ -310,6 +320,9 @@ export function PmAssistantProvider({
 
   return (
     <PmAssistantContext.Provider value={value}>
+      {autoPick && available ? (
+        <PmLatestConversation onPick={pickLatest} />
+      ) : null}
       <PmSourcesProvider
         pathname={location.pathname}
         onUnpin={(key) =>
@@ -322,6 +335,29 @@ export function PmAssistantProvider({
       </PmSourcesProvider>
     </PmAssistantContext.Provider>
   );
+}
+
+/**
+ * Opened on its own on the first visit (NP-197), the drawer shows the latest conversation that is not archived, or
+ * a new one when there is none. The composer is not focused, so the member's first action on the page is not
+ * interrupted. Unmounted (and the request dropped) once the member or a link picks a conversation first.
+ */
+function PmLatestConversation({
+  onPick,
+}: {
+  readonly onPick: (conversationId: string | null) => void;
+}): null {
+  const api = useApiClient();
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchPmConversations(api, { archived: false }, null, controller.signal)
+      .then((page) => onPick(page.data[0]?.id ?? null))
+      .catch(() => {
+        if (!controller.signal.aborted) onPick(null);
+      });
+    return () => controller.abort();
+  }, [api, onPick]);
+  return null;
 }
 
 let sourceSeed = 0;

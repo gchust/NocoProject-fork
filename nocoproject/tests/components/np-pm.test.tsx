@@ -1,7 +1,11 @@
 import { ApiClientError } from '@nocobase/app-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, Route } from 'react-router';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import type { ReactNode } from 'react';
+import { Outlet, Route, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,8 +13,8 @@ import {
   usePmContextSource,
 } from '../../client/pages/np/pm/assistant/pm-assistant.js';
 import { PmDrawer } from '../../client/pages/np/pm/assistant/pm-drawer.js';
-import PmConversationPage from '../../client/pages/np/pm/conversation-page.js';
-import PmHistoryPage from '../../client/pages/np/pm/index.js';
+import { PmHeaderButton } from '../../client/pages/np/pm/assistant/pm-launchers.js';
+import PmRoute from '../../client/pages/np/pm/pm-route.js';
 import type { PmPlan } from '../../client/pages/np/types-pm.js';
 import { type RequestOptions, renderNpRoutes } from './np-harness.js';
 
@@ -217,27 +221,42 @@ function IssuePage(): null {
   return null;
 }
 
-async function renderConversation(url = '/pm/c1') {
-  return renderNpRoutes(
-    <Route
-      element={
-        <PmAssistantProvider available>
-          <IssuePage />
-          <PmConversationPage />
-        </PmAssistantProvider>
-      }
-      path='/pm/:conversationId'
-    />,
-    { url },
+/** The shell as far as the project manager goes: a page, the top bar's button, the drawer and the `/pm` routes. */
+function Shell() {
+  return (
+    <PmAssistantProvider available>
+      <Outlet />
+      <PmHeaderButton />
+      <PmDrawer />
+    </PmAssistantProvider>
   );
 }
 
-beforeEach(() => {
+function shellRoutes(page: ReactNode = <IssuePage />) {
+  return (
+    <Route element={<Shell />}>
+      <Route path='/pm' element={<PmRoute />} />
+      <Route path='/pm/:conversationId' element={<PmRoute />} />
+      <Route path='*' element={page} />
+    </Route>
+  );
+}
+
+async function renderConversation(url = '/issues/i9?pm=c1') {
+  return renderNpRoutes(shellRoutes(), { url });
+}
+
+/** `matchMedia` answering `matches` for every query: true stands for a screen where the drawer docks. */
+function stubMatchMedia(matches: boolean): void {
   vi.stubGlobal('matchMedia', () => ({
-    matches: false,
+    matches,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }));
+}
+
+beforeEach(() => {
+  stubMatchMedia(false);
   window.sessionStorage.clear();
 });
 
@@ -246,7 +265,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('conversation history (/pm)', () => {
+describe('conversation history (drawer)', () => {
   it('lists conversations, searches them and archives one', async () => {
     api.request.mockImplementation(
       respond({
@@ -257,9 +276,7 @@ describe('conversation history (/pm)', () => {
       }),
     );
     const user = userEvent.setup();
-    await renderNpRoutes(<Route path='/pm' element={<PmHistoryPage />} />, {
-      url: '/pm',
-    });
+    await renderNpRoutes(shellRoutes(), { url: '/issues?pm=history' });
     expect(await screen.findByText('Plan the release')).toBeVisible();
     expect(screen.getByText('1 plans waiting')).toBeVisible();
 
@@ -287,7 +304,7 @@ describe('conversation history (/pm)', () => {
   });
 });
 
-describe('a conversation (/pm/:id)', () => {
+describe('a conversation', () => {
   function routes(extra: Record<string, unknown | Handler> = {}) {
     return respond({
       'GET np/pm/conversations/c1': { data: conversation() },
@@ -344,7 +361,7 @@ describe('a conversation (/pm/:id)', () => {
     expect(calls('POST', 'np/issues/c1/comments')[0].json).toEqual({
       content: 'Close NP-9',
       context: {
-        route: '/pm/c1',
+        route: '/issues/i9',
         items: [{ type: 'issue', id: 'i9' }],
       },
     });
@@ -359,7 +376,7 @@ describe('a conversation (/pm/:id)', () => {
     );
     expect(calls('POST', 'np/issues/c1/comments')[1].json).toEqual({
       content: 'And the rest',
-      context: { route: '/pm/c1', items: [] },
+      context: { route: '/issues/i9', items: [] },
     });
   });
 
@@ -677,32 +694,163 @@ describe('drawer', () => {
     expect(await within(drawer).findByText('Plan the release')).toBeVisible();
   });
 
-  it('collapses on the history and full-width conversation pages', async () => {
+  it('opens the history from its header button and returns to a conversation', async () => {
+    api.request.mockImplementation(
+      respond({
+        'GET np/pm/conversations': { data: [conversation()], nextCursor: null },
+        'GET np/pm/conversations/c1': { data: conversation() },
+        'GET np/issues/c1': { data: issueDetail({ comments: [] }) },
+      }),
+    );
+    const user = userEvent.setup();
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    const history = within(drawer).getByRole('button', {
+      name: 'Conversation history',
+    });
+    expect(history).toHaveAttribute('aria-pressed', 'false');
+    await user.click(history);
+    expect(within(drawer).getByTestId('np-pm-history')).toBeVisible();
+    expect(history).toHaveAttribute('aria-pressed', 'true');
+    await user.click(await within(drawer).findByText('Plan the release'));
+    expect(within(drawer).queryByTestId('np-pm-history')).toBeNull();
+    expect(
+      await within(drawer).findByRole('button', {
+        name: /Plan the release/,
+      }),
+    ).toBeVisible();
+  });
+
+  it('opens /pm/:id in the drawer and leaves the route', async () => {
     api.request.mockImplementation(
       respond({
         'GET np/pm/conversations/c1': { data: conversation() },
         'GET np/issues/c1': { data: issueDetail({ comments: [] }) },
       }),
     );
-    const user = userEvent.setup();
-    await renderNpRoutes(
-      <Route
-        path='*'
-        element={
-          <PmAssistantProvider available>
-            <Link to='/pm/c2'>Open another conversation</Link>
-            <PmDrawer />
-          </PmAssistantProvider>
-        }
-      />,
-      { url: '/issues?pm=c1&pmMode=expanded' },
-    );
+    function Where() {
+      return <p data-testid='where'>{useLocation().pathname}</p>;
+    }
+    await renderNpRoutes(shellRoutes(<Where />), { url: '/pm/c1' });
     const drawer = await screen.findByTestId('np-pm-drawer');
     expect(drawer).toBeVisible();
-    await user.click(
-      screen.getByRole('link', { name: 'Open another conversation' }),
+    expect(await within(drawer).findByText('Plan the release')).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent('/'),
     );
+  });
+
+  it('opens /pm on the history', async () => {
+    api.request.mockImplementation(
+      respond({
+        'GET np/pm/conversations': { data: [conversation()], nextCursor: null },
+      }),
+    );
+    await renderNpRoutes(shellRoutes(), { url: '/pm' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(within(drawer).getByTestId('np-pm-history')).toBeVisible();
+  });
+});
+
+describe('first visit', () => {
+  const routes = {
+    'GET np/pm/conversations': {
+      data: [conversation(), conversation({ id: 'c0', title: 'Older' })],
+      nextCursor: null,
+    },
+    'GET np/pm/conversations/c1': { data: conversation() },
+    'GET np/issues/c1': { data: issueDetail({ comments: [] }) },
+  };
+
+  it('opens the drawer docked on the latest conversation, without taking the focus', async () => {
+    stubMatchMedia(true);
+    api.request.mockImplementation(respond(routes));
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(drawer).toBeVisible();
+    expect(drawer).toHaveAttribute('data-mode', 'docked');
+    expect(await within(drawer).findByText('Plan the release')).toBeVisible();
+    expect(
+      calls('GET', 'np/pm/conversations')[0]?.query?.archived,
+    ).toBeUndefined();
+    expect(drawer).not.toContainElement(
+      document.activeElement as HTMLElement | null,
+    );
+  });
+
+  it('shows a new conversation when there is none', async () => {
+    stubMatchMedia(true);
+    api.request.mockImplementation(respond({}));
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    expect(within(drawer).getByText('New conversation')).toBeVisible();
+  });
+
+  it('stays closed after the member closed it, until a new session', async () => {
+    stubMatchMedia(true);
+    api.request.mockImplementation(respond(routes));
+    const user = userEvent.setup();
+    const first = await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    const drawer = await screen.findByTestId('np-pm-drawer');
+    await user.click(within(drawer).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(drawer).not.toBeVisible());
-    expect(drawer).not.toHaveAttribute('data-mode', 'expanded');
+    first.unmount();
+
+    // A reload in the same session.
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    expect(screen.queryByTestId('np-pm-drawer')).toBeNull();
+    expect(screen.getByTestId('np-pm-header-button')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('stays closed where the drawer would cover the page', async () => {
+    stubMatchMedia(false);
+    api.request.mockImplementation(respond(routes));
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9' });
+    expect(screen.getByTestId('np-pm-header-button')).toBeVisible();
+    expect(screen.queryByTestId('np-pm-drawer')).toBeNull();
+    expect(calls('GET', 'np/pm/conversations')).toHaveLength(0);
+  });
+});
+
+describe('launcher', () => {
+  it('breathes in the brand gradient, brighter while a reply runs and still once the drawer is open', async () => {
+    api.request.mockImplementation(
+      respond({
+        'GET np/pm/conversations/c1': { data: conversation({ running: true }) },
+        'GET np/issues/c1': { data: issueDetail({ comments: [] }) },
+      }),
+    );
+    await renderNpRoutes(shellRoutes(), { url: '/issues/i9?pm=c1' });
+    const button = screen.getByTestId('np-pm-header-button');
+    expect(button).toHaveClass('np-pm-launcher');
+    await waitFor(() => expect(button).toHaveAttribute('data-attention'));
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('animates only transform and opacity, and not at all under reduced motion', () => {
+    const css = readFileSync(
+      path.join(process.cwd(), 'client/styles.css'),
+      'utf8',
+    );
+    const keyframes = [
+      ...css.matchAll(/@keyframes np-pm-[a-z]+ \{([\s\S]*?)\n\}/gu),
+    ];
+    expect(keyframes).toHaveLength(2);
+    for (const [, body] of keyframes) {
+      const properties = [...body!.matchAll(/([a-z-]+):/gu)].map((m) => m[1]);
+      expect(new Set(properties)).toEqual(
+        new Set(properties.filter((p) => p === 'transform' || p === 'opacity')),
+      );
+    }
+    const launcher = css.slice(css.indexOf('.np-pm-launcher {'));
+    const reduced = launcher.slice(
+      launcher.indexOf('@media (prefers-reduced-motion: reduce)'),
+    );
+    expect(reduced).toMatch(/^@media[^{]+\{\s+animation: none;/u);
+    expect(reduced).toMatch(/&::before \{\s+animation: none;/u);
   });
 });
