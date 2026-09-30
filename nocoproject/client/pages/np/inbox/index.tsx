@@ -26,6 +26,7 @@ import {
   type InboxPage,
   applyInboxAction,
   fetchInbox,
+  fetchInboxPending,
   fetchInboxUnread,
   markAllInboxRead,
 } from '../api-inbox.js';
@@ -93,6 +94,10 @@ export default function InboxPage(): ReactElement {
   const counter = useQuery({
     queryKey: npKeys.inboxUnread,
     queryFn: ({ signal }) => fetchInboxUnread(api, signal),
+  });
+  const pending = useQuery({
+    queryKey: npKeys.inboxPending,
+    queryFn: ({ signal }) => fetchInboxPending(api, signal),
   });
   const unread = inboxUnread(
     counter.data,
@@ -301,6 +306,7 @@ export default function InboxPage(): ReactElement {
               filter={filter}
               archived={archived}
               unread={unread}
+              pending={pending.data?.decision ?? 0}
               decisions={decisionItems}
               notices={noticeItems}
               decisionQuery={decisions}

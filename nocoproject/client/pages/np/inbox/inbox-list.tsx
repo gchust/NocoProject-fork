@@ -30,14 +30,16 @@ type PagedQuery = Pick<
 >;
 
 /**
- * The inbox's left column (nocosolution/guidelines/NocoSolution 前端规范.md §S2): the filter tabs with unread counts, "show archived", and
+ * The inbox's left column (nocosolution/guidelines/NocoSolution 前端规范.md §S2): the filter tabs with their counts, "show archived", and
  * the items as two groups — "Needs my decision" first, then "Notifications" — each a labelled list with its own "load more". The keyboard
- * hint sits at the bottom.
+ * hint sits at the bottom. The decision tab counts pending decisions, read or not — the same number as the navigation
+ * badge (NP-180: it showed the unread count, so a badge of 6 sat beside a tab of 0); the notification tab counts unread.
  */
 export function InboxList({
   filter,
   archived,
   unread,
+  pending,
   decisions,
   notices,
   decisionQuery,
@@ -54,6 +56,8 @@ export function InboxList({
   readonly filter: InboxFilter;
   readonly archived: boolean;
   readonly unread: InboxUnread;
+  /** Pending decisions (`GET /np/inbox/pending-count`), shown on the decision tab. */
+  readonly pending: number;
   readonly decisions: readonly InboxItem[] | undefined;
   readonly notices: readonly InboxItem[] | undefined;
   readonly decisionQuery: PagedQuery;
@@ -93,7 +97,12 @@ export function InboxList({
         >
           <TabsList className='w-full'>
             {INBOX_FILTERS.map((value) => {
-              const count = value === 'all' ? 0 : unread[value];
+              const count =
+                value === 'all'
+                  ? 0
+                  : value === 'decision'
+                    ? pending
+                    : unread.info;
               return (
                 <TabsTrigger key={value} value={value}>
                   {value === 'all'
@@ -103,7 +112,11 @@ export function InboxList({
                     <NpTag
                       tone={value === 'decision' ? 'amber' : 'grey'}
                       className='px-1.5 py-0 tabular-nums'
-                      aria-label={t('np.inbox.unreadCount', { count })}
+                      aria-label={
+                        value === 'decision'
+                          ? t('np.inbox.pendingDecisions', { count })
+                          : t('np.inbox.unreadCount', { count })
+                      }
                     >
                       {count}
                     </NpTag>
