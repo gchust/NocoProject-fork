@@ -78,6 +78,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 ## 7. Colour, motion, themes
 
 - Colours are tokens only. Neutrals, primary and charts come from the theme presets; NocoProject's own semantic colours (`--agent`, `--attention`, `--success`, `--np-tint-*` / `--np-ink-*`) live in `client/np-tones.css`. Accent (primary) only for primary actions, focus and live state; amber only for "needs you".
+- Markdown (`NpMarkdown`) draws ` ```mermaid ` blocks as diagrams through `NpMermaid` (NP-167): mermaid is imported only when a diagram mounts, runs with `securityLevel: 'strict'` and no HTML labels, takes its palette from the tokens (converted from `oklch` to hex on a canvas, because mermaid cannot parse `oklch`) and redraws when the mode or preset changes; a diagram that does not parse stays code with one error line. Wide diagrams keep their natural size and scroll inside their frame. The Tiptap editor shows the source; only rendered Markdown draws.
 - Motion explains change and respects reduced motion: realtime inbox arrivals slide in, resolved decisions dim, running work pulses (`NpPulse`, `np-live-ring`), progress rings animate.
 
 ## 8. Keyboard

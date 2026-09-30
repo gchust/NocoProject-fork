@@ -2,6 +2,10 @@ import type { NpCollabResource } from './np-en-US.js';
 
 /** Chinese wording for the NocoProject Phase 1 iteration 1 groups; merged into `np` by `zh-CN.ts`. */
 const npCollabZhCN: NpCollabResource = {
+  markdown: {
+    mermaidError: '图表语法错误：{{message}}',
+    mermaidLabel: '{{type}} 图',
+  },
   start: {
     title: '现在开始？',
     description: '这项修改会把任务交给 Agent。',
