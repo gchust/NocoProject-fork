@@ -33,6 +33,7 @@ import {
   type PerformedObject,
   type PlanRefs,
 } from './pm.operations.js';
+import { validateOpParams } from './pm.op-params.js';
 import { performDecision, type DecisionDeps } from './pm.plan-decisions.js';
 
 export interface PlanEngineDeps extends OperationDeps, DecisionDeps {
@@ -133,6 +134,7 @@ async function perform(
   op: PmOperation,
   refs: PlanRefs,
 ): Promise<PerformedObject> {
+  validateOpParams(op);
   if (op.type === 'decision.resolve' || op.type === 'project.create') {
     const object = await performDecision(deps, tx, actor, op);
     if (op.type === 'project.create' && op.ref)
@@ -145,6 +147,7 @@ async function perform(
 function errorOf(error: unknown): { errorCode: string; errorMessage: string } {
   if (error instanceof NpError)
     return { errorCode: error.code, errorMessage: error.message };
+  console.error('NocoProject plan row failed.', error);
   return { errorCode: 'INTERNAL_ERROR', errorMessage: 'The operation failed.' };
 }
 

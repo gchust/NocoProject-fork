@@ -40,6 +40,7 @@ import {
   conversationOfRun,
   type ConversationRow,
 } from './pm.conversation-records.js';
+import { validateOpParams } from './pm.op-params.js';
 import { performOperation, type OperationDeps } from './pm.operations.js';
 
 export interface PmActService {
@@ -127,6 +128,7 @@ async function staticRules(
 ): Promise<void> {
   if (!PM_OPERATION_TYPES.includes(op?.type))
     throw invalid('UNSUPPORTED_OPERATION', 'Unknown operation type.');
+  validateOpParams(op);
   if (op.type === 'decision.resolve' || op.type === 'project.create')
     planRequired('planOnly');
   if ((await preferencesOf(conn, owner)).pmConfirmAll)

@@ -51,6 +51,11 @@ export type PlanRefs = Map<
 /** An `issue` target as an issue id (resolving plan refs); 400 `INVALID_REF` for an unknown ref. */
 export function targetId(target: PmIssueTarget, refs: PlanRefs): string {
   if (typeof target === 'string') return target;
+  if (!target || typeof target !== 'object')
+    throw invalid(
+      'INVALID_OPERATION',
+      'issue must be an id, an identifier or a ref.',
+    );
   if ('ref' in target) {
     const found = refs.get(target.ref);
     if (!found || found.type !== 'issue')
