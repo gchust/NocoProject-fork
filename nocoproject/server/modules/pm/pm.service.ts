@@ -22,7 +22,15 @@ import type {
   PmIssueDetailV4,
   ProjectListItem,
 } from '../shared/protocol.js';
-import { PM_DETAIL_TAIL } from '../shared/protocol.js';
+import {
+  PM_DETAIL_TAIL,
+  PM_RUN_EVENTS_MAX,
+  type PmRosterAgent,
+  type RunEventsResponse,
+} from '../shared/protocol.js';
+import type { RunEventService } from '../run/run-events.js';
+import type { RunQueries } from '../run/run.queries.js';
+import { roster } from './pm.roster.js';
 import type { UserDirectory } from '../shared/users.js';
 import type { SettingsService } from '../system/settings.service.js';
 import type { IssueQueries } from '../issue/issue.queries.js';
@@ -65,6 +73,18 @@ export interface PmService {
     auth: RunAuth,
     query: { projectId?: string | null; q?: string | null },
   ): Promise<KnowledgeDocSummary[]>;
+  /** NP-183 (§7.1): the executor roster, an issue's runs and pull requests, a run's latest events. */
+  agents(auth: RunAuth): Promise<PmRosterAgent[]>;
+  runs(auth: RunAuth, issueId: string): Promise<PmIssueDetailV4['runs']>;
+  runEvents(
+    auth: RunAuth,
+    runId: string,
+    limit: number | null,
+  ): Promise<RunEventsResponse>;
+  pullRequests(
+    auth: RunAuth,
+    issueId: string,
+  ): Promise<PmIssueDetailV4['pullRequests']>;
 }
 
 export interface PmDeps {
@@ -79,6 +99,8 @@ export interface PmDeps {
   readonly metrics: () => MetricsService;
   readonly knowledge: () => KnowledgeService;
   readonly roles: () => RoleAssignments;
+  readonly runQueries: () => RunQueries;
+  readonly runEvents: () => RunEventService;
 }
 
 const RELATIVE_SINCE = /^(\d{1,5})([dhm])$/u;
@@ -171,5 +193,19 @@ export function createPmService(deps: PmDeps): PmService {
       deps.metrics().report(await asking(auth), query),
     knowledge: async (auth, query) =>
       deps.knowledge().list(await asking(auth), query),
+    async agents(auth) {
+      const actor = await asking(auth);
+      return roster(deps.tx.read(), actor.id ?? '');
+    },
+    runs: async (auth, issueId) =>
+      (await deps.queries().detail(await asking(auth), issueId)).runs,
+    async runEvents(auth, runId, limit) {
+      await deps.runQueries().assertVisible(await asking(auth), runId);
+      const events = await deps.runEvents().list(runId, null);
+      const tail = Math.min(Math.max(limit ?? PM_RUN_EVENTS_MAX, 1), PM_RUN_EVENTS_MAX);
+      return { ...events, data: events.data.slice(-tail) };
+    },
+    pullRequests: async (auth, issueId) =>
+      (await deps.queries().detail(await asking(auth), issueId)).pullRequests,
   };
 }

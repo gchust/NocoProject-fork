@@ -159,7 +159,7 @@ import {
   type TriggerService,
 } from './trigger/trigger.service.js';
 
-import type { AttachmentTextReader } from './intake/attachment-text.js';
+import type { AttachmentTextReader } from './attachment/attachment-text.js';
 import {
   createAttachmentService,
   type AttachmentService,
@@ -212,6 +212,7 @@ export interface NpServices {
   readonly pm: Iteration4Services['pm'];
   readonly pmConversations: Iteration4Services['pmConversations'];
   readonly pmAgents: Iteration4Services['pmAgents'];
+  readonly pmAct: Iteration4Services['pmAct'];
   readonly pullRequestMerges: Iteration4Services['pullRequestMerges'];
   // Phase 2 (NP-77).
   readonly checklists: ChecklistService;
@@ -434,6 +435,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       activity,
       objects: deps.fileObjects ?? { remove: async () => undefined },
       onObjectError: deps.onFileObjectError,
+      text: deps.attachmentText ?? null,
     }),
     invitations: createInvitationService({
       tx,

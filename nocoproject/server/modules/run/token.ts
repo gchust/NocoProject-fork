@@ -1,5 +1,6 @@
 import { requireCapability } from '../agent/capabilities.js';
 import { routeCapability } from './agent-capability-routes.js';
+import { conversationOfRun } from '../pm/pm.conversation-records.js';
 import { forbidden } from '../shared/errors.js';
 /**
  * Run tokens (protocol.md §0): minted at claim inside the claim transaction, stored as a SHA-256 hash, valid until
@@ -56,6 +57,18 @@ export function createRunTokenService(deps: { tx: TxRunner }): RunTokenService {
         throw forbidden(
           'CAPABILITY_DENIED',
           'This agent endpoint has no capability assignment.',
+        );
+      // NP-183: acting in a member's name is for conversation runs only, whatever the agent holds.
+      if (
+        capability === 'member.act' &&
+        !(await conversationOfRun(deps.tx.read(), {
+          subjectId: auth.issueId,
+          actorUserId: auth.actorUserId,
+        }))
+      )
+        throw forbidden(
+          'NOT_CONVERSATION_RUN',
+          "Only a project manager conversation run may act in the member's name.",
         );
       await requireCapability(deps.tx.read(), auth, capability);
     },

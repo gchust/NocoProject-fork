@@ -46,7 +46,7 @@ import {
 import { validateFileIds } from '../attachment/attachment.service.js';
 import type { AiIntakeParser } from './ai-parser.js';
 import type { ProcessClassifier } from './process-classifier.js';
-import type { AttachmentTextReader } from './attachment-text.js';
+import type { AttachmentTextReader } from '../attachment/attachment-text.js';
 import {
   fileNamedDraft,
   hasReadableText,

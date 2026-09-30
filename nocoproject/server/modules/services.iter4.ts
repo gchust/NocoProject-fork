@@ -34,6 +34,10 @@ import {
   type PmAgentService,
 } from './pm/pm-agent.service.js';
 import type { RoleAssignments } from './member/member.roles.js';
+import {
+  createPmActService,
+  type PmActService,
+} from './pm/pm-act.service.js';
 import type { NpServices } from './services.js';
 
 export interface Iteration4Services {
@@ -42,6 +46,7 @@ export interface Iteration4Services {
   /** NP-183: the member's project manager conversations and their choice of project manager. */
   readonly pmConversations: ConversationService;
   readonly pmAgents: PmAgentService;
+  readonly pmAct: PmActService;
   /** NP-85: merging linked pull requests from NocoProject. */
   readonly pullRequestMerges: PullRequestMergeService;
 }
@@ -83,6 +88,16 @@ export function createIteration4Services(
   });
   return {
     pmAgents,
+    pmAct: createPmActService({
+      tx,
+      ids,
+      workflows,
+      roles: input.roles,
+      issues: () => services.issues,
+      comments: () => services.comments,
+      dependencies: () => services.dependencies,
+      knowledge: () => services.knowledge,
+    }),
     pmConversations: createConversationService(
       {
         tx,
@@ -118,6 +133,8 @@ export function createIteration4Services(
       tx,
       users,
       roles: input.roles,
+      runQueries: () => services.runQueries,
+      runEvents: () => services.runEvents,
       activity,
       settings,
       issues: () => services.issues,

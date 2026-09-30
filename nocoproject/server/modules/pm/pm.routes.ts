@@ -9,12 +9,14 @@ import {
   sessionActor,
 } from '../shared/http.js';
 import type {
+  PmActRequest,
   PmAgentChoiceRequest,
   PmAgentCopyRequest,
   PmConversationCreateRequest,
   PmConversationPatch,
 } from '../shared/protocol.js';
 import type { PmAgentService } from './pm-agent.service.js';
+import type { PmActService } from './pm-act.service.js';
 import type { ConversationService } from './pm.conversations.js';
 import type { RunTokenEnv } from '../run/agent-api.routes.js';
 import type { PmService } from './pm.service.js';
@@ -107,9 +109,69 @@ export function createPmRoutes(
  * - `GET /pm/inbox?kind=decision` → `{ data, unread, nextCursor }` (unresolved items of the asking member)
  * - `GET /pm/metrics?from&to&projectId` → `{ data: MetricsReport }`
  * - `GET /pm/knowledge?projectId&q` → `{ data: KnowledgeDocSummary[] }`
+ * - NP-183: `GET /pm/agents` (roster), `GET /pm/runs?issueId`, `GET /pm/runs/:id/events?limit` (≤ 200),
+ *   `GET /pm/pull-requests?issueId`; `POST /pm/act { op }` and `POST /pm/conversation/title { title }` (`member.act`,
+ *   conversation runs only, 403 `NOT_CONVERSATION_RUN`)
  */
-export function createAgentPmRoutes(pm: PmService): Hono<RunTokenEnv> {
+export function createAgentPmRoutes(
+  pm: PmService,
+  assistant?: {
+    readonly act: PmActService;
+    readonly conversations: ConversationService;
+  },
+): Hono<RunTokenEnv> {
   const routes = npRouter<RunTokenEnv>();
+  // NP-183 (protocol-pm-assistant.md §7.1): the roster, runs, run events and pull requests.
+  routes.get('/pm/agents', async (context) =>
+    context.json({ data: await pm.agents(context.get('runAuth')) }),
+  );
+  routes.get('/pm/runs', async (context) =>
+    context.json({
+      data: await pm.runs(
+        context.get('runAuth'),
+        queryText(context, 'issueId') ?? '',
+      ),
+    }),
+  );
+  routes.get('/pm/runs/:id/events', async (context) =>
+    context.json(
+      await pm.runEvents(
+        context.get('runAuth'),
+        context.req.param('id'),
+        queryInt(context, 'limit'),
+      ),
+    ),
+  );
+  routes.get('/pm/pull-requests', async (context) =>
+    context.json({
+      data: await pm.pullRequests(
+        context.get('runAuth'),
+        queryText(context, 'issueId') ?? '',
+      ),
+    }),
+  );
+  if (assistant) {
+    // NP-183 (§3, §5.5): direct writes in the asker's name, and the agent's conversation title.
+    routes.post('/pm/act', async (context) =>
+      context.json({
+        data: await assistant.act.act(
+          context.get('runAuth'),
+          await readJson<PmActRequest>(context),
+        ),
+      }),
+    );
+    routes.post('/pm/conversation/title', async (context) => {
+      const auth = context.get('runAuth');
+      const conversation = await assistant.act.conversationRun(auth);
+      const body = await readJson<{ title?: unknown }>(context);
+      return context.json({
+        data: await assistant.conversations.agentTitle(
+          conversation.issueId,
+          body?.title,
+        ),
+      });
+    });
+  }
   routes.get('/pm/projects', async (context) =>
     context.json({ data: await pm.projects(context.get('runAuth')) }),
   );

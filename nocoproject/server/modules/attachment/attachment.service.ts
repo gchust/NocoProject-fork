@@ -26,6 +26,7 @@ import type { Conn, Tx, TxRunner } from '../shared/db.js';
 import { now, toDate, unique } from '../shared/db.js';
 import { forbidden, invalid, notFound } from '../shared/errors.js';
 import type { IssueAttachment } from '../shared/protocol.js';
+import type { AttachmentTextReader } from './attachment-text.js';
 import {
   ERROR_INVALID_ATTACHMENT,
   MAX_ATTACHMENTS_PER_REQUEST,
@@ -72,6 +73,11 @@ export interface AttachmentService {
    * else, including a file of another issue or a store that cannot read.
    */
   agentContent(issueId: string, fileId: string): Promise<AttachmentContent>;
+  /**
+   * NP-183: the text of a docx / xlsx / pptx (and other readable) attachment, extracted on demand with the intake
+   * limits; null when it yields none or no reader is configured. 404 like `agentContent`.
+   */
+  agentText(issueId: string, fileId: string): Promise<string | null>;
   /** Deletes uploads never attached to an issue and older than a day; answers how many. */
   purgeOrphans(at: Date): Promise<number>;
 }
@@ -82,6 +88,7 @@ export interface AttachmentDeps {
   readonly activity: ActivityRecorder;
   readonly objects: FileObjectStore;
   readonly onObjectError?: (error: unknown) => void;
+  readonly text?: AttachmentTextReader | null;
 }
 
 /** The `fileIds` / `attachmentIds` of a request: 1–10 distinct non-empty strings. */
@@ -277,6 +284,16 @@ export function createAttachmentService(
       if (!file || file.issueId !== issueId || !deps.objects.open)
         throw notFound('Attachment');
       return { file, body: await deps.objects.open(file.disk, file.key) };
+    },
+
+    async agentText(issueId, fileId) {
+      const file = isFileId(fileId)
+        ? await findFile(deps.tx.read(), fileId)
+        : null;
+      if (!file || file.issueId !== issueId) throw notFound('Attachment');
+      if (!deps.text) return null;
+      const read = await deps.text.read([file]);
+      return read.documents[0]?.text ?? null;
     },
 
     async purgeOrphans(at) {
