@@ -5,6 +5,7 @@
  */
 import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { which } from '../util/process.js';
 import type { ClaimedRun } from '../protocol.js';
 import { AGENT_ENV_NAME_PATTERN, RESERVED_ENV_NAMES, RESERVED_ENV_PREFIX, RUN_ENV_PHASE1 as RUN_ENV } from '../protocol.js';
 import type { ClaimedRunV1 } from '../run-context.js';
@@ -60,7 +61,56 @@ export function ensureCliShim(home: string, cliPath: string): string {
     writeFileSync(path, script, { mode: 0o755 });
     chmodSync(path, 0o755);
   }
+  ensureKeychainGuards(binDir);
   return binDir;
+}
+
+/** Subcommands (and interactive mode) of `security` / `secret-tool` that read secrets. */
+const KEYCHAIN_READS = ['-i', '-p*', 'find-generic-password', 'find-internet-password', 'dump-keychain', 'export', 'lookup', 'search'];
+
+/** The guard script: refuses the reading subcommands inside an agent run, passes everything else to `real`. */
+export function keychainGuardScript(real: string): string {
+  return [
+    '#!/bin/sh',
+    '# Written by the NocoProject daemon (NP-190): agent runs may not read the keychain, where the personal API key is.',
+    'if [ -n "${NOCOPROJECT_TOKEN}${NOCOPROJECT_RUN_ID}" ]; then',
+    '  for arg in "$@"; do',
+    '    case "$arg" in',
+    `      ${KEYCHAIN_READS.join('|')})`,
+    '        echo "nocoproject: agent runs cannot read the keychain; use nocoproject issue ... (the run token) instead" >&2',
+    '        exit 1 ;;',
+    '      -*) ;;',
+    '      *) break ;;',
+    '    esac',
+    '  done',
+    'fi',
+    `exec ${JSON.stringify(real)} "$@"`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Puts `security` and `secret-tool` guards next to the CLI shim (first on the agents' PATH), so an agent that goes
+ * looking for the personal key through the keychain tools is refused (NP-190). This stops the casual path only: the
+ * agent runs as the same OS user and can still call `/usr/bin/security` by its absolute path.
+ */
+export function ensureKeychainGuards(binDir: string): void {
+  const others = (process.env.PATH ?? '').split(delimiter).filter((dir) => dir && dir !== binDir);
+  for (const tool of ['security', 'secret-tool']) {
+    const real = findOutside(tool, others);
+    if (!real) continue;
+    const path = join(binDir, tool);
+    writeFileSync(path, keychainGuardScript(real), { mode: 0o755 });
+    chmodSync(path, 0o755);
+  }
+}
+
+function findOutside(tool: string, dirs: readonly string[]): string | null {
+  for (const dir of dirs) {
+    const found = which(join(dir, tool));
+    if (found) return found;
+  }
+  return null;
 }
 
 /** True for names the agent's env vars may not set: `NOCOPROJECT_*`, `PATH`, `HOME`, `SHELL`. */

@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { HttpError } from '../api/client.js';
+import { loadConfig } from '../config.js';
+import { describeStorage } from '../secrets/index.js';
 import type { IssueDetailView, IssueListQuery, Page } from '../api/user-client.js';
 import type { AgentListItem, Comment, CreateIssueRequestV1, InboxItem, IssueListItemV1, IssuePriority, Label, ProjectListItem } from '../protocol.js';
 import { CliError, EXIT, failAndExit, printJson, printLine } from './output.js';
@@ -19,7 +21,7 @@ const out = <T>(opts: JsonOpt, data: T, text: (d: T) => void): void => (opts.jso
 
 /** Like `action`, but refuses inside an agent run before anything else happens. */
 function userAction<A extends unknown[]>(fn: (ctx: UserContext, ...args: A) => Promise<void>): (...args: A) => Promise<void> {
-  return action(async (...args: A) => fn(userContext(), ...args));
+  return action(async (...args: A) => fn(await userContext(), ...args));
 }
 
 function readText(inline: string | undefined, file: string | undefined, what: string): string | undefined {
@@ -198,12 +200,15 @@ export function registerUserCommands(program: Command): void {
 
   user
     .command('whoami')
-    .description('Who the saved API key belongs to, and the server')
+    .description('Who the saved API key belongs to, the server, and where the key is stored')
     .option('--json', 'JSON output')
     .action(
       userAction(async (ctx, opts: JsonOpt) => {
         const me = await ctx.api.me();
-        out(opts, { userId: me.userId, name: me.name, serverUrl: ctx.serverUrl }, (d) => printLine(`${d.name} (${d.userId}) on ${d.serverUrl}`));
+        const where = describeStorage(ctx.keyStorage, loadConfig().home);
+        out(opts, { userId: me.userId, name: me.name, serverUrl: ctx.serverUrl, keyStorage: ctx.keyStorage }, (d) =>
+          printLine(`${d.name} (${d.userId}) on ${d.serverUrl} — key ${ctx.keyStorage === 'env' ? 'from' : 'in'} ${where}`),
+        );
       }),
     );
 

@@ -84,7 +84,7 @@ function override(route: string, ...responses: [number, unknown][]): void {
 }
 
 function run(args: string[], env: Record<string, string> = {}, userHome = home): Promise<{ code: number | null; out: string; err: string }> {
-  const child = spawn(process.execPath, [CLI, ...args], { env: { PATH: process.env.PATH, HOME: userHome, NOCOPROJECT_HOME: home, ...env } });
+  const child = spawn(process.execPath, [CLI, ...args], { env: { PATH: process.env.PATH, HOME: userHome, NOCOPROJECT_HOME: home, NOCOPROJECT_KEYCHAIN: 'off', ...env } });
   let out = '';
   let err = '';
   child.stdout.on('data', (d: Buffer) => (out += d.toString()));
@@ -123,10 +123,10 @@ describe('requests', () => {
   it('sends the API key and the client name, never a bearer token, and never prints the key', async () => {
     const r = await run(['user', 'whoami', '--json']);
     expect(r.code).toBe(0);
-    expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url });
+    expect(JSON.parse(r.out)).toEqual({ userId: 'u1', name: 'Ada', serverUrl: url, keyStorage: 'file' });
     const req = seen[0] as Seen;
     expect(req.headers['x-api-key']).toBe(KEY);
-    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.5.1');
+    expect(req.headers['x-np-client']).toBe('nocoproject-cli/0.5.2');
     expect(req.headers.authorization).toBeUndefined();
     expect(r.out + r.err).not.toContain(KEY);
   });
@@ -146,13 +146,21 @@ describe('requests', () => {
   it('asks to log in when no key is saved', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'ncp-user-empty-'));
     const child = await new Promise<{ code: number | null; out: string }>((resolve) => {
-      const p = spawn(process.execPath, [CLI, 'user', 'whoami', '--json'], { env: { PATH: process.env.PATH, HOME: empty, NOCOPROJECT_HOME: empty } });
+      const p = spawn(process.execPath, [CLI, 'user', 'whoami', '--json'], { env: { PATH: process.env.PATH, HOME: empty, NOCOPROJECT_HOME: empty, NOCOPROJECT_KEYCHAIN: 'off' } });
       let out = '';
       p.stdout.on('data', (d: Buffer) => (out += d.toString()));
       p.on('close', (code) => resolve({ code, out }));
     });
     expect(child.code).toBe(3);
     expect(JSON.parse(child.out).error.code).toBe('NOT_LOGGED_IN');
+    expect(JSON.parse(child.out).error.message).toContain("separate from this computer's credential");
+  });
+
+  it('whoami says where the key is stored (NP-190)', async () => {
+    const text = await run(['user', 'whoami']);
+    expect(text.out).toContain(`Ada (u1) on ${url} — key in plain text in ${join(home, 'config.json')} (0600)`);
+    const env = await run(['user', 'whoami'], { NOCOPROJECT_API_KEY: KEY });
+    expect(env.out).toContain('— key from NOCOPROJECT_API_KEY');
   });
 });
 
