@@ -176,11 +176,22 @@ export function ciStateOfStatus(state: unknown): PullRequestCiState | null {
   return null;
 }
 
-/** A check-suite `status` + `conclusion`. */
+/** The check-suite fields the CI state reads, from the REST API and the `check_suite` webhook alike. */
+export type CheckSuiteFields = {
+  status?: unknown;
+  conclusion?: unknown;
+  latest_check_runs_count?: unknown;
+};
+
+/**
+ * A check-suite `status` + `conclusion`. A suite without check runs counts as no CI (null), as on GitHub's own
+ * pages: some GitHub Apps create a suite for every commit and never run anything, so it stays `queued` forever.
+ */
 export function ciStateOfCheckSuite(
-  status: unknown,
-  conclusion: unknown,
+  suite: CheckSuiteFields | undefined,
 ): PullRequestCiState | null {
+  if (!suite || suite.latest_check_runs_count === 0) return null;
+  const { status, conclusion } = suite;
   if (status !== undefined && status !== null && status !== 'completed')
     return 'pending';
   if (
@@ -267,16 +278,14 @@ export function createFetchGitHubClient(
       const list =
         (
           suites.body as {
-            check_suites?: { status?: unknown; conclusion?: unknown }[];
+            check_suites?: CheckSuiteFields[];
           }
         ).check_suites ?? [];
       return combineCiStates([
         Number(combined.total_count ?? 0) > 0
           ? ciStateOfStatus(combined.state)
           : null,
-        ...list.map((suite) =>
-          ciStateOfCheckSuite(suite.status, suite.conclusion),
-        ),
+        ...list.map(ciStateOfCheckSuite),
       ]);
     },
     async mergePullRequest(credentials, repo, number, input) {
