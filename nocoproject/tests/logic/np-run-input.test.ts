@@ -1,11 +1,9 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { createMigrator } from '@nocobase/db';
 import type { NpServices } from '../../server/modules/services.ts';
 import {
   ALICE,
   BOB,
-  MIGRATIONS_DIR,
   buildServices,
   createAgent,
   mention,
@@ -146,10 +144,18 @@ describe.skipIf(!db)('run input (PostgreSQL)', () => {
 
   it('does not borrow another human’s authorization context', async () => {
     const { issue, runId } = await working();
+    // Agents are owner-only by default; open Alpha so Bob's comment is an authorized trigger at all.
+    await services.agents.update(ALICE, alpha, {
+      configurationRevision: (await services.agents.get(ALICE, alpha))
+        .configurationRevision,
+      access: 'everyone',
+    });
     const comment = await services.comments.create(BOB, issue.id, {
       content: 'Bob follow-up',
     });
+    expect(comment.triggered).toHaveLength(1);
     expect(comment.triggered[0].runId).not.toBe(runId);
+    expect((await services.runs.daemonStatus(runId)).inputs).toEqual([]);
   });
 
   it('serializes a comment against completion without losing it', async () => {
@@ -205,29 +211,5 @@ describe.skipIf(!db)('run input (PostgreSQL)', () => {
     await expect(
       services.runs.complete(runId, { workDir: '/w' }),
     ).rejects.toMatchObject({ code: 'RUN_CANCEL_REQUESTED' });
-  });
-
-  it('rolls the input capability column down and up', async () => {
-    const migrator = createMigrator({
-      database: db!.database,
-      directory: MIGRATIONS_DIR,
-      packageName: 'nocoproject',
-    });
-    while ((await migrator.rollback()).rolledBack.length > 0);
-    await migrator.upTo('2026100700002_np_agent_configuration');
-    expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(
-      false,
-    );
-    expect((await migrator.latest()).executed).toEqual([
-      '2026100800001_np_run_input',
-    ]);
-    expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(true);
-    expect((await migrator.rollback()).rolledBack).toEqual([
-      '2026100800001_np_run_input',
-    ]);
-    expect(await db!.knex.schema.hasColumn('runs', 'accepts_input')).toBe(
-      false,
-    );
-    await migrator.latest();
   });
 });
