@@ -10,6 +10,8 @@ import { AlertCircleIcon } from 'lucide-react';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
 import { NpMultiSelect } from '@/components/np-multi-select';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
+import { useRuntimeTypeCopy } from '@/components/np-runtime-type-copy';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +23,7 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
+  FieldTitle,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -40,7 +43,10 @@ import type {
   UpdateAgentInput,
 } from '../../types.js';
 import type { AgentKind, ReasoningEffort } from '../../types-iter4.js';
+import { runtimeTypeOf } from '../../types-runtime-types.js';
 import { AgentKindFields } from '../agent-kind-fields.js';
+import { agentTypeErrorMessage } from '../agent-type-errors.js';
+import { BuiltinModelField } from '../builtin-model-field.js';
 import { SummaryField } from '../summary-field.js';
 
 /** `AGENT_SUMMARY_MAX` of the contract (§7.2), counted in characters like the server does. */
@@ -99,6 +105,9 @@ type FieldName =
  * provider, which the server requires), who may invoke it, and which agents it may hand sub-issues to directly —
  * a delegation target's proposals are accepted automatically (§D), and its kind and reasoning effort (iteration 4
  * §C). Read-only for anyone but the agent's owner and owner/admin.
+ * NP-219: the type is shown read-only (it never changes) and the fields follow it — runtimes of the same type only, a
+ * built-in agent's model from its service's enabled models, no reasoning effort for built-in agents, the capabilities
+ * a built-in agent cannot hold disabled with the reason, and no built-in agents as delegation targets (§3.3).
  */
 export function AgentForm({
   agent,
@@ -121,6 +130,9 @@ export function AgentForm({
   const [formError, setFormError] = useState<string>();
   const set = <Key extends keyof Draft>(key: Key, value: Draft[Key]): void =>
     setDraft((current) => ({ ...current, [key]: value }));
+  const runtimeType = runtimeTypeOf(agent);
+  const builtin = runtimeType === 'builtin';
+  const typeCopy = useRuntimeTypeCopy()(runtimeType);
 
   const save = useMutation({
     mutationFn: (changes: UpdateAgentInput) =>
@@ -142,7 +154,8 @@ export function AgentForm({
             : error instanceof ApiClientError &&
                 error.code === 'INVALID_SUMMARY'
               ? t('np.pmSetup.summaryInvalid', { max: AGENT_SUMMARY_MAX })
-              : t('np.common.requestFailed'),
+              : (agentTypeErrorMessage(t, error, typeCopy) ??
+                t('np.common.requestFailed')),
       ),
   });
 
@@ -181,23 +194,41 @@ export function AgentForm({
         draft.access === 'specificUsers' ? draft.accessUserIds : [],
       delegationTargetIds: draft.delegationTargetIds,
       kind: draft.kind,
-      reasoningEffort: draft.reasoningEffort,
+      reasoningEffort: builtin ? null : draft.reasoningEffort,
     });
   }
 
   const disabled = !canEdit || save.isPending;
+  // Only runtimes of the agent's own type (and provider, which the server also requires), §3.1 / §3.4.
   const compatible = runtimes.filter(
-    (runtime) => runtime.provider === agent.provider,
+    (runtime) =>
+      runtimeTypeOf(runtime) === runtimeType &&
+      runtime.provider === agent.provider,
+  );
+  const selectedRuntime = compatible.find(
+    (runtime) => runtime.id === draft.runtimeId,
   );
 
   return (
     <form onSubmit={submit} noValidate className='max-w-2xl'>
       <FieldGroup>
+        <Field>
+          <FieldTitle id='np-agent-edit-type-label'>
+            {t('np.runtimeType.label')}
+          </FieldTitle>
+          <div aria-labelledby='np-agent-edit-type-label' role='group'>
+            <RuntimeTypeTag type={runtimeType} />
+          </div>
+          <FieldDescription>
+            {t('np.runtimeType.immutableHint')}
+          </FieldDescription>
+        </Field>
         <CapabilityFields
           value={draft.capabilities}
           instructions={draft.instructions}
           disabled={disabled}
           fixed={agentKind(agent) === 'manager'}
+          runtimeType={runtimeType}
           onChange={(capabilities) => set('capabilities', capabilities)}
         />
         {formError ? (
@@ -272,28 +303,50 @@ export function AgentForm({
               size='default'
               options={compatible.map((runtime) => ({
                 value: runtime.id,
-                label: `${runtime.name} · ${runtime.provider}`,
+                label: `${runtime.name} · ${
+                  builtin
+                    ? (runtime.llmServiceTitle ?? runtime.llmService)
+                    : runtime.provider
+                }`,
               }))}
               value={draft.runtimeId}
               disabled={disabled}
-              onChange={(value) => set('runtimeId', value)}
+              onChange={(value) => {
+                set('runtimeId', value);
+                // Another model service offers other models; fall back to its default.
+                if (builtin) set('model', '');
+              }}
             />
             <FieldDescription>
-              {t('np.agentDetail.runtimeHint', { provider: agent.provider })}
+              {builtin
+                ? t('np.agentType.sameTypeHint', {
+                    runtimeName: typeCopy.runtimeName,
+                  })
+                : t('np.agentDetail.runtimeHint', { provider: agent.provider })}
             </FieldDescription>
           </Field>
-          <Field>
-            <FieldLabel htmlFor='np-agent-edit-model'>
-              {t('np.agentForm.model')}
-            </FieldLabel>
-            <Input
+          {builtin ? (
+            <BuiltinModelField
               id='np-agent-edit-model'
+              runtime={selectedRuntime}
               value={draft.model}
               disabled={disabled}
-              placeholder={t('np.agents.defaultModel')}
-              onChange={(event) => set('model', event.target.value)}
+              onChange={(value) => set('model', value)}
             />
-          </Field>
+          ) : (
+            <Field>
+              <FieldLabel htmlFor='np-agent-edit-model'>
+                {t('np.agentForm.model')}
+              </FieldLabel>
+              <Input
+                id='np-agent-edit-model'
+                value={draft.model}
+                disabled={disabled}
+                placeholder={t('np.agents.defaultModel')}
+                onChange={(event) => set('model', event.target.value)}
+              />
+            </Field>
+          )}
           <Field data-invalid={errors.maxConcurrentRuns ? true : undefined}>
             <FieldLabel htmlFor='np-agent-edit-max'>
               {t('np.agentForm.maxConcurrentRuns')}
@@ -311,14 +364,16 @@ export function AgentForm({
             ) : null}
           </Field>
         </div>
-        <AgentKindFields
-          idPrefix='np-agent-edit'
-          kind={draft.kind}
-          reasoningEffort={draft.reasoningEffort}
-          disabled={disabled}
-          onKindChange={(value) => set('kind', value)}
-          onReasoningEffortChange={(value) => set('reasoningEffort', value)}
-        />
+        {builtin ? null : (
+          <AgentKindFields
+            idPrefix='np-agent-edit'
+            kind={draft.kind}
+            reasoningEffort={draft.reasoningEffort}
+            disabled={disabled}
+            onKindChange={(value) => set('kind', value)}
+            onReasoningEffortChange={(value) => set('reasoningEffort', value)}
+          />
+        )}
         <FieldSet>
           <FieldLegend>{t('np.agentDetail.access')}</FieldLegend>
           <FieldDescription>{t('np.agentDetail.accessHint')}</FieldDescription>
@@ -373,7 +428,9 @@ export function AgentForm({
               .filter(
                 (candidate) =>
                   candidate.id !== agent.id &&
-                  agentKind(candidate) !== 'manager',
+                  agentKind(candidate) !== 'manager' &&
+                  // A built-in agent never executes issues, so it is no delegation target (§3.3).
+                  runtimeTypeOf(candidate) === 'computer',
               )
               .map((candidate) => ({
                 value: candidate.id,

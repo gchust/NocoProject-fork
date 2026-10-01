@@ -47,7 +47,7 @@ const npIter4ZhCN: NpIter4Resource = {
   },
   agentForm: {
     title: '新建 Agent',
-    description: '一个 Agent 在你的某个运行时上使用一种编码工具。',
+    description: '一个 Agent 在同类型的一个运行时上工作。',
     name: '名称',
     nameRequired: '请输入名称。',
     descriptionLabel: '简介',

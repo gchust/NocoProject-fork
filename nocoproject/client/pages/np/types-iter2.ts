@@ -292,7 +292,15 @@ export interface IntakeConfirmInput {
 // ---------- §I usage and settings ----------
 
 export type UsageGroupBy =
-  'agent' | 'issue' | 'project' | 'day' | 'model' | 'actor' | 'conversation';
+  | 'agent'
+  | 'issue'
+  | 'project'
+  | 'day'
+  | 'model'
+  | 'actor'
+  | 'conversation'
+  /** NP-219 (`protocol-runtime-types.md` §8): keys `computer` / `builtin`. */
+  | 'runtimeType';
 
 export interface UsageRow {
   readonly key: string;
@@ -319,6 +327,8 @@ export interface UsageQuery {
   readonly projectId?: string;
   readonly agentId?: string;
   readonly issueId?: string;
+  /** NP-219: only the runs of one type; combines with any grouping. */
+  readonly runtimeType?: 'computer' | 'builtin';
 }
 
 export interface ModelPrice {

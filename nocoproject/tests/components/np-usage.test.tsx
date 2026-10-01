@@ -80,4 +80,40 @@ describe('usage page', () => {
     );
     expect(await screen.findByText('claude-sonnet')).toBeInTheDocument();
   });
+
+  it('groups by agent type and filters by type (NP-219 §8)', async () => {
+    const user = userEvent.setup();
+    const queries: Record<string, unknown>[] = [];
+    api.request.mockImplementation((options: RequestOptions) => {
+      queries.push(options.query ?? {});
+      return Promise.resolve({
+        data: {
+          rows: [
+            row('builtin', 'builtin', 0.2),
+            row('computer', 'computer', 1),
+          ],
+          totals: row('total', 'Total', 1.2, 2),
+        },
+      });
+    });
+    await renderNp(<UsagePage />, {
+      url: '/usage?from=2026-09-01&to=2026-09-27&groupBy=runtimeType',
+    });
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Computer agent')).toBeInTheDocument();
+    expect(within(table).getByText('Built-in agent')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Type' }));
+    await user.click(
+      await screen.findByRole('option', { name: 'Built-in agent' }),
+    );
+    await waitFor(() =>
+      expect(queries.at(-1)).toEqual(
+        expect.objectContaining({
+          groupBy: 'runtimeType',
+          runtimeType: 'builtin',
+        }),
+      ),
+    );
+  });
 });

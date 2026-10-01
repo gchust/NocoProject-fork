@@ -82,6 +82,11 @@ describe('metrics report (§C)', () => {
               estimatedCost: 3.5,
               costPerDeliveredIssue: 0.175,
               byAgent: [{ agentId: 'a1', name: 'Claude Coder', cost: 3.5 }],
+              // NP-219 §8: the cost split by agent type.
+              byRuntimeType: {
+                computer: { estimatedCost: 3.25, pricedRuns: 4 },
+                builtin: { estimatedCost: 0.25, pricedRuns: 2 },
+              },
             },
             humanLoad: {
               decisionsCreated: 10,
@@ -137,6 +142,11 @@ describe('metrics report (§C)', () => {
     expect(within(runs).queryByText(/target|No data/u)).toBeNull();
     expect(screen.getByText('Off target: 1')).toBeVisible();
     expect(screen.getByText('Claude Coder')).toBeVisible();
+    const byType = screen
+      .getByText('Cost by agent type')
+      .closest('[data-slot="card"]') as HTMLElement;
+    expect(within(byType).getByText('Computer agent')).toBeVisible();
+    expect(within(byType).getByText('$0.25')).toBeVisible();
     expect(api.request).toHaveBeenCalledWith(
       expect.objectContaining({
         path: 'np/metrics',

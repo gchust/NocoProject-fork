@@ -20,6 +20,7 @@ import {
 } from '../format.js';
 import { PropertySelect } from '../issues/detail/property-fields.js';
 import type { MetricsQuery, MetricsReport } from '../types-iter3.js';
+import { RUNTIME_TYPES } from '../types-runtime-types.js';
 import { defaultUsageRange, formatCost } from '../usage-model.js';
 import { MetricGroupSection } from './metric-group.js';
 import { metricGroups, warnCount } from './metrics-model.js';
@@ -161,17 +162,40 @@ function MetricsBody({
                   ),
                 }
               : group.key === 'cost'
-                ? {
-                    title: t('np.metrics.tables.byAgent'),
-                    keyLabel: t('np.metrics.tables.agent'),
-                    valueLabel: t('np.metrics.tables.cost'),
-                    rows: report.cost.byAgent.map((row) => ({
-                      key: row.agentId,
-                      label: row.name ?? row.agentId,
-                      value: row.cost ?? 0,
-                      display: formatCost(row.cost, locale),
-                    })),
-                  }
+                ? [
+                    // NP-219 §8: the cost of each agent type, when the server splits it.
+                    ...(report.cost.byRuntimeType
+                      ? [
+                          {
+                            title: t('np.metrics.tables.byRuntimeType'),
+                            keyLabel: t('np.runtimeType.label'),
+                            valueLabel: t('np.metrics.tables.cost'),
+                            rows: RUNTIME_TYPES.map((type) => {
+                              const cost =
+                                report.cost.byRuntimeType?.[type]
+                                  ?.estimatedCost ?? null;
+                              return {
+                                key: type,
+                                label: t(`np.runtimeType.${type}.name`),
+                                value: cost ?? 0,
+                                display: formatCost(cost, locale),
+                              };
+                            }),
+                          },
+                        ]
+                      : []),
+                    {
+                      title: t('np.metrics.tables.byAgent'),
+                      keyLabel: t('np.metrics.tables.agent'),
+                      valueLabel: t('np.metrics.tables.cost'),
+                      rows: report.cost.byAgent.map((row) => ({
+                        key: row.agentId,
+                        label: row.name ?? row.agentId,
+                        value: row.cost ?? 0,
+                        display: formatCost(row.cost, locale),
+                      })),
+                    },
+                  ]
                 : group.key === 'humanLoad'
                   ? {
                       title: t('np.metrics.tables.byType'),

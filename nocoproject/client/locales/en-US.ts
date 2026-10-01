@@ -8,6 +8,7 @@ import npIter4EnUS from './np-iter4-en-US.js';
 import npSignalsEnUS from './np-signals-en-US.js';
 import npRolesEnUS from './np-roles-en-US.js';
 import npPmEnUS from './np-pm-en-US.js';
+import npRuntimeTypesEnUS from './np-runtime-types-en-US.js';
 
 const enUS = {
   'auth.welcome': 'Welcome back',
@@ -229,6 +230,7 @@ const enUS = {
     ...npSignalsEnUS,
     ...npRolesEnUS,
     ...npPmEnUS,
+    ...npRuntimeTypesEnUS,
     common: {
       online: 'Online',
       offline: 'Offline',
@@ -491,12 +493,12 @@ const enUS = {
     agents: {
       title: 'Agents',
       description:
-        'Coding agents that run on your connected computers and work on issues.',
+        'Agents that work on issues and answer questions; each works on a runtime of its type.',
       new: 'New agent',
       loadFailed: 'Unable to load agents',
       emptyTitle: 'No agents yet',
       emptyDescription:
-        'Connect a computer first, then create an agent that runs on it.',
+        'Add a runtime first, then create an agent that works on it.',
       defaultModel: 'Default model',
       columns: {
         name: 'Name',
@@ -520,7 +522,7 @@ const enUS = {
     runtimes: {
       title: 'Runtimes',
       description:
-        'Computers running the NocoProject daemon, and the coding tools each one offers.',
+        'Where agents work: each type of runtime with its own state and settings.',
       connect: 'Add a computer',
       loadFailed: 'Unable to load runtimes',
       emptyTitle: 'No computers connected',

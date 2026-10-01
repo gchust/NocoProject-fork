@@ -133,6 +133,7 @@ const npIter3EnUS = {
     tables: {
       failures: 'Failures by reason',
       byAgent: 'Cost by agent',
+      byRuntimeType: 'Cost by agent type',
       byType: 'Decisions by type',
       reason: 'Reason',
       agent: 'Agent',

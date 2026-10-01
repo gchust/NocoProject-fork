@@ -326,6 +326,7 @@ const npIter2ZhCN: NpIter2Resource = {
       model: '模型',
       actor: '人员',
       conversation: '项目经理对话',
+      runtimeType: '类型',
     },
     pmConversations: '项目经理对话',
     noActor: '无成员',

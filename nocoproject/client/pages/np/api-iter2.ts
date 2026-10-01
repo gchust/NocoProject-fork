@@ -265,6 +265,7 @@ export async function fetchUsage(
         projectId: query.projectId || undefined,
         agentId: query.agentId || undefined,
         issueId: query.issueId || undefined,
+        runtimeType: query.runtimeType || undefined,
       },
       signal,
     }),

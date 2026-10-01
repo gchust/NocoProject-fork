@@ -89,4 +89,40 @@ describe('agents grouped by computer (NP-188)', () => {
       await screen.findByRole('button', { name: 'By computer' }),
     ).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('puts built-in agents in their own group, not under a computer (NP-219)', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({
+        'GET np/agents': {
+          data: [
+            agent('a1', 'r1'),
+            { ...agent('b1', 'b'), runtimeType: 'builtin' },
+          ],
+        },
+        'GET np/runtimes': {
+          data: [
+            runtime('r1', 'd1', 'studio.local'),
+            {
+              ...runtime('b', 'builtin:deepseek', 'DeepSeek'),
+              runtimeType: 'builtin',
+            },
+          ],
+        },
+        'GET np/computers': { data: [] },
+      }),
+    );
+    await renderNp(<AgentsPage />, { url: '/agents' });
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: 'By computer' }));
+    const grouped = await screen.findByRole('table');
+    await within(grouped).findByText('studio.local');
+    const groups = [...grouped.querySelectorAll('[data-group]')];
+    expect(groups.map((row) => row.getAttribute('data-group'))).toEqual([
+      'd1',
+      'builtin',
+    ]);
+    expect(groups[1]).toHaveTextContent('Built-in agent');
+    expect(groups[1]!.nextElementSibling).toHaveTextContent('Agent b1');
+  });
 });

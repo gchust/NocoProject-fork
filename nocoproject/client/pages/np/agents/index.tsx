@@ -4,11 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import { AlertCircleIcon, BotIcon, PlusIcon } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router';
+import { Link, Outlet, useNavigate, useSearchParams } from 'react-router';
 
 import { NpOnlineState, NpPulse } from '@/components/np-badges';
 import { DataTable } from '@/components/data-table';
 import { NpActorAvatar } from '@/components/np-actor-avatar';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { NpShortcuts } from '@/components/np-shortcuts';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
@@ -33,7 +34,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { isManagerAgent } from '../api-iter4.js';
 import { fetchAgents } from '../api.js';
 import { isRuntimeOnline, npKeys } from '../constants.js';
+import { PropertySelect } from '../issues/detail/property-fields.js';
 import type { AgentListItem, AgentsTopicPayload } from '../types.js';
+import {
+  readRuntimeType,
+  RUNTIME_TYPES,
+  runtimeTypeOf,
+} from '../types-runtime-types.js';
 import { useRealtimeTopic } from '../use-realtime.js';
 import {
   AgentsByComputer,
@@ -43,7 +50,7 @@ import { useAgentsGrouping } from './agents-grouping.js';
 
 /**
  * Route `/agents`: the agents that can execute issues, with their runtime's state, as one list or grouped by computer
- * (NP-188); a row opens `/agents/:agentId`.
+ * (NP-188); a row opens `/agents/:agentId`. NP-219: each row carries its type, and `?runtimeType=` filters by it.
  */
 export default function AgentsPage(): ReactElement {
   const { t } = useTranslation();
@@ -51,6 +58,15 @@ export default function AgentsPage(): ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [grouping, setGrouping] = useAgentsGrouping();
+  const [params, setParams] = useSearchParams();
+  const typeFilter = readRuntimeType(params.get('runtimeType'));
+  const setTypeFilter = (value: string | null): void => {
+    const next = new URLSearchParams(params);
+    const type = readRuntimeType(value);
+    if (type) next.set('runtimeType', type);
+    else next.delete('runtimeType');
+    setParams(next, { replace: true });
+  };
 
   const agents = useQuery({
     queryKey: npKeys.agents,
@@ -92,6 +108,14 @@ export default function AgentsPage(): ReactElement {
               ) : null}
             </div>
           </div>
+        ),
+      },
+      {
+        id: 'runtimeType',
+        accessorFn: (agent) => runtimeTypeOf(agent),
+        header: t('np.runtimeType.label'),
+        cell: ({ row }) => (
+          <RuntimeTypeTag type={runtimeTypeOf(row.original)} />
         ),
       },
       {
@@ -218,21 +242,37 @@ export default function AgentsPage(): ReactElement {
   } else {
     const openAgent = (row: Row<AgentListItem>) =>
       void navigate(encodeURIComponent(row.original.id));
+    const shown = typeFilter
+      ? agents.data.filter((agent) => runtimeTypeOf(agent) === typeFilter)
+      : agents.data;
     content = (
       <div className='flex flex-col gap-3'>
-        <div className='flex justify-end'>
+        <div className='flex items-center justify-between gap-3'>
+          <PropertySelect
+            id='np-agents-type-filter'
+            size='sm'
+            className='w-44'
+            aria-label={t('np.runtimeType.filterLabel')}
+            noneLabel={t('np.runtimeType.all')}
+            options={RUNTIME_TYPES.map((type) => ({
+              value: type,
+              label: t(`np.runtimeType.${type}.name`),
+            }))}
+            value={typeFilter}
+            onChange={setTypeFilter}
+          />
           <AgentsGroupingToggle value={grouping} onChange={setGrouping} />
         </div>
         {grouping === 'computer' ? (
           <AgentsByComputer
-            agents={agents.data}
+            agents={shown}
             columns={columns}
             onRowClick={openAgent}
           />
         ) : (
           <DataTable
             columns={columns}
-            data={agents.data}
+            data={shown}
             getRowId={(agent) => agent.id}
             pageSize={20}
             showSelectedCount={false}

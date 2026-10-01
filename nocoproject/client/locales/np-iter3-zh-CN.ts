@@ -124,6 +124,7 @@ const npIter3ZhCN: NpIter3Resource = {
     tables: {
       failures: '失败原因分布',
       byAgent: '按 Agent 的费用',
+      byRuntimeType: '按 Agent 类型的费用',
       byType: '按类型的决定',
       reason: '原因',
       agent: 'Agent',

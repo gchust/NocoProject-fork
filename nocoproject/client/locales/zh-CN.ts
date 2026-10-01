@@ -7,6 +7,7 @@ import npIter4ZhCN from './np-iter4-zh-CN.js';
 import npSignalsZhCN from './np-signals-zh-CN.js';
 import npRolesZhCN from './np-roles-zh-CN.js';
 import npPmZhCN from './np-pm-zh-CN.js';
+import npRuntimeTypesZhCN from './np-runtime-types-zh-CN.js';
 
 const zhCN: AppResource = {
   'auth.welcome': '欢迎回来',
@@ -214,6 +215,7 @@ const zhCN: AppResource = {
     ...npSignalsZhCN,
     ...npRolesZhCN,
     ...npPmZhCN,
+    ...npRuntimeTypesZhCN,
     common: {
       online: '在线',
       offline: '离线',
@@ -471,11 +473,12 @@ const zhCN: AppResource = {
     },
     agents: {
       title: 'Agent',
-      description: '运行在你已连接电脑上、处理任务的编码 Agent。',
+      description:
+        '处理任务、回答问题的 Agent；每个 Agent 在同类型的运行时上工作。',
       new: '新建 Agent',
       loadFailed: '无法加载 Agent',
       emptyTitle: '还没有 Agent',
-      emptyDescription: '先连接一台电脑，再创建运行在它上面的 Agent。',
+      emptyDescription: '先添加运行时，再创建在它上面工作的 Agent。',
       defaultModel: '默认模型',
       columns: {
         name: '名称',
@@ -498,8 +501,7 @@ const zhCN: AppResource = {
     },
     runtimes: {
       title: '运行时',
-      description:
-        '运行 NocoProject 守护进程的电脑，以及每台电脑提供的编码工具。',
+      description: 'Agent 工作的地方：每种运行时各有自己的状态和设置。',
       connect: '添加电脑',
       loadFailed: '无法加载运行时',
       emptyTitle: '还没有连接电脑',

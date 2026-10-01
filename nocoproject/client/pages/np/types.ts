@@ -46,6 +46,11 @@ import type {
   RunTriggerTypePhase1Iter4,
 } from './types-iter4.js';
 import type { NpScopes } from './types-roles.js';
+import type {
+  BuiltinModel,
+  BuiltinStatusReason,
+  RuntimeType,
+} from './types-runtime-types.js';
 
 export type * from './types-collab.js';
 export type * from './types-iter2.js';
@@ -324,6 +329,8 @@ export interface AgentListItem extends AgentConfiguration {
   // Phase 1 iteration 4 (§C)
   readonly kind?: AgentKind;
   readonly reasoningEffort?: ReasoningEffort | null;
+  /** NP-219: absent from a server without runtime types, which means computer (`runtimeTypeOf`). */
+  readonly runtimeType?: RuntimeType;
 }
 
 export interface Runtime {
@@ -356,6 +363,13 @@ export interface Runtime {
     readonly credential?: 'computer' | 'personalKey' | null;
   } | null;
   readonly createdAt?: string;
+  // NP-219 (`protocol-runtime-types.md` §5): the type, and what only built-in runtimes carry.
+  readonly runtimeType?: RuntimeType;
+  readonly llmService?: string | null;
+  readonly llmServiceTitle?: string | null;
+  readonly statusReason?: BuiltinStatusReason | null;
+  readonly lastCheckedAt?: string | null;
+  readonly enabledModels?: readonly BuiltinModel[];
 }
 
 export interface RunEvent {
@@ -442,6 +456,8 @@ export interface CreateAgentInput extends AgentConfiguration {
   // Phase 1 iteration 4 (§C)
   readonly kind?: AgentKind;
   readonly reasoningEffort?: ReasoningEffort | null;
+  /** NP-219: required by the server; fixed once created. */
+  readonly runtimeType: RuntimeType;
 }
 
 /** `PATCH /np/agents/:id` (§H). */

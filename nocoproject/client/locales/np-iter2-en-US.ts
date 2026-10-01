@@ -349,6 +349,7 @@ const npIter2EnUS = {
       model: 'Model',
       actor: 'Person',
       conversation: 'Project manager conversations',
+      runtimeType: 'Type',
     },
     pmConversations: 'Project manager conversations',
     noActor: 'No member',

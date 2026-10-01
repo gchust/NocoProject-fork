@@ -55,7 +55,7 @@ const npIter4EnUS = {
   },
   agentForm: {
     title: 'New agent',
-    description: 'An agent runs one coding tool on one of your runtimes.',
+    description: 'An agent works on one runtime of its type.',
     name: 'Name',
     nameRequired: 'Enter a name.',
     descriptionLabel: 'Description',

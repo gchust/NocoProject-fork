@@ -32,19 +32,21 @@ export interface MetricBreakdown {
   }[];
 }
 
-/** One metric group: a titled block of StatCards and, for three groups, a breakdown table. */
+/** One metric group: a titled block of StatCards and, for three groups, breakdown tables side by side. */
 export function MetricGroupSection({
   group,
   breakdown,
 }: {
   readonly group: MetricGroup;
-  readonly breakdown?: MetricBreakdown;
+  readonly breakdown?: MetricBreakdown | readonly MetricBreakdown[];
 }): ReactElement {
   const { t } = useTranslation();
   const headingId = `np-metrics-${group.key}`;
-  const rows = [...(breakdown?.rows ?? [])].sort(
-    (a, b) => b.value - a.value || a.label.localeCompare(b.label),
-  );
+  const breakdowns: readonly MetricBreakdown[] = Array.isArray(breakdown)
+    ? breakdown
+    : breakdown
+      ? [breakdown as MetricBreakdown]
+      : [];
   return (
     <section aria-labelledby={headingId} className='space-y-3'>
       <div>
@@ -60,40 +62,62 @@ export function MetricGroupSection({
           <MetricCard key={item.key} item={item} />
         ))}
       </div>
-      {breakdown ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{breakdown.title}</CardTitle>
-            {rows.length === 0 ? (
-              <CardDescription>{t('np.metrics.tables.empty')}</CardDescription>
-            ) : null}
-          </CardHeader>
-          {rows.length > 0 ? (
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{breakdown.keyLabel}</TableHead>
-                    <TableHead className='text-right'>
-                      {breakdown.valueLabel}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.key}>
-                      <TableCell>{row.label}</TableCell>
-                      <TableCell className='text-right tabular-nums'>
-                        {row.display}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          ) : null}
-        </Card>
+      {breakdowns.length > 0 ? (
+        <div
+          className={
+            breakdowns.length > 1 ? 'grid gap-3 lg:grid-cols-2' : undefined
+          }
+        >
+          {breakdowns.map((item) => (
+            <BreakdownCard key={item.title} breakdown={item} />
+          ))}
+        </div>
       ) : null}
     </section>
+  );
+}
+
+function BreakdownCard({
+  breakdown,
+}: {
+  readonly breakdown: MetricBreakdown;
+}): ReactElement {
+  const { t } = useTranslation();
+  const rows = [...breakdown.rows].sort(
+    (a, b) => b.value - a.value || a.label.localeCompare(b.label),
+  );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{breakdown.title}</CardTitle>
+        {rows.length === 0 ? (
+          <CardDescription>{t('np.metrics.tables.empty')}</CardDescription>
+        ) : null}
+      </CardHeader>
+      {rows.length > 0 ? (
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{breakdown.keyLabel}</TableHead>
+                <TableHead className='text-right'>
+                  {breakdown.valueLabel}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.key}>
+                  <TableCell>{row.label}</TableCell>
+                  <TableCell className='text-right tabular-nums'>
+                    {row.display}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }

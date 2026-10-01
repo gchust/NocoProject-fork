@@ -17,6 +17,7 @@ export const USAGE_GROUPS: readonly UsageGroupBy[] = [
   'model',
   'actor',
   'conversation',
+  'runtimeType',
 ];
 
 export function readUsageGroup(value: string | null): UsageGroupBy {
