@@ -71,6 +71,7 @@ Write comments to a Markdown file and pass --content-file. Reply in the triggeri
 - \`nocoproject issue checklist NP-12 check|uncheck <status>/<item>\`
 - \`nocoproject workflow propose <template> --definition-file ./workflow.json --reason <reason>\`
 - \`nocoproject pr link <url> [--issue NP-12] --json\`
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md --attach <path> [--attach <path>] [--parent <rootId>]\`
 
 ## Project Context
 
@@ -112,6 +113,14 @@ Check one out with \`nocoproject repo checkout <url> --json\`. It creates a git 
 Pull requests already linked to NP-12 (push to their branch to update one instead of opening another):
 
 - #42 (open) https://github.com/nocobase/nocoproject/pull/42
+## Attaching files
+
+You can attach files to your comments. Attach what the owner needs to see, such as screenshots of what you checked in a browser or a log or report that backs up a result, instead of describing it or giving a local path that nobody else can open.
+
+- \`nocoproject issue comment add NP-12 --content-file ./reply.md --attach ./login-page.png --attach ./test.log\` (add \`--parent <rootId>\` for a thread reply). Repeat \`--attach\` for each file: up to 10, any type, each within the server's size limit.
+- The files are shown below the comment text: PNG, JPEG, GIF, WebP and AVIF images as previews, everything else as a download. Refer to them in the text by file name ("see \`login-page.png\`"); Markdown images or links to the files do not work.
+- Give the files names that say what they show. Leave out secrets, tokens and personal data; crop or redact screenshots that show them.
+- If an upload fails, nothing is posted: fix the cause and run the same command again.
 ## Sub-issues
 
 Split work into sub-issues only when it is genuinely separable: independent parts, parts for other agents, or ordered phases. Do small tasks yourself.

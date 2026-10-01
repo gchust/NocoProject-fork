@@ -5,6 +5,7 @@
 import type {
   AgentContextResponse,
   AgentCreateIssueRequest,
+  AgentUploadedFile,
   ClaimedProject,
   CommentForAgent,
   DaemonClaimRequest,
@@ -92,6 +93,8 @@ export function daemonCredentials(cfg: { readonly computerKey?: string; readonly
 
 export interface RequestOptions {
   readonly body?: unknown;
+  /** A multipart body (NP-215 uploads) instead of `body`; fetch sets the content type with its boundary. */
+  readonly form?: FormData;
   readonly query?: Record<string, string | number | boolean | undefined>;
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
@@ -148,7 +151,7 @@ export class HttpClient {
       return await fetch(url, {
         method,
         headers,
-        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        body: opts.form ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
         signal,
       });
     } catch (error) {
@@ -292,8 +295,16 @@ export class AgentApi {
       query: { since: q.since, rootsOnly: q.rootsOnly ? 'true' : undefined, thread: q.thread, tail: q.tail },
     });
   }
-  addComment(id: string, content: string, parentId?: string): Promise<unknown> {
-    return this.http.data('POST', `/np/agent/issues/${enc(id)}/comments`, { body: { content, parentId } });
+  /** `attachmentIds` (NP-214): uploads of this run, attached to the new comment. */
+  addComment(id: string, content: string, parentId?: string, attachmentIds?: readonly string[]): Promise<unknown> {
+    const body = attachmentIds?.length ? { content, parentId, attachmentIds } : { content, parentId };
+    return this.http.data('POST', `/np/agent/issues/${enc(id)}/comments`, { body });
+  }
+  /** NP-214 `POST /np/agent/issues/:id/uploads` (multipart, field `file`): one unattached upload; two minutes. */
+  upload(id: string, file: Blob, filename: string): Promise<AgentUploadedFile> {
+    const form = new FormData();
+    form.append('file', file, filename);
+    return this.http.data('POST', `/np/agent/issues/${enc(id)}/uploads`, { form, timeoutMs: 120_000 });
   }
   async setStatus(id: string, statusKey: string): Promise<StatusChangeResult> {
     const { status, json } = await this.http.request('POST', `/np/agent/issues/${enc(id)}/status`, { body: { statusKey } });

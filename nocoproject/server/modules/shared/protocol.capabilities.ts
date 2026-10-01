@@ -101,6 +101,8 @@ export const AGENT_COMMANDS: Record<AgentCapability, readonly string[]> = {
     'pm conversation title "<title>"',
   ],
   'repo.read': ['repo checkout <url> --json'],
-  // The CLI command (`issue comment add … --attach <path>`) is listed once the CLI ships it (NP-215).
-  'attachment.upload': [],
+  // NP-215: briefs of daemons older than `ATTACHMENT_UPLOAD_MIN_CLI` leave this out.
+  'attachment.upload': [
+    'issue comment add <issue> --content-file ./reply.md --attach <path> [--attach <path>] [--parent <rootId>]',
+  ],
 };

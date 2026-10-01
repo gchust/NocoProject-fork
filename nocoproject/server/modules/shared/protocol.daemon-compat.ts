@@ -27,7 +27,7 @@ export type DaemonCredential = 'computer' | 'personalKey';
 export const SUPPORTED_PROTOCOLS = { min: 1, current: 2 } as const;
 
 /** The CLI version this application ships (`/assets/cli/nocoproject-cli-<version>.tgz`). */
-export const LATEST_CLI_VERSION = '0.6.1';
+export const LATEST_CLI_VERSION = '0.7.0';
 
 /** The oldest CLI that may still claim runs (NP-125's agent configuration). */
 export const MIN_CLI_VERSION = '0.4.0';
@@ -37,6 +37,12 @@ export const MIN_CLI_VERSION = '0.4.0';
  * and unnumbered issues). Older daemons keep claiming every other run; conversation runs wait for an upgrade.
  */
 export const PM_ASSISTANT_MIN_CLI = '0.6.0';
+
+/**
+ * NP-215: the first CLI with `issue comment add --attach`. Older daemons still claim every run; their briefs just leave
+ * out the `attachment.upload` command, which their CLI would reject as an unknown option.
+ */
+export const ATTACHMENT_UPLOAD_MIN_CLI = '0.7.0';
 
 /** The first CLI with `nocoproject upgrade` and `nocoproject daemon install`. */
 export const UPGRADE_COMMAND_SINCE = '0.5.0';

@@ -2,12 +2,18 @@
 /**
  * Daemon version compatibility (NP-150) on a real PostgreSQL: the compatibility matrix, an unsupported daemon kept
  * visible (`upgrade_required`, heartbeats, empty claims, never swept offline), the owner's inbox card, and recovery.
+ * NP-215: the brief lists `issue comment add --attach` only for daemons whose CLI has it.
  */
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { evaluateDaemon } from '../../server/modules/runtime/daemon-compat.ts';
+import {
+  briefCommands,
+  evaluateDaemon,
+} from '../../server/modules/runtime/daemon-compat.ts';
 import type { NpServices } from '../../server/modules/services.ts';
 import {
+  AGENT_COMMANDS,
+  ATTACHMENT_UPLOAD_MIN_CLI,
   LATEST_CLI_VERSION,
   PROTOCOL_VERSION,
   SUPPORTED_PROTOCOLS,
@@ -141,6 +147,27 @@ describe('evaluateDaemon', () => {
   });
 });
 
+describe('briefCommands', () => {
+  const attach = AGENT_COMMANDS['attachment.upload'];
+  it('leaves out the attach command for daemons older than its CLI', () => {
+    const capabilities = ['comment.create', 'attachment.upload'] as const;
+    expect(briefCommands(capabilities, ATTACHMENT_UPLOAD_MIN_CLI)).toEqual([
+      ...AGENT_COMMANDS['comment.create'],
+      ...attach,
+    ]);
+    expect(briefCommands(capabilities, '0.10.0')).toEqual(
+      expect.arrayContaining([...attach]),
+    );
+    for (const version of ['0.6.1', '0.4.0', null, ''])
+      expect(briefCommands(capabilities, version)).toEqual(
+        AGENT_COMMANDS['comment.create'],
+      );
+    expect(briefCommands(['comment.create'], LATEST_CLI_VERSION)).toEqual(
+      AGENT_COMMANDS['comment.create'],
+    );
+  });
+});
+
 describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
   it('keeps an unsupported daemon visible until it upgrades', async () => {
     const registered = await register('old', {
@@ -220,6 +247,10 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
     );
     expect(claimed.runs).toHaveLength(1);
     expect(claimed.runs[0]!.server.protocolVersion).toBe(PROTOCOL_VERSION);
+    // NP-215: the upgraded CLI has `issue comment add --attach`.
+    expect(claimed.runs[0]!.agent.commandDescriptions).toEqual(
+      expect.arrayContaining([...AGENT_COMMANDS['attachment.upload']]),
+    );
   });
 
   it('resolves the card when the upgraded daemon registers other tools after a stop', async () => {
@@ -283,6 +314,15 @@ describe.skipIf(!db)('daemon compatibility (PostgreSQL)', () => {
     );
     expect(claimed.runs).toHaveLength(1);
     expect(claimed.runs[0]!.server.protocolVersion).toBe(1);
+    // NP-215: the agent holds attachment.upload, but this CLI has no `--attach`.
+    expect(claimed.runs[0]!.agent.capabilities).toContain('attachment.upload');
+    const commands = claimed.runs[0]!.agent.commandDescriptions ?? [];
+    expect(commands).toEqual(
+      expect.arrayContaining([...AGENT_COMMANDS['comment.create']]),
+    );
+    expect(commands.some((command) => command.includes('--attach'))).toBe(
+      false,
+    );
     expect((await services.runtimes.list())[0]).toMatchObject({
       status: 'online',
       daemon: { status: 'deprecated', updateAvailable: true },

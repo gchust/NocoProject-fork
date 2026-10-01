@@ -1,7 +1,8 @@
 /**
  * Agent-facing commands (run-token mode): issue get / comment list / comment add / status,
  * plus the Phase 1 sub-issue commands registered from ./subissue.ts, the Phase 2 stage
- * checklist command from ./checklist.ts and the NP-111 attachment commands from ./attachment.ts.
+ * checklist command from ./checklist.ts and the NP-111 attachment commands from ./attachment.ts. `comment add --attach`
+ * (NP-215) uploads files through ./comment-attachments.ts.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,6 +12,7 @@ import type { AgentAttachmentInfo, CommentForAgent, IssueForAgent } from '../pro
 import { CliError, EXIT, printJson, printLine } from './output.js';
 import { action, type JsonOpt, resolveIssueId, runTokenContext } from './run-token.js';
 import { registerAttachmentCommands } from './attachment.js';
+import { localAttachments, uploadAttachments } from './comment-attachments.js';
 import { registerChecklistCommand } from './checklist.js';
 import { registerSubIssueCommands } from './subissue.js';
 
@@ -45,6 +47,7 @@ const CommentAddInput = z
     content: z.string().optional(),
     contentFile: z.string().optional(),
     parent: z.string().min(1).optional(),
+    attach: z.array(z.string().min(1)).default([]),
   })
   .refine((v) => (v.content === undefined) !== (v.contentFile === undefined), {
     message: 'pass exactly one of --content or --content-file',
@@ -100,15 +103,19 @@ export function registerIssueCommands(program: Command): void {
     .option('--content-file <path>', 'read the Markdown body from a file (preferred)')
     .option('--content <text>', 'inline Markdown body')
     .option('--parent <commentId>', 'reply inside this thread')
+    .option('--attach <path>', 'attach a file of any type (repeat for more, up to 10)', (value: string, list: string[] = []) => [...list, value])
     .option('--json', 'JSON output')
     .action(
-      action(async (arg: string | undefined, raw: JsonOpt & { content?: string; contentFile?: string; parent?: string }) => {
+      action(async (arg: string | undefined, raw: JsonOpt & { content?: string; contentFile?: string; parent?: string; attach?: string[] }) => {
         const opts = CommentAddInput.parse(raw);
         const content = readContent(opts);
+        const files = localAttachments(opts.attach);
         const ctx = runTokenContext();
-        const data = await ctx.api.addComment(await resolveIssueId(arg, ctx), content, opts.parent);
+        const issueId = await resolveIssueId(arg, ctx);
+        const attachmentIds = await uploadAttachments(ctx, issueId, files);
+        const data = await ctx.api.addComment(issueId, content, opts.parent, attachmentIds);
         if (raw.json) printJson(data);
-        else printLine('comment posted');
+        else printLine(files.length === 0 ? 'comment posted' : `comment posted with ${files.length} attachment${files.length === 1 ? '' : 's'}`);
       }),
     );
 

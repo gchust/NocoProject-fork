@@ -173,3 +173,17 @@ export function parentCoordinationSection(key: string): string[] {
     `4. When every sub-issue is done, check the combined result, post a summary comment on ${key} and set it to \`in_review\`.`,
   ];
 }
+
+/** `## Attaching files` (NP-215): runs that may upload comment attachments and post comments. */
+export function commentAttachmentsSection(key: string): string[] {
+  return [
+    '## Attaching files',
+    '',
+    'You can attach files to your comments. Attach what the owner needs to see, such as screenshots of what you checked in a browser or a log or report that backs up a result, instead of describing it or giving a local path that nobody else can open.',
+    '',
+    `- \`nocoproject issue comment add ${key} --content-file ./reply.md --attach ./login-page.png --attach ./test.log\` (add \`--parent <rootId>\` for a thread reply). Repeat \`--attach\` for each file: up to 10, any type, each within the server's size limit.`,
+    '- The files are shown below the comment text: PNG, JPEG, GIF, WebP and AVIF images as previews, everything else as a download. Refer to them in the text by file name ("see `login-page.png`"); Markdown images or links to the files do not work.',
+    '- Give the files names that say what they show. Leave out secrets, tokens and personal data; crop or redact screenshots that show them.',
+    '- If an upload fails, nothing is posted: fix the cause and run the same command again.',
+  ];
+}

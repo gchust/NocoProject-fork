@@ -11,6 +11,7 @@ import type { AgentAttachmentInfo, DaemonCompatibility, ClaimedKnowledgeDoc, Cla
 import type { ClaimedRunV1 as ClaimedRun } from '../../src/run-context.js';
 import { MockKnowledge } from './mock-knowledge.js';
 import { MockPm } from './mock-pm.js';
+import { MockUploads } from './mock-uploads.js';
 import { MockWorkflow } from './mock-workflow.js';
 
 export const API_KEY = 'test-api-key-0123456789';
@@ -125,6 +126,7 @@ export class MockServer {
   readonly knowledge = new MockKnowledge();
   readonly pm = new MockPm(this);
   readonly workflow = new MockWorkflow();
+  readonly uploads = new MockUploads();
   private readonly sockets = new Set<WebSocket>();
   private server: Server;
   private wss: WebSocketServer;
@@ -283,10 +285,13 @@ export class MockServer {
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
-    const raw = Buffer.concat(chunks).toString('utf8');
+    const buffer = Buffer.concat(chunks);
+    const multipart = String(req.headers['content-type'] ?? '').startsWith('multipart/form-data');
+    const raw = multipart ? '' : buffer.toString('utf8');
     const url = new URL(req.url ?? '/', 'http://x');
     const path = url.pathname.startsWith(`${BASE}/api`) ? url.pathname.slice(`${BASE}/api`.length) : url.pathname;
-    const body = raw ? JSON.parse(raw) : undefined;
+    // NP-214 uploads are multipart: the handler gets the raw bytes.
+    const body = multipart ? buffer : raw ? JSON.parse(raw) : undefined;
     const auth = (req.headers['x-api-key'] as string | undefined) ?? (req.headers.authorization as string | undefined);
     this.calls.push({ method: req.method ?? 'GET', path: `${path}${url.search}`, body, auth });
     const send = (status: number, payload: unknown): void => {
@@ -398,6 +403,12 @@ export class MockServer {
       return this.workflow.checklist(method, target.id, statusKey, itemKey, body, run.claimed, send);
     }
     if (path === '/np/agent/issues' && method === 'POST') return this.createIssue(body, run.claimed, send);
+    const upload = path.match(/^\/np\/agent\/issues\/([^/]+)\/uploads$/);
+    if (upload && method === 'POST') {
+      const target = this.findIssue(decodeURIComponent(upload[1] as string));
+      if (!target) return send(404, { code: 'ISSUE_NOT_FOUND', message: path });
+      return void this.uploads.upload(target.id, runId as string, run.claimed.issue.id, req, body, send);
+    }
     const m = path.match(/^\/np\/agent\/issues\/([^/]+)(?:\/(comments|status|children|dependencies|pull-requests|design-proposal))?$/);
     const issue = m ? this.findIssue(decodeURIComponent(m[1] as string)) : undefined;
     if (!m || !issue) return send(404, { code: 'ISSUE_NOT_FOUND', message: path });
@@ -409,6 +420,8 @@ export class MockServer {
     if (m[2] === 'comments' && method === 'GET') return send(200, { data: this.comments.get(issue.id) ?? [] });
     if (m[2] === 'comments') {
       const id = `c${++this.seq}`;
+      const attached = body.attachmentIds === undefined ? { attachments: [] } : this.uploads.attach(body.attachmentIds, runId as string, id);
+      if ('error' in attached) return send(400, attached.error);
       const parent = body.parentId ? this.comments.get(issue.id)?.find((c) => c.id === body.parentId) : undefined;
       const comment: CommentForAgent = {
         id,
@@ -418,6 +431,7 @@ export class MockServer {
         parentId: body.parentId ?? null,
         rootId: parent?.rootId ?? id,
         createdAt: new Date().toISOString(),
+        ...(body.attachmentIds === undefined ? {} : attached),
       };
       this.comments.get(issue.id)?.push(comment);
       return send(200, { data: { comment } });

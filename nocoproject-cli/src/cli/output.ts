@@ -9,6 +9,8 @@ export class CliError extends Error {
     message: string,
     readonly exitCode: number = EXIT.other,
     readonly code = 'CLI_ERROR',
+    /** Structured detail passed through from the server (printed with `--json`). */
+    readonly details?: Readonly<Record<string, unknown>>,
   ) {
     super(message);
     this.name = 'CliError';
@@ -58,7 +60,7 @@ function detailLines(details: Readonly<Record<string, unknown>> | undefined): st
 export function failAndExit(error: unknown, json: boolean): never {
   const code = exitCodeFor(error);
   const message = redactText(errorMessage(error));
-  const details = error instanceof HttpError ? error.details : undefined;
+  const details = error instanceof HttpError || error instanceof CliError ? error.details : undefined;
   if (json) process.stdout.write(`${JSON.stringify({ error: { code: errorCode(error), message, exitCode: code, ...(details ? { details } : {}) } })}\n`);
   else process.stderr.write(`error: ${message}\n${detailLines(details).map((line) => `${redactText(line)}\n`).join('')}`);
   if (error instanceof HttpError && PM_AUTH_ERRORS.has(error.code) && details) {

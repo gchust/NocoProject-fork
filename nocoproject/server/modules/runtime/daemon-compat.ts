@@ -7,6 +7,9 @@
 import type { Tx } from '../shared/db.js';
 import { fromJson, now, str, toJson } from '../shared/db.js';
 import {
+  AGENT_COMMANDS,
+  ATTACHMENT_UPLOAD_MIN_CLI,
+  type AgentCapability,
   cliDownloadPath,
   compareVersions,
   LATEST_CLI_VERSION,
@@ -93,6 +96,22 @@ export function supportsPmAssistant(identity: DaemonIdentity): boolean {
     !!version &&
     compareVersions(version, PM_ASSISTANT_MIN_CLI) >= 0
   );
+}
+
+/**
+ * NP-215: the brief's command lines for a run's capabilities, leaving out those the daemon's CLI does not have yet
+ * (`issue comment add --attach` needs `ATTACHMENT_UPLOAD_MIN_CLI`). The capabilities themselves stay in the claim.
+ */
+export function briefCommands(
+  capabilities: readonly AgentCapability[],
+  daemonVersion: string | null,
+): string[] {
+  const version = versionOf(daemonVersion);
+  const attach =
+    !!version && compareVersions(version, ATTACHMENT_UPLOAD_MIN_CLI) >= 0;
+  return capabilities
+    .filter((key) => attach || key !== 'attachment.upload')
+    .flatMap((key) => AGENT_COMMANDS[key]);
 }
 
 /** A runtime row's fitness for conversation runs, as the conversation header shows it. */
