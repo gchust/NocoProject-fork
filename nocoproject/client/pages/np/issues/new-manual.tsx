@@ -39,6 +39,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { useUnsavedChanges } from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import {
@@ -112,9 +113,8 @@ export function ManualIssueForm({
   const [priority, setPriority] = useState<IssuePriority>('none');
   // Opened from a project, or from the list filtered by one, the new issue starts in that project.
   const [searchParams] = useSearchParams();
-  const [projectId, setProjectId] = useState(
-    searchParams.get('project') ?? 'none',
-  );
+  const presetProjectId = searchParams.get('project') ?? 'none';
+  const [projectId, setProjectId] = useState(presetProjectId);
   const [executor, setExecutor] = useState<ExecutorRef>({
     type: 'none',
     id: null,
@@ -130,6 +130,17 @@ export function ManualIssueForm({
   const [formError, setFormError] = useState<string>();
   const [startRequest, setStartRequest] = useState<NpStartRequest | null>(null);
   const owner = ownerUserId ?? me.data?.userId ?? null;
+  const markSaved = useUnsavedChanges(
+    Boolean(title.trim() || description.trim()) ||
+      files.length > 0 ||
+      uploadStatus !== 'idle' ||
+      priority !== 'none' ||
+      projectId !== presetProjectId ||
+      executor.type !== 'none' ||
+      ownerUserId !== null ||
+      sessionMode ||
+      chosenProcess !== null,
+  );
 
   const priorityItems = ISSUE_PRIORITIES.map((value) => ({
     value,
@@ -196,6 +207,7 @@ export function ManualIssueForm({
         title: t('np.issueForm.created', { identifier: issue.identifier }),
       });
       void queryClient.invalidateQueries({ queryKey: npKeys.issues });
+      markSaved();
       void close();
     } catch (error: unknown) {
       onSubmittingChange(false);
@@ -224,7 +236,11 @@ export function ManualIssueForm({
           draft={[title.trim(), description.trim()]
             .filter(Boolean)
             .join('\n\n')}
-          onOpen={() => void close()}
+          // What was typed goes on to the project manager drawer.
+          onOpen={() => {
+            markSaved();
+            void close();
+          }}
         />
         {formError ? (
           <Alert variant='destructive'>

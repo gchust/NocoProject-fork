@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
+import { useUnsavedChanges } from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { fetchLabels, fetchMembers } from '../api-collab.js';
@@ -92,11 +93,26 @@ export function BatchEditor({
   const [rows, setRows] = useState<DraftRow[]>(() =>
     rowsFromDrafts(detail.drafts),
   );
+  // What the server holds, to tell local edits from stored drafts.
+  const [storedRows, setStoredRows] = useState<readonly DraftRow[]>(rows);
+  const storeRows = (next: DraftRow[]): void => {
+    setRows(next);
+    setStoredRows(next);
+  };
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   const [defaultExecutor, setDefaultExecutor] = useState<ExecutorRef>({
     type: 'none',
     id: null,
   });
+  const refine = useIntakeRefine(batch.id, rows, setRows, storeRows);
+  const markSaved = useUnsavedChanges(
+    !readOnly &&
+      (JSON.stringify(draftInputs(rows)) !==
+        JSON.stringify(draftInputs(storedRows)) ||
+        Boolean(refine.instruction.trim()) ||
+        ownerUserId !== null ||
+        defaultExecutor.type !== 'none'),
+  );
 
   const agents = useQuery({
     queryKey: npKeys.agents,
@@ -137,7 +153,7 @@ export function BatchEditor({
   const save = useMutation({
     mutationFn: () => saveIntakeDrafts(api, batch.id, draftInputs(rows)),
     onSuccess: (drafts) => {
-      setRows(rowsFromDrafts(drafts));
+      storeRows(rowsFromDrafts(drafts));
       void queryClient.invalidateQueries({
         queryKey: npKeys.intakeBatch(batch.id),
       });
@@ -150,7 +166,7 @@ export function BatchEditor({
     mutationFn: async () => {
       const drafts = await saveIntakeDrafts(api, batch.id, draftInputs(rows));
       const next = rowsFromDrafts(drafts);
-      setRows(next);
+      storeRows(next);
       if (next.some((row) => row.serverErrors.length > 0)) return null;
       return confirmIntakeBatch(api, batch.id, {
         ownerUserId: ownerUserId ?? undefined,
@@ -181,6 +197,7 @@ export function BatchEditor({
           queryKey: npKeys.issue(sourceIssueId),
         });
       }
+      markSaved();
       void close();
     },
     onError: (error) =>
@@ -198,7 +215,6 @@ export function BatchEditor({
     onError: (error) =>
       toast.add({ type: 'error', priority: 'high', title: errorTitle(error) }),
   });
-  const refine = useIntakeRefine(batch.id, rows, setRows);
   const busy =
     save.isPending || confirm.isPending || cancel.isPending || refine.pending;
 

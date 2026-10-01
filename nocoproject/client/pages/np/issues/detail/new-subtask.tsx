@@ -25,6 +25,11 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { fetchMembers } from '../../api-collab.js';
@@ -46,6 +51,7 @@ export default function NewSubtaskPage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   const handleSubmittingChange = (value: boolean): void => {
     submittingRef.current = value;
     setSubmitting(value);
@@ -55,10 +61,12 @@ export default function NewSubtaskPage(): ReactElement {
       title={t('np.subtasks.newTitle')}
       description={t('np.subtasks.newDescription')}
       className='sm:max-w-xl'
-      beforeClose={() => !submittingRef.current}
+      beforeClose={() => !submittingRef.current && unsaved.confirmDiscard()}
       footer={<Footer submitting={submitting} />}
     >
-      <Body onSubmittingChange={handleSubmittingChange} />
+      <UnsavedChangesBoundary guard={unsaved}>
+        <Body onSubmittingChange={handleSubmittingChange} />
+      </UnsavedChangesBoundary>
     </RouteDialog>
   );
 }
@@ -99,6 +107,11 @@ function Body({
   const [stageError, setStageError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const [startRequest, setStartRequest] = useState<NpStartRequest | null>(null);
+  const markSaved = useUnsavedChanges(
+    [title, description, stage].some((value) => value.trim()) ||
+      blockedBy.length > 0 ||
+      executor.type !== 'none',
+  );
 
   const siblings = parent.data?.subtasks ?? [];
 
@@ -123,6 +136,7 @@ function Body({
       });
       void queryClient.invalidateQueries({ queryKey: npKeys.issues });
       void queryClient.invalidateQueries({ queryKey: npKeys.issue(issueId) });
+      markSaved();
       void close();
     } catch (error: unknown) {
       onSubmittingChange(false);

@@ -72,6 +72,11 @@ const enUS = {
   'navigation.brandApps': 'NocoBase applications',
   'auth.passwordMismatch': "Passwords don't match.",
   'routeOverlay.close': 'Close',
+  'unsavedChanges.title': 'Discard unsaved changes?',
+  'unsavedChanges.description':
+    'What you entered has not been submitted and will be lost.',
+  'unsavedChanges.keepEditing': 'Keep editing',
+  'unsavedChanges.discard': 'Discard',
   'status.deniedDescription': 'You do not have permission to access {{label}}.',
   'status.routeFailedDescription':
     'Route {{label}} from {{packageName}} could not be loaded.',

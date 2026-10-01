@@ -33,12 +33,14 @@ export interface IntakeRefineState {
  * NP-120: revise the drafts by one instruction. The current rows (unsaved edits included) go to the server, which has
  * AI rewrite them and stores the result; the table then shows it. Each revision keeps the rows it replaced, so the
  * latest one still in effect can be undone, and then the one before it. Undo only changes the table: "Save" or
- * "Create" writes it back, like any manual edit. The list lives as long as the editor.
+ * "Create" writes it back, like any manual edit. The list lives as long as the editor. `storeRows` receives the rows
+ * the server stored; `setRows` the rows an undo puts back, which only the table holds.
  */
 export function useIntakeRefine(
   batchId: string,
   rows: readonly DraftRow[],
   setRows: (rows: DraftRow[]) => void,
+  storeRows: (rows: DraftRow[]) => void,
 ): IntakeRefineState {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -57,7 +59,7 @@ export function useIntakeRefine(
         draftInputs(request.before),
       ),
     onSuccess: (drafts, request) => {
-      setRows(rowsFromDrafts(drafts));
+      storeRows(rowsFromDrafts(drafts));
       setRevisions((current) => [
         ...current,
         {

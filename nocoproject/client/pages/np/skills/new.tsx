@@ -18,6 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { createSkill } from '../api-agent-extras.js';
@@ -30,6 +35,7 @@ export default function NewSkillPage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   const handleSubmittingChange = (value: boolean): void => {
     submittingRef.current = value;
     setSubmitting(value);
@@ -39,10 +45,12 @@ export default function NewSkillPage(): ReactElement {
       title={t('np.skills.newTitle')}
       description={t('np.skills.newDescription')}
       className='sm:max-w-lg'
-      beforeClose={() => !submittingRef.current}
+      beforeClose={() => !submittingRef.current && unsaved.confirmDiscard()}
       footer={<Footer submitting={submitting} />}
     >
-      <Body onSubmittingChange={handleSubmittingChange} />
+      <UnsavedChangesBoundary guard={unsaved}>
+        <Body onSubmittingChange={handleSubmittingChange} />
+      </UnsavedChangesBoundary>
     </RouteDialog>
   );
 }
@@ -61,6 +69,9 @@ function Body({
   const [description, setDescription] = useState('');
   const [nameError, setNameError] = useState<string>();
   const [formError, setFormError] = useState<string>();
+  const markSaved = useUnsavedChanges(
+    Boolean(name.trim() || description.trim()),
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -83,6 +94,7 @@ function Body({
         title: t('np.skills.created', { name: skill.name }),
       });
       void queryClient.invalidateQueries({ queryKey: npKeys.skills });
+      markSaved();
       await close();
       void navigate(`/skills/${encodeURIComponent(skill.id)}`);
     } catch (error: unknown) {

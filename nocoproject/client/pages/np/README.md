@@ -67,6 +67,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - Every explicit write action toasts on success and on failure; failures are localized (`np.common.forbidden`, `np.common.requestFailed`, or a specific key for 409s).
 - Inline property edits and emoji reactions change in place and toast only on failure.
 - Destructive actions go through `AlertDialog` with a `destructive` action.
+- A dialog with a form asks "Discard unsaved changes?" before closing (Escape, the backdrop, ×, Cancel) while the form holds input that has not been submitted (NP-200). The dialog calls `useUnsavedChangesGuard()` and renders `UnsavedChangesBoundary` around its forms (`client/components/unsaved-changes.tsx`); a `RouteDialog` returns `confirmDiscard()` from `beforeClose` after its submitting check, a dialog in component state closes through `useGuardedClose`. Each form reports `useUnsavedChanges(dirty)`, where dirty means a field differs from what the form opened with (text compared trimmed), and calls the returned `markSaved()` before closing after a successful submit. Browser back, switching the new-issue tabs and navigating away do not ask.
 - UI text states facts and actions and never explains the UI: no "here you can…", "below is…", "decide it right here…". An empty state's sentence is a fact, not an instruction.
 
 ## 6a. Permissions

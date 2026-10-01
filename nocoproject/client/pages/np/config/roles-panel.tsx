@@ -31,6 +31,11 @@ import {
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useGuardedClose,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 
 import { fetchMembers } from '../api-collab.js';
 import {
@@ -57,6 +62,11 @@ function NewRoleDialog({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
+  const unsaved = useUnsavedChangesGuard(title.trim() !== '');
+  const requestClose = useGuardedClose(unsaved, () => {
+    setTitle('');
+    onClose();
+  });
   const create = useMutation({
     mutationFn: () => createBusinessRole(api, { title, grants: [] }),
     onSuccess: (role) => {
@@ -88,10 +98,11 @@ function NewRoleDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) requestClose();
       }}
     >
       <DialogContent className='sm:max-w-md'>
+        <UnsavedChangesBoundary guard={unsaved} />
         <form onSubmit={submit} className='space-y-4'>
           <DialogHeader>
             <DialogTitle>{t('np.roles.newTitle')}</DialogTitle>
@@ -109,7 +120,7 @@ function NewRoleDialog({
             />
           </Field>
           <DialogFooter>
-            <Button type='button' variant='outline' onClick={onClose}>
+            <Button type='button' variant='outline' onClick={requestClose}>
               {t('actions.cancel')}
             </Button>
             <Button type='submit' disabled={!title.trim() || create.isPending}>
