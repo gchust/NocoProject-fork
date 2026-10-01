@@ -17,6 +17,15 @@ const npRuntimeTypesEnUS = {
     fitsLabel: 'Good for',
     all: 'All types',
     filterLabel: 'Type',
+    reasons: {
+      cannotExecute: 'This agent cannot change code',
+      computerOffline: 'Its computer is offline',
+    },
+    serviceUnavailable: 'Model service unavailable: {{reason}}',
+    runs: {
+      filter: 'Filter runs by type',
+      model: 'Model service',
+    },
     computer: {
       name: 'Computer agent',
       runtimeName: 'Computer runtime',

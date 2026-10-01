@@ -333,6 +333,7 @@ const npCollabEnUS = {
     agentBlocked: 'The agent reported it is blocked',
     blocked: 'Held back by a new blocker',
     apiInvalidRequest: 'The provider rejected the request',
+    builtinUnavailable: 'The model service is unavailable',
     agentError: {
       providerAuth: 'Provider sign-in failed',
       providerQuota: 'Provider quota exhausted',
@@ -347,6 +348,7 @@ const npCollabEnUS = {
       processFailure: 'Coding tool crashed',
       emptyOutput: 'The agent produced no output',
       agentTimeout: 'The agent timed out',
+      stepLimit: 'The agent reached its step limit',
       unknown: 'Unknown agent error',
     },
   },

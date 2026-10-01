@@ -248,6 +248,8 @@ export interface RunSummary {
   readonly agentId: string;
   readonly agentName?: string | null;
   readonly runtimeId?: string | null;
+  /** NP-219: absent from a server without runtime types, which means computer (`runtimeTypeOf`). */
+  readonly runtimeType?: RuntimeType;
   readonly status: RunStatus;
   readonly attempt?: number;
   readonly maxAttempts?: number;

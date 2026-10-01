@@ -6,12 +6,13 @@ import { type ReactElement, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 
 import { NpRunStatusBadge } from '@/components/np-badges';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { RouteDialog } from '@/components/route-dialog';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { fetchAgents, fetchRun } from '../../api.js';
+import { fetchAgents, fetchRun, fetchRuntimes } from '../../api.js';
 import { ACTIVE_RUN_STATUSES, npKeys } from '../../constants.js';
 import { runTriggerType } from '../../detail-normalize.js';
 import {
@@ -20,6 +21,7 @@ import {
   useNpFormatters,
 } from '../../format.js';
 import type { RunTopicPayload } from '../../types.js';
+import { runtimeTypeOf } from '../../types-runtime-types.js';
 import { useRealtimeTopic } from '../../use-realtime.js';
 import { TranscriptEvent } from './transcript-event.js';
 import { useRunEvents } from './use-run-events.js';
@@ -96,6 +98,24 @@ function TranscriptBody({ runId }: { readonly runId: string }): ReactElement {
     agents.data?.find((agent) => agent.id === data?.agentId)?.name ??
     null;
   const trigger = data ? runTriggerType(data) : null;
+  // A built-in run names its model service and model (NP-219 §9.2): the service from its runtime, the model from the agent.
+  const builtin = data ? runtimeTypeOf(data) === 'builtin' : false;
+  const runtimes = useQuery({
+    queryKey: npKeys.runtimes,
+    queryFn: () => fetchRuntimes(api),
+    enabled: builtin,
+  });
+  const service = builtin
+    ? (() => {
+        const runtime = runtimes.data?.find(
+          (row) => row.id === data?.runtimeId,
+        );
+        return runtime?.llmServiceTitle ?? runtime?.llmService ?? null;
+      })()
+    : null;
+  const model = builtin
+    ? (agents.data?.find((agent) => agent.id === data?.agentId)?.model ?? null)
+    : null;
   const duration = data ? durationText(data.startedAt, data.finishedAt) : null;
 
   if (run.isError && !data) {
@@ -147,6 +167,7 @@ function TranscriptBody({ runId }: { readonly runId: string }): ReactElement {
               />
               {agentName ?? t('np.common.unknownAgent')}
             </span>
+            <RuntimeTypeTag type={runtimeTypeOf(data)} />
             {trigger ? (
               <span className='text-sm text-muted-foreground'>
                 · {t(`np.trigger.${trigger}`, { defaultValue: trigger })}
@@ -160,6 +181,13 @@ function TranscriptBody({ runId }: { readonly runId: string }): ReactElement {
             })}
             {duration ? ` · ${t('np.transcript.took', { duration })}` : ''}
           </p>
+          {runtimeTypeOf(data) === 'builtin' && (service || model) ? (
+            <p className='text-xs text-muted-foreground'>
+              {t('np.runtimeType.runs.model')}
+              {': '}
+              {[service, model].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
           {data.failureReason ? (
             <p className='text-sm text-destructive'>
               {t(failureReasonKey(data.failureReason), {

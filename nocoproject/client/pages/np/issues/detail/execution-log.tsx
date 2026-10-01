@@ -6,6 +6,7 @@ import { type ReactElement, useState } from 'react';
 import { Link } from 'react-router';
 
 import { NpRunStatusBadge } from '@/components/np-badges';
+import { RuntimeTypeName, RuntimeTypeTag } from '@/components/np-runtime-type';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/toast';
 
@@ -33,6 +41,11 @@ import {
   useNpFormatters,
 } from '../../format.js';
 import type { AgentListItem, RunSummary } from '../../types.js';
+import {
+  RUNTIME_TYPES,
+  runtimeTypeOf,
+  type RuntimeType,
+} from '../../types-runtime-types.js';
 
 /** Runs on this issue, newest first, with transcript, stop and retry. */
 export function ExecutionLog({
@@ -52,6 +65,16 @@ export function ExecutionLog({
     readonly open: boolean;
     readonly run: RunSummary | null;
   }>({ open: false, run: null });
+
+  const [typeFilter, setTypeFilter] = useState<RuntimeType | 'all'>('all');
+  // The filter is offered only when this issue has runs of both types (NP-219 §9.2).
+  const typesPresent = RUNTIME_TYPES.filter((type) =>
+    runs.some((run) => runtimeTypeOf(run) === type),
+  );
+  const filtered =
+    typeFilter === 'all' || !typesPresent.includes(typeFilter)
+      ? runs
+      : runs.filter((run) => runtimeTypeOf(run) === typeFilter);
 
   const agentName = (run: RunSummary): string =>
     run.agentName ??
@@ -92,14 +115,48 @@ export function ExecutionLog({
 
   return (
     <section className='space-y-3' aria-labelledby='np-runs-heading'>
-      <h2 id='np-runs-heading' className='text-sm font-semibold'>
-        {t('np.runs.title')}
-      </h2>
+      <div className='flex items-center justify-between gap-2'>
+        <h2 id='np-runs-heading' className='text-sm font-semibold'>
+          {t('np.runs.title')}
+        </h2>
+        {typesPresent.length > 1 ? (
+          <Select
+            value={typeFilter}
+            onValueChange={(next) => {
+              if (next) setTypeFilter(next);
+            }}
+          >
+            <SelectTrigger
+              size='sm'
+              aria-label={t('np.runtimeType.runs.filter')}
+              data-testid='np-runs-type-filter'
+            >
+              <SelectValue>
+                {(value: string) =>
+                  value === 'all' ? (
+                    t('np.runtimeType.all')
+                  ) : (
+                    <RuntimeTypeName type={value as RuntimeType} />
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='all'>{t('np.runtimeType.all')}</SelectItem>
+              {RUNTIME_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  <RuntimeTypeName type={type} />
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
       {runs.length === 0 ? (
         <p className='text-sm text-muted-foreground'>{t('np.runs.empty')}</p>
       ) : (
         <ul className='space-y-2'>
-          {runs.map((run) => (
+          {filtered.map((run) => (
             <RunItem
               key={run.id}
               run={run}
@@ -172,6 +229,7 @@ function RunItem({
         <span className='min-w-0 truncate text-sm font-medium'>
           {agentName}
         </span>
+        <RuntimeTypeTag type={runtimeTypeOf(run)} iconOnly />
         <time
           dateTime={run.createdAt}
           title={format.dateTime(run.createdAt)}

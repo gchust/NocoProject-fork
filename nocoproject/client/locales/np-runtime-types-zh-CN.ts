@@ -10,6 +10,15 @@ const npRuntimeTypesZhCN: NpRuntimeTypesResource = {
     fitsLabel: '适合',
     all: '全部类型',
     filterLabel: '类型',
+    reasons: {
+      cannotExecute: '这个 Agent 不能改代码',
+      computerOffline: '它所在的电脑离线',
+    },
+    serviceUnavailable: '模型服务不可用：{{reason}}',
+    runs: {
+      filter: '按类型筛选运行',
+      model: '模型服务',
+    },
     computer: {
       name: '电脑 Agent',
       runtimeName: '电脑运行时',

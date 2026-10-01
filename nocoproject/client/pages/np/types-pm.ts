@@ -1,4 +1,8 @@
 import type { IssuePriority } from './types.js';
+import type {
+  BuiltinStatusReason,
+  RuntimeType,
+} from './types-runtime-types.js';
 
 /**
  * Project manager 2.0 (`nocosolution/NocoProject/docs/phase2/protocol-pm-assistant.md`, NP-181): the browser side of
@@ -82,6 +86,10 @@ export interface PmConversationAgent {
   readonly compat: PmRuntimeCompat;
   /** In fallback: whether the personal agent may be restored. */
   readonly personalAvailable: boolean;
+  /** NP-219: absent from a server without runtime types, which means computer. */
+  readonly runtimeType?: RuntimeType;
+  /** Why a built-in agent's runtime is offline (null while online and for computer agents). */
+  readonly statusReason?: BuiltinStatusReason | null;
 }
 
 export interface PmConversationSummary {

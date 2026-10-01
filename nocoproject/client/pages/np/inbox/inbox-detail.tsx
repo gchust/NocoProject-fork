@@ -327,6 +327,7 @@ function IssueSummary({
             type={issue.executorType}
             name={issue.executorName}
             activeRunCount={0}
+            typeName
           />
         </span>
       </span>

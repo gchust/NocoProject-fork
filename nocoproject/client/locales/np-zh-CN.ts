@@ -319,6 +319,7 @@ const npCollabZhCN: NpCollabResource = {
     agentBlocked: 'Agent 报告受阻',
     blocked: '因新增阻塞而撤回',
     apiInvalidRequest: '模型服务拒绝了请求',
+    builtinUnavailable: '模型服务不可用',
     agentError: {
       providerAuth: '模型服务登录失败',
       providerQuota: '模型服务额度用尽',
@@ -333,6 +334,7 @@ const npCollabZhCN: NpCollabResource = {
       processFailure: '编码工具崩溃',
       emptyOutput: 'Agent 没有产出',
       agentTimeout: 'Agent 超时',
+      stepLimit: 'Agent 达到了步数上限',
       unknown: '未知的 Agent 错误',
     },
   },

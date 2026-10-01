@@ -292,6 +292,7 @@ export function PropertiesPanel({
               type='agent'
               name={issue.executorName}
               activeRunCount={issue.activeRunCount}
+              typeName
             />
           </PropertyRow>
         ) : null}
