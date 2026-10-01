@@ -1,4 +1,5 @@
 import { requireCapability } from '../agent/capabilities.js';
+import { executorRuntimeTypeError } from '../agent/agent.runtime-type.js';
 /**
  * What an agent may do to the issue tree through its run token (docs/phase1/iteration-1-contract.md §D, §I):
  * create sub-issues, list children, add and remove dependencies. Writes are limited to the run's issue and its
@@ -132,11 +133,13 @@ async function planExecutor(
   const target = executor === 'self' ? auth.agentId : executor;
   const agent = await tx.conn.query
     .selectFrom('agents')
-    .select(['id', 'archivedAt'])
+    .select(['id', 'archivedAt', 'runtimeType'])
     .where('id', '=', target)
     .executeTakeFirst();
   if (!agent || agent.archivedAt)
     throw invalid('INVALID_EXECUTOR', 'executor agent does not exist.');
+  // NP-219: neither a suggestion nor a delegation may target a built-in agent.
+  if (agent.runtimeType === 'builtin') throw executorRuntimeTypeError(target);
   if (executor === 'self')
     return parent.autoExecuteSubtasks
       ? { assignTo: target, proposal: null, proposedAgentId: null }

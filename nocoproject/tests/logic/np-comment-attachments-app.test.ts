@@ -206,6 +206,7 @@ describe('NP-214 comment attachments through the application', () => {
         name: 'Screenshotter',
         instructions: 'Attach screenshots',
         provider: 'echo',
+        runtimeType: 'computer',
         runtimeId: registered.runtimes[0]!.id,
         capabilities,
       }),

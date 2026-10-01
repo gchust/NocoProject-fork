@@ -10,6 +10,7 @@ import { isoOrNull, num, str, unique } from '../shared/db.js';
 import {
   PM_ROSTER_SUMMARY_FALLBACK,
   type PmRosterAgent,
+  type RuntimeTypeFields,
 } from '../shared/protocol.js';
 import { effectiveCapabilities } from '../agent/capabilities.js';
 import { agentKindOf, reasoningEffortOf } from '../agent/agent.fields.js';
@@ -106,7 +107,7 @@ function summaryOf(row: Record<string, unknown>): string {
 export async function roster(
   conn: Conn,
   askerId: string,
-): Promise<PmRosterAgent[]> {
+): Promise<(PmRosterAgent & RuntimeTypeFields)[]> {
   const agents = await conn.query
     .selectFrom('agents')
     .selectAll()
@@ -134,7 +135,7 @@ export async function roster(
       skillsOf(conn, ids),
       delegationOf(conn, ids),
     ]);
-  const result: PmRosterAgent[] = [];
+  const result: (PmRosterAgent & RuntimeTypeFields)[] = [];
   for (const row of agents) {
     const id = str(row.id) ?? '';
     const target = await loadAgentAccess(conn, id);
@@ -142,13 +143,15 @@ export async function roster(
     const kind = agentKindOf(row.kind);
     if (kind === 'manager' && !canInvoke) continue;
     const runtime = runtimes.find((item) => item.id === row.runtimeId);
+    const builtin = row.runtimeType === 'builtin';
     result.push({
       id,
       name: str(row.name) ?? '',
       kind,
+      runtimeType: builtin ? 'builtin' : 'computer',
       provider: str(row.provider) ?? '',
       model: str(row.model),
-      reasoningEffort: reasoningEffortOf(row.reasoningEffort),
+      reasoningEffort: builtin ? null : reasoningEffortOf(row.reasoningEffort),
       summary: summaryOf(row),
       skills: skills.get(id) ?? [],
       capabilities: effectiveCapabilities(row),
@@ -158,8 +161,9 @@ export async function roster(
             name: str(runtime.name) ?? '',
             online: runtime.status === 'online',
             lastHeartbeatAt: isoOrNull(runtime.lastSeenAt),
-            compat:
-              kind === 'manager'
+            compat: builtin
+              ? 'ok'
+              : kind === 'manager'
                 ? pmCompatOf(runtime)
                 : runtime.status === 'upgrade_required'
                   ? 'upgrade_required'

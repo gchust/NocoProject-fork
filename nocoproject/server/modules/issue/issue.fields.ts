@@ -1,4 +1,5 @@
 import { hasCapability } from '../agent/capabilities.js';
+import { executorRuntimeTypeError } from '../agent/agent.runtime-type.js';
 /**
  * Field validation and change computation for issue writes, including the authorization rules that depend on which
  * field changes (owner, terminal status, agent executor, project, parent). See `shared/authz.ts` for the rule table.
@@ -53,7 +54,8 @@ export interface ActivityEntry {
 
 /**
  * The executor of an issue. Iteration 4: a project manager agent (`kind = 'manager'`) only executes project manager
- * conversations and retrospectives (400 `MANAGER_NOT_EXECUTOR` unless `allowConversation`).
+ * conversations and retrospectives (400 `MANAGER_NOT_EXECUTOR` unless `allowConversation`). NP-219: neither does a
+ * built-in agent (400 `EXECUTOR_RUNTIME_TYPE`).
  */
 export async function resolveExecutor(
   conn: Conn,
@@ -69,11 +71,14 @@ export async function resolveExecutor(
   if (input.type === 'agent') {
     const agent = await conn.query
       .selectFrom('agents')
-      .select(['id', 'archivedAt', 'kind'])
+      .select(['id', 'archivedAt', 'kind', 'runtimeType'])
       .where('id', '=', id)
       .executeTakeFirst();
     if (!agent || agent.archivedAt)
       throw invalid('INVALID_EXECUTOR', 'executor agent does not exist.');
+    // NP-219: a built-in agent never executes issues; it still runs project manager conversations.
+    if (agent.runtimeType === 'builtin' && !options.allowConversation)
+      throw executorRuntimeTypeError(id);
     if (agent.kind === 'manager' && !options.allowConversation)
       throw invalid(
         'MANAGER_NOT_EXECUTOR',

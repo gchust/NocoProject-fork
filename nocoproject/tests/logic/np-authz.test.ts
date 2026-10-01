@@ -249,6 +249,7 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
         instructions: 'x',
         runtimeId,
         provider: 'echo',
+        runtimeType: 'computer',
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
@@ -265,6 +266,7 @@ describe.skipIf(!db)('authorization rules (PostgreSQL)', () => {
       instructions: 'x',
       runtimeId,
       provider: 'echo',
+      runtimeType: 'computer',
     });
     expect(bobs).toMatchObject({
       ownerUserId: BOB.id,

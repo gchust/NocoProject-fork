@@ -6,7 +6,8 @@ import type { UsageService } from './usage.service.js';
 
 /**
  * `GET /np/usage?from=YYYY-MM-DD&to=YYYY-MM-DD&groupBy=agent|issue|project|day|model&projectId=&agentId=&issueId=` (browser,
- * contract §I) → `{ data: { rows, totals } }`. The range defaults to the last 30 days (UTC).
+ * contract §I) → `{ data: { rows, totals } }`. The range defaults to the last 30 days (UTC). NP-219: `groupBy` also
+ * takes `runtimeType`, and `runtimeType=computer|builtin` filters.
  */
 export function createUsageRoutes(usage: UsageService): Hono<AuthEnv> {
   const routes = npRouter<AuthEnv>();
@@ -19,6 +20,7 @@ export function createUsageRoutes(usage: UsageService): Hono<AuthEnv> {
         projectId: queryText(context, 'projectId'),
         agentId: queryText(context, 'agentId'),
         issueId: queryText(context, 'issueId'),
+        runtimeType: queryText(context, 'runtimeType'),
       }),
     }),
   );

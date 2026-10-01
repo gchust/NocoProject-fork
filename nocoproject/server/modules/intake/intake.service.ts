@@ -106,7 +106,7 @@ export interface IntakeDeps {
   /** Present when the AI employee plugin is registered. */
   readonly ai: AiIntakeParser | null;
   /** True when `ai.llmServices` is not empty. */
-  readonly aiConfigured: () => boolean;
+  readonly aiConfigured: () => boolean | Promise<boolean>;
   /** Iteration 4: the process of each confirmed draft (heuristic only). */
   readonly classifier: ProcessClassifier;
   /** NP-78: reads attached files for the AI parser; null = files travel with the batch unread. */

@@ -10,10 +10,9 @@
 import type { Conn } from '../shared/db.js';
 import { str } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
-import {
-  AGENT_SUMMARY_MAX,
-  PM_CAPABILITIES,
-} from '../shared/protocol.phase2-pm-assistant.js';
+import { AGENT_SUMMARY_MAX } from '../shared/protocol.phase2-pm-assistant.js';
+import { effectiveCapabilities } from './capabilities.js';
+import { runtimeFitsPersonal } from '../pm/pm-agent.eligibility.js';
 
 export function validateSummary(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -25,14 +24,17 @@ export function validateSummary(value: unknown): string | null {
   return value.trim() || null;
 }
 
+/** NP-219: compared with the agent's effective set, so a built-in project manager sends `BUILTIN_PM_CAPABILITIES`. */
 export function requireFixedManagerCapabilities(
   kind: string,
   capabilities: readonly string[] | undefined,
+  runtimeType: string = 'computer',
 ): void {
   if (kind !== 'manager' || capabilities === undefined) return;
+  const fixed = effectiveCapabilities({ kind, runtimeType });
   const same =
-    capabilities.length === PM_CAPABILITIES.length &&
-    PM_CAPABILITIES.every((key) => capabilities.includes(key));
+    capabilities.length === fixed.length &&
+    fixed.every((key) => capabilities.includes(key));
   if (!same)
     throw invalid(
       'MANAGER_CAPABILITIES_FIXED',
@@ -66,13 +68,21 @@ export async function requirePersonalPmStaysEligible(
   if (typeof values.runtimeId !== 'string') return;
   const runtime = await conn.query
     .selectFrom('runtimes')
-    .select(['ownerUserId', 'visibility', 'pmAllowed'])
+    .select(['ownerUserId', 'visibility', 'pmAllowed', 'runtimeType'])
     .where('id', '=', values.runtimeId)
     .executeTakeFirst();
   const fits = (userId: string) =>
-    !!runtime &&
-    (runtime.ownerUserId === userId ||
-      (runtime.visibility === 'public' && !!runtime.pmAllowed));
+    runtimeFitsPersonal(
+      runtime
+        ? {
+            ownerUserId: str(runtime.ownerUserId),
+            visibility: str(runtime.visibility) ?? 'private',
+            pmAllowed: !!runtime.pmAllowed,
+            runtimeType: str(runtime.runtimeType) ?? 'computer',
+          }
+        : null,
+      userId,
+    );
   if (!chosenBy.every(fits))
     throw invalid(
       'PM_AGENT_NOT_ELIGIBLE',

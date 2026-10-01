@@ -65,7 +65,7 @@ export interface Iteration4Inputs {
 /** The classifier `IssueService.create` uses for `process: auto`. */
 export function buildProcessClassifier(
   ai: AiProcessClassifier | null | undefined,
-  aiConfigured: (() => boolean) | undefined,
+  aiConfigured: (() => boolean | Promise<boolean>) | undefined,
 ): ProcessClassifier {
   return createProcessClassifier({
     ai: ai ?? null,

@@ -126,6 +126,7 @@ describe.skipIf(!db)('agent kind and reasoning effort (PostgreSQL)', () => {
       name: 'X',
       instructions: '',
       runtimeId: pmRuntime.runtimeId,
+      runtimeType: 'computer',
       provider: 'echo',
     };
     const badKind = await carol('POST', '/np/agents', {

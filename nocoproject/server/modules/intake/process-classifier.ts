@@ -182,7 +182,7 @@ export interface ProcessClassifier {
 
 export function createProcessClassifier(deps: {
   readonly ai: AiProcessClassifier | null;
-  readonly aiConfigured: () => boolean;
+  readonly aiConfigured: () => boolean | Promise<boolean>;
 }): ProcessClassifier {
   return {
     async classify(input, options) {
@@ -191,7 +191,7 @@ export function createProcessClassifier(deps: {
         heuristic.rule !== null ||
         !options.useAi ||
         !deps.ai ||
-        !deps.aiConfigured()
+        !(await deps.aiConfigured())
       )
         return { ...heuristic, by: 'heuristic' };
       try {
