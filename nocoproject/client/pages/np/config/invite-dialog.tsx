@@ -26,6 +26,12 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useGuardedClose,
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 
 import {
   createInvitations,
@@ -58,11 +64,13 @@ export function InviteDialog({
   readonly onClose: () => void;
 }): ReactElement {
   const { t } = useTranslation();
+  const unsaved = useUnsavedChangesGuard();
+  const requestClose = useGuardedClose(unsaved, onClose);
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose();
+        if (!next) requestClose();
       }}
     >
       <DialogContent className='sm:max-w-lg'>
@@ -72,13 +80,16 @@ export function InviteDialog({
             {t('np.invitations.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
-        {open ? (
-          <InviteForm
-            projects={projects}
-            requireProject={requireProject}
-            onClose={onClose}
-          />
-        ) : null}
+        <UnsavedChangesBoundary guard={unsaved}>
+          {open ? (
+            <InviteForm
+              projects={projects}
+              requireProject={requireProject}
+              onClose={onClose}
+              onCancel={requestClose}
+            />
+          ) : null}
+        </UnsavedChangesBoundary>
       </DialogContent>
     </Dialog>
   );
@@ -88,10 +99,12 @@ function InviteForm({
   projects,
   requireProject,
   onClose,
+  onCancel,
 }: {
   readonly projects: readonly InviteProjectOption[];
   readonly requireProject: boolean;
   readonly onClose: () => void;
+  readonly onCancel: () => void;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -102,6 +115,10 @@ function InviteForm({
   const [projectError, setProjectError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<InvitationResult[] | null>(null);
+  // Once sent, the dialog only shows each address's outcome.
+  useUnsavedChanges(
+    results === null && (text.trim() !== '' || projectIds.length > 0),
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -213,7 +230,7 @@ function InviteForm({
         </Field>
       </FieldGroup>
       <DialogFooter className='mt-6'>
-        <Button type='button' variant='outline' onClick={onClose}>
+        <Button type='button' variant='outline' onClick={onCancel}>
           {t('actions.cancel')}
         </Button>
         <Button type='submit' disabled={saving}>

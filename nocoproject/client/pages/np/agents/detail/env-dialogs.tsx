@@ -22,6 +22,12 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useGuardedClose,
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 
 import {
   envNameProblem,
@@ -48,11 +54,13 @@ export function EnvVarDialog({
   readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
+  const unsaved = useUnsavedChangesGuard();
+  const requestClose = useGuardedClose(unsaved, onClose);
   return (
     <Dialog
       open={target !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) requestClose();
       }}
     >
       <DialogContent className='sm:max-w-md'>
@@ -64,16 +72,19 @@ export function EnvVarDialog({
           </DialogTitle>
           <DialogDescription>{t('np.envVars.writeOnly')}</DialogDescription>
         </DialogHeader>
-        {target ? (
-          <EnvForm
-            key={target.name ?? 'new'}
-            agentId={agentId}
-            fixedName={target.name}
-            existingNames={existingNames}
-            onClose={onClose}
-            onSaved={onSaved}
-          />
-        ) : null}
+        <UnsavedChangesBoundary guard={unsaved}>
+          {target ? (
+            <EnvForm
+              key={target.name ?? 'new'}
+              agentId={agentId}
+              fixedName={target.name}
+              existingNames={existingNames}
+              onClose={onClose}
+              onCancel={requestClose}
+              onSaved={onSaved}
+            />
+          ) : null}
+        </UnsavedChangesBoundary>
       </DialogContent>
     </Dialog>
   );
@@ -84,12 +95,14 @@ function EnvForm({
   fixedName,
   existingNames,
   onClose,
+  onCancel,
   onSaved,
 }: {
   readonly agentId: string;
   readonly fixedName: string | null;
   readonly existingNames: readonly string[];
   readonly onClose: () => void;
+  readonly onCancel: () => void;
   readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
@@ -99,6 +112,7 @@ function EnvForm({
   const [nameError, setNameError] = useState<string>();
   const [valueError, setValueError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  useUnsavedChanges(value !== '' || (!fixedName && name.trim() !== ''));
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -186,7 +200,7 @@ function EnvForm({
             type='button'
             variant='outline'
             disabled={saving}
-            onClick={onClose}
+            onClick={onCancel}
           >
             {t('actions.cancel')}
           </Button>

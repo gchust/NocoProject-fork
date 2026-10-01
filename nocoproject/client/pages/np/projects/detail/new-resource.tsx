@@ -18,6 +18,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { addProjectResource } from '../../api-projects.js';
@@ -35,6 +40,7 @@ export default function NewResourcePage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   const handleSubmittingChange = (value: boolean): void => {
     submittingRef.current = value;
     setSubmitting(value);
@@ -43,10 +49,12 @@ export default function NewResourcePage(): ReactElement {
     <RouteDialog
       title={t('np.resources.newTitle')}
       description={t('np.resources.newDescription')}
-      beforeClose={() => !submittingRef.current}
+      beforeClose={() => !submittingRef.current && unsaved.confirmDiscard()}
       footer={<Footer submitting={submitting} />}
     >
-      <Body onSubmittingChange={handleSubmittingChange} />
+      <UnsavedChangesBoundary guard={unsaved}>
+        <Body onSubmittingChange={handleSubmittingChange} />
+      </UnsavedChangesBoundary>
     </RouteDialog>
   );
 }
@@ -66,6 +74,9 @@ function Body({
   const [label, setLabel] = useState('');
   const [urlError, setUrlError] = useState<string>();
   const [formError, setFormError] = useState<string>();
+  const markSaved = useUnsavedChanges(
+    [url, defaultRef, label].some((value) => value.trim()),
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -90,6 +101,7 @@ function Body({
       onSubmittingChange(false);
       toast.add({ type: 'success', title: t('np.resources.added') });
       void queryClient.invalidateQueries({ queryKey: npKeys.projects });
+      markSaved();
       void close();
     } catch (error: unknown) {
       onSubmittingChange(false);

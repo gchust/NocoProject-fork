@@ -12,6 +12,8 @@
  * Attaching and removing record `attachment_added` / `attachment_removed` activities and push `np:issues` through
  * `issue.changed`. Removing deletes the row, then the stored object best-effort (the plugin only deletes metadata).
  * Agents read an attachment's bytes with `agentContent` (NP-111) after the route checked the run may read the issue.
+ * NP-214: a comment's files carry its issue's id too, so reading them (`canRead`, `agentContent`) follows the issue;
+ * listing and removing here only see the issue's own attachments (`commentId` null). Agents upload through `agent-upload.routes.ts`.
  */
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
@@ -244,7 +246,9 @@ export function createAttachmentService(
         const issue = await requireVisibleIssue(tx.conn, viewer, issueIdOrKey);
         requireEditIssues(viewer);
         const file = isFileId(fileId) ? await findFile(tx.conn, fileId) : null;
-        if (!file || file.issueId !== issue.id) throw notFound('Attachment');
+        // A comment's files (NP-214) are not in the issue's attachment area and go with their comment.
+        if (!file || file.issueId !== issue.id || file.commentId !== null)
+          throw notFound('Attachment');
         if (!(await canRemove(tx.conn, viewer, issue, file)))
           throw forbidden(
             'FORBIDDEN',

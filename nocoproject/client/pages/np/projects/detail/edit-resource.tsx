@@ -21,6 +21,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useGuardedClose,
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 
 import { updateProjectResource } from '../../api-projects.js';
 import { npKeys } from '../../constants.js';
@@ -41,25 +47,30 @@ export function EditResourceDialog({
   readonly onClose: () => void;
 }): ReactElement {
   const { t } = useTranslation();
+  const unsaved = useUnsavedChangesGuard();
+  const requestClose = useGuardedClose(unsaved, onClose);
   return (
     <Dialog
       open={resource !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) requestClose();
       }}
     >
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle>{t('np.resourceEdit.title')}</DialogTitle>
         </DialogHeader>
-        {resource ? (
-          <EditForm
-            key={resource.id}
-            projectId={projectId}
-            resource={resource}
-            onClose={onClose}
-          />
-        ) : null}
+        <UnsavedChangesBoundary guard={unsaved}>
+          {resource ? (
+            <EditForm
+              key={resource.id}
+              projectId={projectId}
+              resource={resource}
+              onClose={onClose}
+              onCancel={requestClose}
+            />
+          ) : null}
+        </UnsavedChangesBoundary>
       </DialogContent>
     </Dialog>
   );
@@ -69,10 +80,12 @@ function EditForm({
   projectId,
   resource,
   onClose,
+  onCancel,
 }: {
   readonly projectId: string;
   readonly resource: ProjectResource;
   readonly onClose: () => void;
+  readonly onCancel: () => void;
 }): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -82,6 +95,11 @@ function EditForm({
   const [label, setLabel] = useState(resource.label ?? '');
   const [urlError, setUrlError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  useUnsavedChanges(
+    url.trim() !== resource.url ||
+      defaultRef.trim() !== (resource.defaultRef ?? '') ||
+      label.trim() !== (resource.label ?? ''),
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -164,7 +182,7 @@ function EditForm({
             type='button'
             variant='outline'
             disabled={saving}
-            onClick={onClose}
+            onClick={onCancel}
           >
             {t('actions.cancel')}
           </Button>

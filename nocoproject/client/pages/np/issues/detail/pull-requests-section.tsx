@@ -28,6 +28,11 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useGuardedClose,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 
 import {
   linkPullRequest,
@@ -342,6 +347,12 @@ function LinkPullRequestDialog({
   const api = useApiClient();
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string>();
+  const unsaved = useUnsavedChangesGuard(url.trim() !== '');
+  const requestClose = useGuardedClose(unsaved, () => {
+    setUrl('');
+    setError(undefined);
+    onClose();
+  });
   const link = useDetailMutation(
     issueId,
     (value: string) => linkPullRequest(api, issueId, value),
@@ -374,10 +385,11 @@ function LinkPullRequestDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && !link.isPending) onClose();
+        if (!next && !link.isPending) requestClose();
       }}
     >
       <DialogContent className='sm:max-w-md'>
+        <UnsavedChangesBoundary guard={unsaved} />
         <form onSubmit={submit} noValidate className='space-y-4'>
           <DialogHeader>
             <DialogTitle>{t('np.pullRequests.linkTitle')}</DialogTitle>
@@ -404,7 +416,7 @@ function LinkPullRequestDialog({
               type='button'
               variant='outline'
               disabled={link.isPending}
-              onClick={onClose}
+              onClick={requestClose}
             >
               {t('actions.cancel')}
             </Button>

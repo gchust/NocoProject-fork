@@ -4,6 +4,8 @@ import { useLocation, useSearchParams } from 'react-router';
 
 import { NpTabBar } from '@/components/np-route-tabs';
 import { RouteDialog } from '@/components/route-dialog';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import { useUnsavedChangesGuard } from '@/components/use-unsaved-changes';
 
 import { IntakeBatchView, IntakeComposer } from '../intake/intake-panels.js';
 import { ManualIssueFooter, ManualIssueForm } from './new-manual.js';
@@ -37,6 +39,7 @@ export default function NewIssuePage(): ReactElement {
   const batchId = tab === 'ai' ? params.get('batch') : null;
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   const handleSubmittingChange = (value: boolean): void => {
     submittingRef.current = value;
     setSubmitting(value);
@@ -70,7 +73,7 @@ export default function NewIssuePage(): ReactElement {
             : 'sm:max-w-2xl'
       }
       closeTo={{ pathname: '..', search: newIssueCloseSearch(location.search) }}
-      beforeClose={() => !submittingRef.current}
+      beforeClose={() => !submittingRef.current && unsaved.confirmDiscard()}
       footer={
         tab === 'manual' ? (
           <ManualIssueFooter submitting={submitting} />
@@ -93,20 +96,22 @@ export default function NewIssuePage(): ReactElement {
           id={`np-new-issue-panel-${tab}`}
           aria-labelledby={`np-new-issue-tab-${tab}`}
         >
-          {tab === 'manual' ? (
-            <ManualIssueForm onSubmittingChange={handleSubmittingChange} />
-          ) : batchId ? (
-            <IntakeBatchView
-              key={batchId}
-              batchId={batchId}
-              onClose={() => setBatch(null)}
-            />
-          ) : (
-            <IntakeComposer
-              initialProjectId={params.get('project')}
-              onParsed={(id) => setBatch(id)}
-            />
-          )}
+          <UnsavedChangesBoundary guard={unsaved}>
+            {tab === 'manual' ? (
+              <ManualIssueForm onSubmittingChange={handleSubmittingChange} />
+            ) : batchId ? (
+              <IntakeBatchView
+                key={batchId}
+                batchId={batchId}
+                onClose={() => setBatch(null)}
+              />
+            ) : (
+              <IntakeComposer
+                initialProjectId={params.get('project')}
+                onParsed={(id) => setBatch(id)}
+              />
+            )}
+          </UnsavedChangesBoundary>
         </div>
       </div>
     </RouteDialog>

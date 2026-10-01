@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 
 const source = resolve(import.meta.dirname, '../../nocoproject/server/modules/shared');
 const target = resolve(import.meta.dirname, '../src');
-const files = ['protocol.capabilities.ts', 'protocol.ts', 'protocol.phase1-iter2.ts', 'protocol.phase1-iter3.ts', 'protocol.phase1-iter4.ts', 'protocol.phase2-workflow.ts', 'protocol.phase2-workflow-proposals.ts', 'protocol.phase2-signals.ts', 'protocol.daemon-compat.ts', 'protocol.phase2-pm-assistant.ts'];
+const files = ['protocol.capabilities.ts', 'protocol.ts', 'protocol.phase1-iter2.ts', 'protocol.phase1-iter3.ts', 'protocol.phase1-iter4.ts', 'protocol.phase2-workflow.ts', 'protocol.phase2-workflow-proposals.ts', 'protocol.phase2-signals.ts', 'protocol.daemon-compat.ts', 'protocol.phase2-pm-assistant.ts', 'protocol.phase2-comment-attachments.ts'];
 const copies = files.map((file) => {
   let text = readFileSync(resolve(source, file), 'utf8');
   text = text.replace(/^export \* from '\.\/protocol\.[a-z0-9-]+-server\.js';\n/gm, '');

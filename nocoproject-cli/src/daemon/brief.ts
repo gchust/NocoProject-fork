@@ -6,7 +6,7 @@ import { pmBriefSections, pageContextLines, planResultLines, RUNTIME_RULES } fro
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ClaimedRunV1, designPendingOf, executionModeOf } from '../run-context.js';
-import { repositoriesSection, skillsSection, projectSection, workflowSection, conversationModeSection, subIssuesSection, parentCoordinationSection } from './brief-sections.js';
+import { repositoriesSection, skillsSection, projectSection, workflowSection, conversationModeSection, subIssuesSection, parentCoordinationSection, commentAttachmentsSection } from './brief-sections.js';
 import { knowledgeSection, captureLearningsSection, hasUserManual, MANUAL_ROOT_SLUG, userManualSection } from './brief-knowledge.js';
 import { approvedProposalLines, DESIGN_APPROVED_OPENING, designFirstSection, hasTrigger } from './brief-iter4.js';
 import { stageEnteredLines, stageChecklistSection, workflowTemplatesSection } from './brief-workflow.js';
@@ -38,6 +38,7 @@ export function buildBrief(input: BriefInput): string {
     '', ...projectSection(input), ...skillsSection(input),
     ...(permits(input, 'context.read') ? knowledgeSection(input) : []),
     ...(permits(input, 'issue.execute') ? repositoriesSection(input) : []),
+    ...(permits(input, 'attachment.upload') && permits(input, 'comment.create') ? commentAttachmentsSection(key) : []),
     ...(permits(input, 'subtask.create') ? [...subIssuesSection(input), ...parentCoordinationSection(key)] : []),
     ...(permits(input, 'knowledge.propose') ? captureLearningsSection() : []),
     ...(manual ? userManualSection(input) : []),

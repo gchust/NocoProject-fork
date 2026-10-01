@@ -19,6 +19,11 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { fetchMembers } from '../api-collab.js';
@@ -35,6 +40,7 @@ export default function NewProjectPage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   const handleSubmittingChange = (value: boolean): void => {
     submittingRef.current = value;
     setSubmitting(value);
@@ -44,10 +50,12 @@ export default function NewProjectPage(): ReactElement {
       title={t('np.projectForm.title')}
       description={t('np.projectForm.description')}
       className='sm:max-w-xl'
-      beforeClose={() => !submittingRef.current}
+      beforeClose={() => !submittingRef.current && unsaved.confirmDiscard()}
       footer={<Footer submitting={submitting} />}
     >
-      <Body onSubmittingChange={handleSubmittingChange} />
+      <UnsavedChangesBoundary guard={unsaved}>
+        <Body onSubmittingChange={handleSubmittingChange} />
+      </UnsavedChangesBoundary>
     </RouteDialog>
   );
 }
@@ -77,6 +85,14 @@ function Body({
   const [nameError, setNameError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const lead = leadUserId ?? me.data?.userId ?? null;
+  useUnsavedChanges(
+    Boolean(name.trim() || description.trim()) ||
+      visibility !== 'everyone' ||
+      leadUserId !== null ||
+      priority !== 'none' ||
+      startDate !== null ||
+      dueDate !== null,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();

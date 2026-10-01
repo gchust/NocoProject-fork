@@ -42,6 +42,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - **One scroll container.** The covering page scrolls as a whole; neither column scrolls on its own. The issue composer is `sticky bottom-0` inside the main column.
 - The main column starts with `Breadcrumbs` and the record's `text-2xl` title, then one meta line (identifier, status, project, and `NpLiveRun` while a run is active). Blocks are bordered cards (`rounded-lg border bg-card p-4`) headed by `NpSectionHeading`, `space-y-6` apart.
 - **Empty sections take no room.** No description is one muted row with "edit"; empty sub-issues fold into one dashed row with its actions; attachments (right under the description, NP-78), pull requests and dependencies render only with content or once revealed from the "Add" chips under the description; approvals and proposals render only when pending.
+- A comment's files (NP-216, `issues/detail/comment-attachments.tsx`) sit under its text, in thread replies too: images the server serves inline (`previewable`) as thumbnails, every other file as a row with its name, size and download link. Any of them opens the file components' `FilePreviewDialog` (the same one the issue's attachments use), which previews what NocoBase previews — images, PDF, audio and video, text and Markdown, Office documents — steps through the comment's files and downloads; SVG, HTML and other active content are never rendered and fall back to the download. A comment without files renders as before.
 - Loading uses `NpDetailSkeleton`; 404/403 uses an error with "back to the list".
 
 ## 4. Decisions
@@ -67,6 +68,7 @@ NocoBase ships compact as the default preset: it sets `--spacing: 0.2rem` (20% u
 - Every explicit write action toasts on success and on failure; failures are localized (`np.common.forbidden`, `np.common.requestFailed`, or a specific key for 409s).
 - Inline property edits and emoji reactions change in place and toast only on failure.
 - Destructive actions go through `AlertDialog` with a `destructive` action.
+- A dialog with a form asks "Discard unsaved changes?" before closing (Escape, the backdrop, ×, Cancel) while the form holds input that has not been submitted (NP-200). The dialog calls `useUnsavedChangesGuard()` and renders `UnsavedChangesBoundary` around its forms (`client/components/unsaved-changes.tsx`); a `RouteDialog` returns `confirmDiscard()` from `beforeClose` after its submitting check, a dialog in component state closes through `useGuardedClose`. Each form reports `useUnsavedChanges(dirty)`, where dirty means a field differs from what the form opened with (text compared trimmed), and calls the returned `markSaved()` before closing after a successful submit. Browser back, switching the new-issue tabs and navigating away do not ask.
 - UI text states facts and actions and never explains the UI: no "here you can…", "below is…", "decide it right here…". An empty state's sentence is a fact, not an instruction.
 
 ## 6a. Permissions

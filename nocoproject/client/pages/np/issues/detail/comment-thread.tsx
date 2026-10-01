@@ -21,6 +21,7 @@ import type { CommentTag } from '../../api-iter4.js';
 import { useNpFormatters } from '../../format.js';
 import type { CommentThread, IssueComment } from '../../types.js';
 import { NpCommentTag } from '../process-fields.js';
+import { CommentAttachments } from './comment-attachments.js';
 import { CommentReactions } from './comment-reactions.js';
 import { commentSnippet } from './timeline.js';
 import { useDetailMutation } from './use-detail-mutation.js';
@@ -53,7 +54,7 @@ function authorLabel(
 /**
  * A comment thread: the root comment and its replies (flattened, oldest first). A resolved thread (iteration 2 §F)
  * collapses to one line with a "resolved" chip and can be expanded or reopened; open threads offer "resolve" on the
- * root. Every comment carries its reactions.
+ * root. Every comment carries its files (NP-216) and its reactions.
  */
 export function ThreadCard({
   thread,
@@ -247,6 +248,14 @@ function CommentBlock({
         </div>
       </header>
       <NpMarkdown content={comment.content} className='pl-8' />
+      {comment.attachments?.length ? (
+        <div className='pt-1 pl-8'>
+          <CommentAttachments
+            attachments={comment.attachments}
+            createdAt={comment.createdAt}
+          />
+        </div>
+      ) : null}
       <div className='pl-8'>
         <CommentReactions
           issueId={context.issueId}

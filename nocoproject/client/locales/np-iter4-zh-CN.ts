@@ -22,6 +22,7 @@ const npIter4ZhCN: NpIter4Resource = {
     pullRequest_link: '关联 PR',
     member_act: '以提问者身份行动（项目经理）',
     repo_read: '只读检出仓库',
+    attachment_upload: '上传评论附件',
   },
   entries: {
     noManager: '找不到可选的项目经理 Agent。',

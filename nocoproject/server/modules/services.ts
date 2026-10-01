@@ -254,6 +254,8 @@ export interface NpServiceDeps {
   readonly onFileObjectError?: (error: unknown) => void;
   /** NP-78: reads files attached on the AI draft tab (np.newIssue.tabs.ai) for the AI parser; absent = files are not read. */
   readonly attachmentText?: AttachmentTextReader | null;
+  /** NP-214: the application's base path, prefixed to the `contentUrl` of comment files. Absent = none (tests). */
+  readonly contentBasePath?: () => string;
   /** NP-88: invitation email and account creation; absent = no email is sent, no account can be created. */
   readonly mailer?: () => InvitationMailer;
   readonly accounts?: () => InvitationAccounts | null;
@@ -383,6 +385,7 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       activity,
       triggers: () => services.triggers,
       conversations: () => services.pmConversations,
+      contentBasePath: deps.contentBasePath,
     }),
     agents: createAgentService({ tx, ids, users, activity }),
     runtimes: createRuntimeService({ tx, ids, users }),

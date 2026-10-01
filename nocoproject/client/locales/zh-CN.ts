@@ -67,6 +67,10 @@ const zhCN: AppResource = {
   'navigation.brandApps': 'NocoBase 应用',
   'auth.passwordMismatch': '两次输入的密码不一致。',
   'routeOverlay.close': '关闭',
+  'unsavedChanges.title': '放弃未提交的内容？',
+  'unsavedChanges.description': '已填写的内容还没有提交，关闭后将会丢失。',
+  'unsavedChanges.keepEditing': '继续编辑',
+  'unsavedChanges.discard': '放弃',
   'status.deniedDescription': '你没有访问 {{label}} 的权限。',
   'status.routeFailedDescription':
     '无法加载 {{packageName}} 的路由 {{label}}。',

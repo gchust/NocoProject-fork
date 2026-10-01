@@ -1,6 +1,7 @@
 /**
  * `npFiles` rows (NP-78). The file columns are written by `@nocobase/app-plugin-file` on upload; NocoProject owns
- * `uploadedById` and `issueId`. The content path mirrors the plugin's `getUrl` (`<accessPath>/<uuid>.<ext>`, no dot
+ * `uploadedById`, `issueId` and (NP-214) `commentId` / `uploadedByRunId`. A comment's files carry its issue's id as
+ * well, so the issue's own attachments are the rows without a `commentId`. The content path mirrors the plugin's `getUrl` (`<accessPath>/<uuid>.<ext>`, no dot
  * when the extension is empty); the route layer prefixes the application's base path.
  */
 import type { Conn } from '../shared/db.js';
@@ -29,6 +30,10 @@ export interface FileRow {
   readonly intakeBatchId: string | null;
   /** What the AI intake parser read of the file. */
   readonly intakeReadStatus: IntakeAttachmentReadStatus | null;
+  /** NP-214: the comment the file belongs to. */
+  readonly commentId: string | null;
+  /** NP-214: the run that uploaded the file through the agent API (`uploadedById` is then null). */
+  readonly uploadedByRunId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -48,6 +53,8 @@ export function toFileRow(row: Record<string, unknown>): FileRow {
     intakeReadStatus: fromJson<IntakeAttachmentReadStatus>(
       row.intakeReadStatus,
     ),
+    commentId: str(row.commentId),
+    uploadedByRunId: str(row.uploadedByRunId),
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -84,6 +91,7 @@ export async function findFile(
   return row ? toFileRow(row) : null;
 }
 
+/** The issue's own attachments (not its comments' files), oldest first. */
 export async function filesOfIssue(
   conn: Conn,
   issueId: string,
@@ -92,10 +100,41 @@ export async function filesOfIssue(
     .selectFrom(FILE_COLLECTION)
     .selectAll()
     .where('issueId', '=', issueId)
+    .where('commentId', 'is', null)
     .orderBy('createdAt', 'asc')
     .orderBy('id', 'asc')
     .execute();
   return rows.map(toFileRow);
+}
+
+/** NP-214: the files of these comments, oldest first per comment (one query). */
+export async function filesOfComments(
+  conn: Conn,
+  commentIds: readonly string[],
+): Promise<Map<string, FileRow[]>> {
+  const result = new Map<string, FileRow[]>();
+  if (commentIds.length === 0) return result;
+  const rows = await conn.query
+    .selectFrom(FILE_COLLECTION)
+    .selectAll()
+    .where('commentId', 'in', [...new Set(commentIds)])
+    .orderBy('createdAt', 'asc')
+    .orderBy('id', 'asc')
+    .execute();
+  for (const file of rows.map(toFileRow)) {
+    const commentId = file.commentId ?? '';
+    result.set(commentId, [...(result.get(commentId) ?? []), file]);
+  }
+  return result;
+}
+
+export function agentAttachmentInfo(file: FileRow): AgentAttachmentInfo {
+  return {
+    id: file.id,
+    filename: file.filename,
+    mimeType: file.mimeType,
+    size: file.size,
+  };
 }
 
 /** What an agent sees of an issue's attachments (no content access yet). */
@@ -103,10 +142,5 @@ export async function agentAttachments(
   conn: Conn,
   issueId: string,
 ): Promise<AgentAttachmentInfo[]> {
-  return (await filesOfIssue(conn, issueId)).map((file) => ({
-    id: file.id,
-    filename: file.filename,
-    mimeType: file.mimeType,
-    size: file.size,
-  }));
+  return (await filesOfIssue(conn, issueId)).map(agentAttachmentInfo);
 }

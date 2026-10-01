@@ -18,6 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { UnsavedChangesBoundary } from '@/components/unsaved-changes';
+import {
+  useUnsavedChanges,
+  useUnsavedChangesGuard,
+} from '@/components/use-unsaved-changes';
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import {
@@ -42,20 +47,23 @@ export default function NewKnowledgePage(): ReactElement {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
+  const unsaved = useUnsavedChangesGuard();
   return (
     <RouteDialog
       title={t('np.knowledge.form.title')}
       description={t('np.knowledge.form.description')}
       className='sm:max-w-2xl'
-      beforeClose={() => !pendingRef.current}
+      beforeClose={() => !pendingRef.current && unsaved.confirmDiscard()}
       footer={<Footer pending={pending} />}
     >
-      <Body
-        onPendingChange={(value) => {
-          pendingRef.current = value;
-          setPending(value);
-        }}
-      />
+      <UnsavedChangesBoundary guard={unsaved}>
+        <Body
+          onPendingChange={(value) => {
+            pendingRef.current = value;
+            setPending(value);
+          }}
+        />
+      </UnsavedChangesBoundary>
     </RouteDialog>
   );
 }
@@ -78,9 +86,8 @@ function Body({
   });
   const writable = writableProjects(viewer, projects.data);
   const preset = params.get('project');
-  const [projectId, setProjectId] = useState<string | null>(
-    preset && preset !== 'workspace' ? preset : null,
-  );
+  const presetProject = preset && preset !== 'workspace' ? preset : null;
+  const [projectId, setProjectId] = useState<string | null>(presetProject);
   const parentId = params.get('parent') || undefined;
   const parentDoc = useQuery({
     queryKey: npKeys.knowledgeDoc(parentId ?? ''),
@@ -93,6 +100,10 @@ function Body({
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [titleError, setTitleError] = useState<string>();
+  useUnsavedChanges(
+    [title, slug, summary, content].some((value) => value.trim()) ||
+      projectId !== presetProject,
+  );
   const effectiveProject =
     projectId ?? (decidesAll ? null : (writable[0]?.id ?? null));
 

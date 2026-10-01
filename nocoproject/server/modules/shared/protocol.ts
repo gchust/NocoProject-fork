@@ -1203,3 +1203,7 @@ export * from './protocol.roles-server.js';
 // ---------- Project manager assistant (NP-181 / NP-183) ----------
 
 export * from './protocol.phase2-pm-assistant.js';
+
+// ---------- Comment attachments (NP-214) ----------
+
+export * from './protocol.phase2-comment-attachments.js';

@@ -171,7 +171,7 @@ describe('run-token mode CLI', () => {
 
   it('prints the version', async () => {
     const r = await run(['version', '--json']);
-    expect(JSON.parse(r.out)).toMatchObject({ version: '0.6.1', protocolVersion: 2 });
+    expect(JSON.parse(r.out)).toMatchObject({ version: '0.7.0', protocolVersion: 2 });
   });
 
   it('logs in against the server and stores the key with 0600', async () => {

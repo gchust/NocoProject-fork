@@ -270,6 +270,7 @@ export default class NpProvider extends ServiceProvider<Application> {
         secrets: this.secretBox(),
         fileObjects: this.fileObjects(),
         attachmentText: this.attachmentText(),
+        contentBasePath: () => this.app.publicBasePath ?? '',
         onFileObjectError: (error) =>
           this.logError(error, 'NocoProject attachment object delete failed.'),
         aiIntake: ai ? createAiIntakeParser(ai) : null,

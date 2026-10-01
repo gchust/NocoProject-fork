@@ -12,6 +12,7 @@ import {
 } from '@/extensions/nocobase-file-component-ui';
 
 import { NpDetailSkeleton } from '@/components/np-states';
+import { useUnsavedChanges } from '@/components/use-unsaved-changes';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -61,6 +62,13 @@ export function IntakeComposer({
   const pasteDrop = usePasteDrop(uploadRef);
   const [files, setFiles] = useState<readonly FileRecord[]>([]);
   const [uploadStatus, setUploadStatus] = useState<FileUploadStatus>('idle');
+  // Once parsed, the text and files live in the stored batch.
+  useUnsavedChanges(
+    Boolean(rawContent.trim()) ||
+      files.length > 0 ||
+      uploadStatus !== 'idle' ||
+      projectId !== initialProjectId,
+  );
   const projects = useQuery({
     queryKey: npKeys.projects,
     queryFn: () => fetchProjects(api),

@@ -1,11 +1,17 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Outlet, Route } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentForm } from '../../client/pages/np/agents/detail/agent-form.js';
 import NewAgentPage from '../../client/pages/np/agents/new.js';
 import type { AgentListItem } from '../../client/pages/np/types.js';
-import { answer, type RequestOptions, renderNp } from './np-harness.js';
+import {
+  answer,
+  type RequestOptions,
+  renderNp,
+  renderNpRoutes,
+} from './np-harness.js';
 
 const api = vi.hoisted(() => ({ request: vi.fn() }));
 const toast = vi.hoisted(() => ({ add: vi.fn() }));
@@ -139,5 +145,77 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
         }),
       ]),
     );
+  });
+});
+
+describe('closing the new agent dialog with unsaved input (NP-200)', () => {
+  it('asks before discarding what was typed, and closes an untouched form directly', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({ 'GET np/runtimes': { data: [RUNTIME] } }),
+    );
+    await renderNpRoutes(
+      <Route
+        path='/agents'
+        element={
+          <>
+            <span>Agent list</span>
+            <Outlet />
+          </>
+        }
+      >
+        <Route path='new' element={<NewAgentPage />} />
+      </Route>,
+      { url: '/agents/new' },
+    );
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+    await user.type(name, 'PM');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(
+      await screen.findByRole('alertdialog', {
+        name: 'Discard unsaved changes?',
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('PM');
+
+    await user.clear(screen.getByRole('textbox', { name: 'Name' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Agent list')).toBeInTheDocument();
+  });
+
+  it('treats a kind preselected by the link as the starting point, not as input', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({ 'GET np/runtimes': { data: [RUNTIME] } }),
+    );
+    await renderNpRoutes(
+      <Route
+        path='/agents'
+        element={
+          <>
+            <span>Agent list</span>
+            <Outlet />
+          </>
+        }
+      >
+        <Route path='new' element={<NewAgentPage />} />
+      </Route>,
+      { url: '/agents/new?kind=manager' },
+    );
+    await screen.findByRole('textbox', { name: 'Name' });
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Agent list')).toBeInTheDocument();
   });
 });

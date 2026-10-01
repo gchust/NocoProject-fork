@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { AGENT_COMMANDS } from '../shared/protocol.capabilities.js';
 import { effectiveCapabilities } from '../agent/capabilities.js';
 import { createSettingsService } from '../system/settings.service.js';
 /**
@@ -62,6 +61,7 @@ import {
 } from './claim.sql.js';
 import { currentChecklist } from '../workflow/checklist.js';
 import {
+  briefCommands,
   deviceNameOf,
   evaluateDaemon,
   markDaemonSeen,
@@ -188,6 +188,7 @@ async function buildClaimedRun(
   runId: string,
   token: string,
   server: { readonly url: string; readonly protocolVersion: number },
+  daemonVersion: string | null,
 ): Promise<ClaimedRunV5 | null> {
   const conn = deps.tx.read();
   const run = await findRun(conn, runId);
@@ -289,9 +290,7 @@ async function buildClaimedRun(
       capabilities: snapshot.capabilities,
       configurationRevision: snapshot.configurationRevision,
       taskInstructions,
-      commandDescriptions: snapshot.capabilities.flatMap(
-        (key) => AGENT_COMMANDS[key],
-      ),
+      commandDescriptions: briefCommands(snapshot.capabilities, daemonVersion),
       provider: (str(agent.provider) ?? 'echo') as AgentProvider,
       model: str(agent.model),
       delegationTargets: await delegationTargets(conn, run.agentId),
@@ -417,10 +416,17 @@ export function createClaimService(deps: ClaimDeps): ClaimService {
       }
       const runs: ClaimedRunV5[] = [];
       for (const { runId, token } of claimed) {
-        const payload = await buildClaimedRun(deps, runId, token, {
-          url: serverUrl,
-          protocolVersion: compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
-        });
+        const payload = await buildClaimedRun(
+          deps,
+          runId,
+          token,
+          {
+            url: serverUrl,
+            protocolVersion:
+              compatibility.negotiatedProtocol ?? PROTOCOL_VERSION,
+          },
+          compatibility.daemonVersion,
+        );
         if (payload) runs.push(payload);
       }
       return { runs, compatibility };
