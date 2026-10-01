@@ -16,6 +16,7 @@ import type {
  * the page keeps working while the server contract settles.
  */
 
+import type { CommentAttachment } from './api-attachments.js';
 import type { PmResolvedContext } from './types-pm.js';
 import type {
   ApprovalRequest,
@@ -208,6 +209,8 @@ export interface IssueComment {
   readonly details?: Readonly<Record<string, unknown>> | null;
   readonly context?: PmResolvedContext | null;
   readonly via?: 'pm' | null;
+  /** NP-214: the comment's files (`[]` or absent without any). */
+  readonly attachments?: readonly CommentAttachment[];
 }
 
 /** A top-level comment with every descendant flattened into chronological replies. */

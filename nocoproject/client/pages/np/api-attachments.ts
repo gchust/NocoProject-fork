@@ -20,6 +20,21 @@ export interface IssueAttachment {
   readonly canDelete: boolean;
 }
 
+/**
+ * A comment's file (NP-214, `server/modules/shared/protocol.phase2-comment-attachments.ts` `CommentAttachment`).
+ * Comment files never appear among the issue's attachments; `previewable` marks the raster images the server serves
+ * inline.
+ */
+export interface CommentAttachment {
+  readonly id: string;
+  readonly filename: string;
+  readonly ext: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly contentUrl: string;
+  readonly previewable: boolean;
+}
+
 /** The file plugin's repository resource for attachments. */
 export const ATTACHMENT_RESOURCE = 'npFiles';
 /** Mirrors the server defaults (`nocoproject.attachmentMaxFileSize`, `MAX_ATTACHMENTS_PER_REQUEST`). */
@@ -79,6 +94,25 @@ export function toFileRecord(attachment: IssueAttachment): FileRecord {
     size: attachment.size,
     createdAt: attachment.createdAt,
     updatedAt: attachment.updatedAt,
+    contentUrl: attachment.contentUrl,
+  };
+}
+
+/** A comment's file as the file components' record; it carries no times of its own, so the comment's are used. */
+export function commentFileRecord(
+  attachment: CommentAttachment,
+  createdAt: string,
+): FileRecord {
+  return {
+    id: attachment.id,
+    disk: '',
+    key: '',
+    filename: attachment.filename,
+    ext: attachment.ext,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    createdAt,
+    updatedAt: createdAt,
     contentUrl: attachment.contentUrl,
   };
 }
