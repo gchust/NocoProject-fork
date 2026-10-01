@@ -28,6 +28,7 @@ const npIter4EnUS = {
     pullRequest_link: 'Link pull requests',
     member_act: 'Act as the asking member (project manager)',
     repo_read: 'Check out repositories read-only',
+    attachment_upload: 'Upload comment attachments',
   },
   entries: {
     noManager: 'No project manager agent is available.',

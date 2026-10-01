@@ -15,6 +15,8 @@ export const AGENT_CAPABILITIES = [
   // NP-183: the project manager assistant (protocol-pm-assistant.md §2.2); only conversation runs hold them.
   'member.act',
   'repo.read',
+  // NP-214: upload files and attach them to the run's own comments.
+  'attachment.upload',
 ] as const;
 export type AgentCapability = (typeof AGENT_CAPABILITIES)[number];
 export interface AgentConfiguration {
@@ -99,4 +101,6 @@ export const AGENT_COMMANDS: Record<AgentCapability, readonly string[]> = {
     'pm conversation title "<title>"',
   ],
   'repo.read': ['repo checkout <url> --json'],
+  // The CLI command (`issue comment add … --attach <path>`) is listed once the CLI ships it (NP-215).
+  'attachment.upload': [],
 };

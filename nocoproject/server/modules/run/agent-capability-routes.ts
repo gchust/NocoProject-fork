@@ -26,6 +26,8 @@ const routes: readonly [string, RegExp, AgentCapability][] = [
   ['POST', /^\/pm\/plans(?:\/[^/]+\/discard)?$/, 'member.act'],
   ['POST', /^\/issues$/, 'subtask.create'],
   ['POST', /^\/issues\/[^/]+\/comments$/, 'comment.create'],
+  // NP-214: one comment attachment per request.
+  ['POST', /^\/issues\/[^/]+\/uploads$/, 'attachment.upload'],
   ['POST', /^\/issues\/[^/]+\/status$/, 'issue.status.write'],
   ['POST', /^\/issues\/[^/]+\/design-proposal$/, 'design.propose'],
   ['POST', /^\/issues\/[^/]+\/pull-requests$/, 'pullRequest.link'],

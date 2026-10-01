@@ -7,7 +7,12 @@
  *   upload Policy stamps from the session user. The body limit is `attachmentMaxFileSize` (default 20 MiB) plus the
  *   multipart overhead. No other repository action is exposed: listing, attaching and removing go through
  *   `/api/np/issues/:id/attachments` (`modules/attachment/`).
- * - `GET /uploads/np/<uuid>.<ext>`: streams the bytes as an attachment (`Cache-Control: private, no-store`).
+ * - `GET /uploads/np/<uuid>.<ext>`: streams the bytes as an attachment (`Cache-Control: private, no-store`,
+ *   `nosniff`, `CSP sandbox`). NP-214: the safe raster images of `INLINE_PREVIEW_TYPES` (type and extension both
+ *   matching) are served `inline` instead, so a browser shows them; everything else, SVG and HTML included, stays a
+ *   download.
+ * - NP-214 `agentUploadStore`: the agent API's uploads (`POST /api/np/agent/issues/:id/uploads`) through the same
+ *   repository, stamped with the run instead of a user.
  *
  * The plugin's routes are public by design, so the guard contributions below are mounted first on the paths these
  * routes own (all contributions share one router, mounted in order; a guard never uses `use('*')`): the same guard as
@@ -22,7 +27,10 @@ import {
   type AuthEnv,
 } from '@nocobase/app-plugin-authentication';
 import { authorizationToken } from '@nocobase/app-plugin-authorization/server';
-import { defineFileRepositoryApiRoutes } from '@nocobase/app-plugin-file/server';
+import {
+  defineFileRepositoryApiRoutes,
+  serverFileRepositoryManagerToken,
+} from '@nocobase/app-plugin-file/server';
 import type { Application } from '@nocobase/app-server/application';
 import {
   defineApiRoutes,
@@ -32,6 +40,7 @@ import {
 import { Hono, type MiddlewareHandler } from 'hono';
 
 import type { NocoProjectConfig } from '../config/nocoproject.js';
+import type { AgentUploadStore } from '../modules/attachment/agent-upload.routes.js';
 import {
   FILE_ACCESS_PATH,
   FILE_COLLECTION,
@@ -43,6 +52,7 @@ import {
   rejectRunTokens,
   sessionActor,
 } from '../modules/shared/http.js';
+import { isInlinePreviewable } from '../modules/shared/protocol.js';
 import {
   npAttachmentServiceToken,
   npMemberServiceToken,
@@ -115,10 +125,52 @@ async function pluginRouter(app: Application, index: 0 | 1): Promise<Hono> {
   return contribution.createRouter(app);
 }
 
-/** Content reads: 404 unless the session user may read the named file. */
+/**
+ * NP-214: the agent API's uploads. The repository is the plugin's (storage, filename and type normalisation), under a
+ * Policy that stamps the run rather than a user.
+ */
+export function agentUploadStore(app: Application): AgentUploadStore {
+  const settings = attachmentSettings(app);
+  return {
+    maxFileSize: settings.maxFileSize,
+    async upload(file, runId) {
+      const files = app.container
+        .resolve(serverFileRepositoryManagerToken)
+        .repository(FILE_COLLECTION, {
+          disk: settings.disk,
+          accessPath: FILE_ACCESS_PATH,
+          policy: {
+            read: false,
+            create: {
+              scope: true,
+              defaults: { uploadedById: null, uploadedByRunId: runId },
+            },
+            update: false,
+            delete: false,
+          },
+        });
+      const { record } = await files.uploadOne({ file });
+      return {
+        id: record.id,
+        filename: record.filename,
+        mimeType: record.mimeType,
+        size: Number(record.size),
+      };
+    },
+  };
+}
+
+/** The extension a content request names (`<uuid>.<ext>`); the plugin answers 404 when it is not the file's. */
+function extOfContentName(name: string): string {
+  const dot = name.indexOf('.');
+  return dot < 0 ? '' : name.slice(dot + 1);
+}
+
+/** Content reads: 404 unless the session user may read the named file; safe raster images are served inline. */
 function contentAccess(app: Application): MiddlewareHandler<AuthEnv> {
   return async (context, next) => {
-    const fileId = fileIdOfContentName(context.req.param('file') ?? '');
+    const name = context.req.param('file') ?? '';
+    const fileId = fileIdOfContentName(name);
     const attachments = app.container.resolve(npAttachmentServiceToken);
     if (
       !fileId ||
@@ -127,6 +179,19 @@ function contentAccess(app: Application): MiddlewareHandler<AuthEnv> {
       return context.json(errorBody('NOT_FOUND', 'File not found.'), 404);
     }
     await next();
+    const disposition = context.res.headers.get('content-disposition');
+    if (
+      context.res.status === 200 &&
+      disposition?.startsWith('attachment;') &&
+      isInlinePreviewable(
+        context.res.headers.get('content-type') ?? '',
+        extOfContentName(name),
+      )
+    )
+      context.res.headers.set(
+        'content-disposition',
+        `inline${disposition.slice('attachment'.length)}`,
+      );
   };
 }
 

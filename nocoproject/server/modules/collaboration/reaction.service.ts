@@ -12,7 +12,7 @@ import { invalid, notFound } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type { CommentReaction, ReactionEmoji } from '../shared/protocol.js';
 import { REACTION_EMOJIS } from '../shared/protocol.js';
-import { reactionsFor } from './comment.service.js';
+import { reactionsFor } from './comment.reactions.js';
 
 export interface ThreadState {
   readonly commentId: string;

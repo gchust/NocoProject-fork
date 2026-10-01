@@ -2,8 +2,14 @@ import { requireActorCapability } from '../agent/capabilities.js';
 /**
  * Comments on issues: human comments from the browser (which may trigger agents) and agent comments written back
  * through a run token (which never trigger anything). Iteration 2: rows carry their reactions and, on thread roots,
- * whether the thread is resolved (`reaction.service.ts` writes both).
+ * whether the thread is resolved (`reaction.service.ts` writes both). NP-214: a comment may carry files
+ * (`attachmentIds`, see `attachment/comment-attachments.ts`) and lists them as `attachments`.
  */
+import {
+  attachToComment,
+  commentAttachments,
+} from '../attachment/comment-attachments.js';
+import { validateFileIds } from '../attachment/attachment.service.js';
 import type { Actor, ActivityRecorder } from '../shared/activity.js';
 import {
   requireInvokeAgent,
@@ -27,23 +33,25 @@ import type { IdSource } from '../shared/ids.js';
 import { decodeCursor, encodeCursor } from '../shared/pagination.js';
 import type {
   ActorType,
+  AgentCommentAttachmentFields,
+  CommentAttachmentFields,
   CommentForAgentV2,
   CommentPage,
-  CommentReaction,
   CommentV2,
   CommentPmFields,
+  CreateCommentAttachmentFields,
   CreateCommentRequest,
   CreateCommentRequestPm,
   CreateCommentResponse,
   PmResolvedContext,
 } from '../shared/protocol.js';
-import { REACTION_EMOJIS } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import { findIssue } from '../issue/issue.records.js';
 import { agentNames } from '../run/run.queries.js';
 import type { ConversationService } from '../pm/pm.conversations.js';
 import type { TriggerService } from '../trigger/trigger.service.js';
 import { isNote, parseMentions, parseUserMentions } from './mentions.js';
+import { reactionsFor } from './comment.reactions.js';
 
 const MAX_CONTENT_LENGTH = 200_000;
 
@@ -91,8 +99,11 @@ export interface CommentService {
   listForAgent(
     issueIdOrKey: string,
     query: AgentCommentQuery,
-  ): Promise<CommentForAgentV2[]>;
+  ): Promise<AgentComment[]>;
 }
+
+/** The agent view of a comment; NP-214 adds its files. */
+export type AgentComment = CommentForAgentV2 & AgentCommentAttachmentFields;
 
 export interface CommentDeps {
   readonly tx: TxRunner;
@@ -102,55 +113,24 @@ export interface CommentDeps {
   readonly triggers: () => TriggerService;
   /** NP-183: project manager conversations (page context, titles, agent binding); absent = none. */
   readonly conversations?: () => Pick<ConversationService, 'onMessage'>;
+  /** NP-214: the application's base path for the `contentUrl` of comment files; absent = none. */
+  readonly contentBasePath?: () => string;
 }
 
 function isActorType(value: unknown): value is ActorType {
   return value === 'user' || value === 'agent' || value === 'system';
 }
 
-/** Reactions per comment, in the fixed emoji order. */
-export async function reactionsFor(
-  conn: Conn,
-  commentIds: readonly string[],
-): Promise<Map<string, CommentReaction[]>> {
-  const result = new Map<string, CommentReaction[]>();
-  const ids = unique(commentIds);
-  if (ids.length === 0) return result;
-  const rows = await conn.query
-    .selectFrom('commentReactions')
-    .select(['commentId', 'userId', 'emoji'])
-    .where('commentId', 'in', ids)
-    .orderBy('createdAt', 'asc')
-    .execute();
-  const grouped = new Map<string, Map<string, string[]>>();
-  for (const row of rows) {
-    const commentId = str(row.commentId) ?? '';
-    const byEmoji = grouped.get(commentId) ?? new Map<string, string[]>();
-    grouped.set(commentId, byEmoji);
-    const emoji = str(row.emoji) ?? '';
-    byEmoji.set(emoji, [...(byEmoji.get(emoji) ?? []), str(row.userId) ?? '']);
-  }
-  for (const [commentId, byEmoji] of grouped) {
-    result.set(
-      commentId,
-      REACTION_EMOJIS.filter((emoji) => byEmoji.has(emoji)).map((emoji) => {
-        const userIds = byEmoji.get(emoji) ?? [];
-        return { emoji: emoji, count: userIds.length, userIds };
-      }),
-    );
-  }
-  return result;
-}
-
 const COMMENT_KINDS = ['system', 'proposal', 'plan', 'plan_result'];
 
-type CommentV5 = CommentV2 & CommentPmFields;
+type CommentV5 = CommentV2 & CommentPmFields & CommentAttachmentFields;
 
 async function mapComments(
   conn: Conn,
-  users: UserDirectory,
+  deps: Pick<CommentDeps, 'users' | 'contentBasePath'>,
   rows: readonly Record<string, unknown>[],
 ): Promise<CommentV5[]> {
+  const { users } = deps;
   const userIds = rows
     .filter((row) => row.authorType === 'user')
     .map((row) => str(row.authorId));
@@ -166,6 +146,11 @@ async function mapComments(
     rows.map((row) => str(row.id) ?? ''),
   );
   const agents = await agentNames(conn, agentIds);
+  const files = await commentAttachments(
+    conn,
+    rows.map((row) => str(row.id) ?? ''),
+    deps.contentBasePath?.() ?? '',
+  );
   return rows.map((row) => {
     const id = str(row.id) ?? '';
     const authorType = isActorType(row.authorType) ? row.authorType : 'system';
@@ -201,6 +186,7 @@ async function mapComments(
         : null,
       context: fromJson<PmResolvedContext>(row.context) ?? null,
       via: row.via === 'pm' ? 'pm' : null,
+      attachments: files.get(id) ?? [],
     };
   });
 }
@@ -217,6 +203,12 @@ async function create(
     throw invalid('INVALID_COMMENT', 'content is required.');
   if (content.length > MAX_CONTENT_LENGTH)
     throw invalid('INVALID_COMMENT', 'content is too long.');
+  const requested = (input as CreateCommentAttachmentFields | undefined)
+    ?.attachmentIds;
+  const attachmentIds =
+    requested === undefined || requested === null
+      ? []
+      : validateFileIds(requested, 'attachmentIds');
 
   return deps.tx.run(async (tx) => {
     await requireActorCapability(
@@ -225,6 +217,14 @@ async function create(
       'comment.create',
       issueIdOrKey,
     );
+    // NP-214: the HTTP upload checked it already; a direct service call is checked here too (ADR-0007).
+    if (attachmentIds.length > 0)
+      await requireActorCapability(
+        tx.conn,
+        actor,
+        'attachment.upload',
+        issueIdOrKey,
+      );
     let issue;
     if (actor.type === 'user') {
       // Members see and comment on visible issues; mentioning an agent needs access to it (contract §B). The project
@@ -267,7 +267,7 @@ async function create(
           'parentId must be a comment on the same issue.',
         );
       }
-      parent = (await mapComments(tx.conn, deps.users, [parentRow]))[0] ?? null;
+      parent = (await mapComments(tx.conn, deps, [parentRow]))[0] ?? null;
     }
     const id = deps.ids.next();
     const timestamp = now();
@@ -288,6 +288,13 @@ async function create(
       updatedAt: timestamp,
     };
     await tx.conn.query.insertInto('comments').values(row).execute();
+    const attachmentCount = await attachToComment(
+      tx,
+      actor,
+      issue.id,
+      id,
+      attachmentIds,
+    );
     await tx.conn.query
       .updateTable('issues')
       .set({ lastActivityAt: timestamp })
@@ -297,9 +304,13 @@ async function create(
       issueId: issue.id,
       actor,
       action: 'comment_added',
-      details: { commentId: id, parentId: row.parentId },
+      details: {
+        commentId: id,
+        parentId: row.parentId,
+        ...(attachmentCount > 0 ? { attachmentCount } : {}),
+      },
     });
-    const comment = (await mapComments(tx.conn, deps.users, [row]))[0];
+    const comment = (await mapComments(tx.conn, deps, [row]))[0];
     const triggered =
       options.trigger === false
         ? []
@@ -322,7 +333,7 @@ async function listForAgent(
   deps: CommentDeps,
   issueIdOrKey: string,
   query: AgentCommentQuery,
-): Promise<CommentForAgentV2[]> {
+): Promise<AgentComment[]> {
   const conn = deps.tx.read();
   const issue = await findIssue(conn, issueIdOrKey);
   if (!issue) throw notFound('Issue');
@@ -339,7 +350,7 @@ async function listForAgent(
     .orderBy('createdAt', 'asc')
     .orderBy('id', 'asc')
     .execute();
-  let comments = await mapComments(conn, deps.users, rows);
+  let comments = await mapComments(conn, deps, rows);
   const resolvedRoots = await resolvedThreadRoots(
     conn,
     comments.map((comment) => comment.rootId),
@@ -361,6 +372,12 @@ async function listForAgent(
     rootId: comment.rootId,
     createdAt: comment.createdAt,
     resolved: resolvedRoots.has(comment.rootId),
+    attachments: comment.attachments.map((file) => ({
+      id: file.id,
+      filename: file.filename,
+      mimeType: file.mimeType,
+      size: file.size,
+    })),
   }));
 }
 
@@ -391,7 +408,7 @@ async function commentListForIssue(
     .orderBy('createdAt', 'asc')
     .orderBy('id', 'asc')
     .execute();
-  return mapComments(conn, deps.users, rows);
+  return mapComments(conn, deps, rows);
 }
 
 async function commentPageForIssue(
@@ -416,11 +433,7 @@ async function commentPageForIssue(
     .orderBy('id', 'desc')
     .limit(limit + 1)
     .execute();
-  const data = await mapComments(
-    conn,
-    deps.users,
-    rows.slice(0, limit).reverse(),
-  );
+  const data = await mapComments(conn, deps, rows.slice(0, limit).reverse());
   const oldest = data[0];
   return {
     data,
