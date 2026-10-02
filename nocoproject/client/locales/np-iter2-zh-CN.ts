@@ -81,7 +81,8 @@ const npIter2ZhCN: NpIter2Resource = {
     apiBaseUrlHint:
       'https://api.github.com，或 GitHub Enterprise 的 API 地址。',
     token: '访问令牌',
-    tokenHint: '能读取仓库 PR 与检查状态的令牌。加密保存，保存后不再显示。',
+    tokenHint:
+      '能访问所有已接入仓库的令牌：读取 PR 与检查状态，在 NocoProject 中合并还需要写权限。细粒度令牌要逐个加入新仓库。加密保存，保存后不再显示。',
     webhookSecret: 'Webhook 密钥',
     webhookSecretHint:
       '所有仓库的 Webhook 都填写这同一个密钥。加密保存，管理员可再次查看，用于为新仓库添加 Webhook。',

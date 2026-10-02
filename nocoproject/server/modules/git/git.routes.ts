@@ -3,6 +3,7 @@ import type { Context, Hono } from 'hono';
 
 import { npRouter, readJson, sessionActor } from '../shared/http.js';
 import type {
+  GitConnectionTestRequest,
   LinkPullRequestRequest,
   MergePullRequestRequest,
   UpdateGitConnectionRequest,
@@ -52,9 +53,15 @@ export function createIntegrationRoutes(deps: {
       ),
     }),
   );
-  routes.post('/github/test', async (context) =>
-    context.json({ data: await deps.connections.test(sessionActor(context)) }),
-  );
+  // An empty body tests the token alone; `{ repo }` also checks one repository (NP-228).
+  routes.post('/github/test', async (context) => {
+    const input = (await context.req.text()).trim()
+      ? await readJson<GitConnectionTestRequest>(context)
+      : {};
+    return context.json({
+      data: await deps.connections.test(sessionActor(context), input),
+    });
+  });
   routes.post('/github/webhook-secret/reveal', async (context) =>
     context.json({
       data: await deps.connections.revealWebhookSecret(sessionActor(context)),

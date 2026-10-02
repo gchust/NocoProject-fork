@@ -92,7 +92,7 @@ const npIter2EnUS = {
       'https://api.github.com, or your GitHub Enterprise API address.',
     token: 'Access token',
     tokenHint:
-      'A token that can read the repositories’ pull requests and checks. It is stored encrypted and never shown again.',
+      'A token that can access every connected repository: read pull requests and checks, and write to merge from NocoProject. A fine-grained token must list each new repository. It is stored encrypted and never shown again.',
     webhookSecret: 'Webhook secret',
     webhookSecretHint:
       'Every repository’s webhook uses this same secret. Stored encrypted; admins can show it again to add another repository.',

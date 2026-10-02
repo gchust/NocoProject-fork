@@ -156,6 +156,85 @@ describe('GitHub webhook guide for project repositories (NP-118)', () => {
   });
 });
 
+describe('token access to a new repository (NP-228)', () => {
+  const connection = (tokenSet: boolean) => ({
+    'GET np/integrations/github': {
+      data: {
+        apiBaseUrl: 'https://api.github.com',
+        tokenSet,
+        webhookSecretSet: true,
+        webhookUrl: 'https://np.example.com/np/webhooks/github',
+        lastEventAt: null,
+      },
+    },
+  });
+
+  it('lets an admin check what the token may do in the repository', async () => {
+    const user = userEvent.setup();
+    const access = ['write', 'read', 'none'];
+    const test = vi.fn(() => ({
+      data: {
+        ok: true,
+        login: 'octo',
+        repo: { fullName: 'nocobase/nocoitam', access: access.shift() },
+      },
+    }));
+    api.request.mockImplementation(
+      answer({
+        ...members('owner'),
+        ...connection(true),
+        'POST np/integrations/github/test': test,
+      }),
+    );
+    await renderNp(
+      <GithubWebhookGuide repoUrl='git@github.com:nocobase/nocoitam.git' />,
+    );
+    expect(
+      screen.getByText(
+        'Make sure NocoProject’s GitHub token can access nocobase/nocoitam: a fine-grained token must list this repository; a classic token needs the repo scope.',
+      ),
+    ).toBeVisible();
+    const check = await screen.findByRole('button', { name: 'Check access' });
+    await user.click(check);
+    expect(await screen.findByText('Token can read and write')).toBeVisible();
+    expect(test).toHaveBeenCalledWith(
+      expect.objectContaining({ json: { repo: 'nocobase/nocoitam' } }),
+    );
+    await user.click(check);
+    expect(
+      await screen.findByText('Read only: merging from NocoProject fails'),
+    ).toBeVisible();
+    await user.click(check);
+    expect(
+      await screen.findByText('Token cannot access this repository'),
+    ).toBeVisible();
+  });
+
+  it('says when no token is saved and offers no check', async () => {
+    api.request.mockImplementation(
+      answer({ ...members('owner'), ...connection(false) }),
+    );
+    await renderNp(
+      <GithubWebhookGuide repoUrl='https://github.com/nocobase/NocoProject.git' />,
+    );
+    expect(await screen.findByText('Token not set')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Check access' })).toBeNull();
+  });
+
+  it('shows a member the step without the check', async () => {
+    api.request.mockImplementation(answer(members('member')));
+    await renderNp(
+      <GithubWebhookGuide repoUrl='https://github.com/nocobase/NocoProject.git' />,
+    );
+    expect(
+      await screen.findByText(
+        'Make sure NocoProject’s GitHub token can access nocobase/NocoProject: a fine-grained token must list this repository; a classic token needs the repo scope.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Check access' })).toBeNull();
+  });
+});
+
 describe('showing the saved webhook secret (NP-227)', () => {
   it('shows it on request in Settings → GitHub and hides it again', async () => {
     const user = userEvent.setup();

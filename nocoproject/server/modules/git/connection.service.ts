@@ -13,8 +13,10 @@ import { conflict, invalid, NpError } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type { SecretBox } from '../shared/crypto.js';
 import type {
+  GitConnectionTestRequest,
   GitConnectionTestResponse,
   GitConnectionView,
+  GitRepoAccess,
   GitWebhookSecretRevealResponse,
   UpdateGitConnectionRequest,
 } from '../shared/protocol.js';
@@ -35,8 +37,14 @@ export interface GitConnectionService {
     input: UpdateGitConnectionRequest,
     webhookUrl: string,
   ): Promise<GitConnectionView>;
-  /** `GET /user` with the stored token; 409 `GITHUB_NOT_CONFIGURED` without one. */
-  test(actor: Actor): Promise<GitConnectionTestResponse>;
+  /**
+   * `GET /user` with the stored token; 409 `GITHUB_NOT_CONFIGURED` without one. With `repo`, also what the token may
+   * do there (NP-228): a new repository needs the token's access as well as its webhook.
+   */
+  test(
+    actor: Actor,
+    input?: GitConnectionTestRequest,
+  ): Promise<GitConnectionTestResponse>;
   /** The saved webhook secret in plain text (null when unset); needs `update`, like replacing it. */
   revealWebhookSecret(actor: Actor): Promise<GitWebhookSecretRevealResponse>;
 }
@@ -148,6 +156,35 @@ function toView(
   };
 }
 
+function repoValue(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const repo = typeof value === 'string' ? value.trim() : '';
+  const parts = repo.split('/');
+  if (
+    repo.length > 200 ||
+    parts.length !== 2 ||
+    parts.some((part) => !/^[\w.-]+$/u.test(part) || /^\.+$/u.test(part))
+  )
+    throw invalid('INVALID_FIELD', 'repo must look like owner/name.');
+  return repo;
+}
+
+/** A 404 means the token cannot see the repository; anything else is a failed test. */
+async function repoAccess(
+  github: GitHubClient,
+  credentials: GitHubCredentials,
+  repo: string,
+): Promise<GitRepoAccess> {
+  try {
+    const found = await github.getRepository(credentials, repo);
+    return { fullName: found.fullName, access: found.push ? 'write' : 'read' };
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404)
+      return { fullName: repo, access: 'none' };
+    throw error;
+  }
+}
+
 function secretValue(
   secrets: SecretBox,
   value: unknown,
@@ -238,9 +275,10 @@ export function createGitConnectionService(
         webhookUrl,
       );
     },
-    async test(actor) {
+    async test(actor, input) {
       const conn = deps.tx.read();
       await requireGitHub(conn, actor, 'update');
+      const repo = repoValue(input?.repo);
       const credentials = credentialsOf(
         await loadConnection(conn, deps.secrets),
       );
@@ -251,7 +289,14 @@ export function createGitConnectionService(
         );
       try {
         const user = await deps.github.getAuthenticatedUser(credentials);
-        return { ok: true, login: user.login, scopes: user.scopes };
+        return {
+          ok: true,
+          login: user.login,
+          scopes: user.scopes,
+          ...(repo
+            ? { repo: await repoAccess(deps.github, credentials, repo) }
+            : {}),
+        };
       } catch (error) {
         throw githubError(error);
       }

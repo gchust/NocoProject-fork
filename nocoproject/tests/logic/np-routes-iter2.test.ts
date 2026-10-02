@@ -111,6 +111,38 @@ describe('iteration 2 browser routes', () => {
     );
   });
 
+  it('tests the connection with or without a repository (NP-228)', async () => {
+    const { router, doubles } = await build(npApiRoutes);
+    const path = '/np/integrations/github/test';
+    expect(
+      (await router.request(path, { method: 'POST', headers: signedIn }))
+        .status,
+    ).toBe(200);
+    expect(doubles.connections.test).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'u1' }),
+      {},
+    );
+    const response = await router.request(path, {
+      method: 'POST',
+      headers: { ...signedIn, 'content-type': 'application/json' },
+      body: JSON.stringify({ repo: 'acme/app' }),
+    });
+    expect(response.status).toBe(200);
+    expect(doubles.connections.test).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'u1' }),
+      { repo: 'acme/app' },
+    );
+    expect(
+      (
+        await router.request(path, {
+          method: 'POST',
+          headers: signedIn,
+          body: '[1]',
+        })
+      ).status,
+    ).toBe(400);
+  });
+
   it('computes the webhook URL from the request origin and base path', async () => {
     const { router, doubles } = await build(npApiRoutes);
     const response = await router.request(

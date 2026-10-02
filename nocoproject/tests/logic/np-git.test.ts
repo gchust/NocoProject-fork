@@ -127,6 +127,7 @@ beforeEach(async () => {
       login: 'octo',
       scopes: ['repo'],
     })),
+    getRepository: vi.fn(async () => ({ fullName: 'acme/app', push: true })),
     getPullRequest: vi.fn(async () => prPayload()),
     getCiState: vi.fn(async () => 'success' as const),
     mergePullRequest: vi.fn(async () => ({ sha: 'merged' })),

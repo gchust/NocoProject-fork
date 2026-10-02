@@ -22,13 +22,15 @@ import {
   CopyValue,
   WebhookSecretReveal,
 } from '../../config/webhook-secret-reveal.js';
+import { RepoAccessCheck } from './repo-access-check.js';
 import { githubRepoOf } from './resource-url.js';
 
 /**
  * How to add NocoProject's webhook to one GitHub repository (NP-118): each repository needs its own, or merged pull
  * requests never close their cards or move their issues. Whoever may read the settings item `nocoproject.github`
  * (NP-117; owner/admin by default) sees the webhook URL from `/config/github`; everyone else is pointed at an admin.
- * Whoever may also change it (`update`) can show the saved secret here and copy it (NP-227).
+ * Whoever may also change it (`update`) can show the saved secret here and copy it (NP-227), and check that the saved
+ * token can reach the repository (NP-228).
  */
 export function GithubWebhookGuide({
   repoUrl,
@@ -107,6 +109,25 @@ export function GithubWebhookGuide({
         <Step label='Which events'>{t('np.repoWebhook.events')}</Step>
       </li>
       <li>{t('np.repoWebhook.stepSave')}</li>
+      <li>
+        <div className='flex flex-col gap-1'>
+          <span>
+            {repo
+              ? t('np.repoWebhook.stepToken', { repo: repo.fullName })
+              : t('np.repoWebhook.stepTokenGeneric')}
+          </span>
+          {connection.data && !connection.data.tokenSet ? (
+            <span>
+              <NpTag tone='amber' dot>
+                {t('np.repoWebhook.tokenNotSet')}
+              </NpTag>
+            </span>
+          ) : null}
+          {connection.data?.tokenSet && editGithub.can && repo ? (
+            <RepoAccessCheck repo={repo.fullName} />
+          ) : null}
+        </div>
+      </li>
     </ol>
   );
 }

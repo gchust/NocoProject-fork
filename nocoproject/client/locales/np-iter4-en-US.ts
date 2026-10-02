@@ -317,9 +317,9 @@ const npIter4EnUS = {
     open: 'Webhook setup for {{name}}',
     title: 'Add the webhook on GitHub',
     description:
-      'Each GitHub repository needs its own webhook. Without it, merged pull requests do not update issues.',
+      'Each GitHub repository needs its own webhook, and NocoProject’s token must be able to access it. Otherwise merged pull requests do not update issues.',
     newHint:
-      'After adding it, add the NocoProject webhook to this repository on GitHub:',
+      'After adding it, add the NocoProject webhook to this repository on GitHub and make sure the token can access it:',
     stepOpen: 'Open the webhook settings of {{repo}}.',
     openSettings: 'Open on GitHub',
     stepOpenGeneric:
@@ -332,6 +332,15 @@ const npIter4EnUS = {
       'Let me select individual events: Pull requests, Check suites, Statuses, Pushes (Pushes lets NocoProject notice merge conflicts).',
     stepSave:
       'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
+    stepToken:
+      'Make sure NocoProject’s GitHub token can access {{repo}}: a fine-grained token must list this repository; a classic token needs the repo scope.',
+    stepTokenGeneric:
+      'Make sure NocoProject’s GitHub token can access this repository: a fine-grained token must list it; a classic token needs the repo scope.',
+    tokenNotSet: 'Token not set',
+    checkAccess: 'Check access',
+    accessWrite: 'Token can read and write',
+    accessRead: 'Read only: merging from NocoProject fails',
+    accessNone: 'Token cannot access this repository',
   },
   // NP-117: titles the permission workspace shows for the NocoProject settings items and permission sets.
   access: {

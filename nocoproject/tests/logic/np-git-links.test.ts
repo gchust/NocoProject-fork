@@ -7,9 +7,10 @@
  */
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  GitHubClient,
-  GitHubPullRequestPayload,
+import {
+  GitHubApiError,
+  type GitHubClient,
+  type GitHubPullRequestPayload,
 } from '../../server/modules/git/github-client.ts';
 import type { NpServices } from '../../server/modules/services.ts';
 import type {
@@ -92,6 +93,7 @@ beforeEach(async () => {
       login: 'octo',
       scopes: ['repo'],
     })),
+    getRepository: vi.fn(async () => ({ fullName: 'acme/app', push: true })),
     getPullRequest: vi.fn(async () => prPayload()),
     getCiState: vi.fn(async () => 'success' as const),
     mergePullRequest: vi.fn(async () => ({ sha: 'merged' })),
@@ -153,6 +155,60 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
       tokenSet: false,
       webhookSecretSet: true,
     });
+  });
+
+  it('checks what the token may do in one repository (NP-228)', async () => {
+    await configure();
+    await expect(
+      services.gitConnections.test(BOB, { repo: 'acme/app' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).resolves.toEqual({
+      ok: true,
+      login: 'octo',
+      scopes: ['repo'],
+      repo: { fullName: 'acme/app', access: 'write' },
+    });
+    expect(github.getRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ token: TOKEN }),
+      'acme/app',
+    );
+    vi.mocked(github.getRepository).mockResolvedValueOnce({
+      fullName: 'Acme/App',
+      push: false,
+    });
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).resolves.toMatchObject({
+      repo: { fullName: 'Acme/App', access: 'read' },
+    });
+    vi.mocked(github.getRepository).mockRejectedValueOnce(
+      new GitHubApiError(404, 'GitHub answered 404.'),
+    );
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/private' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      repo: { fullName: 'acme/private', access: 'none' },
+    });
+    vi.mocked(github.getRepository).mockRejectedValueOnce(
+      new GitHubApiError(500, 'GitHub answered 500.'),
+    );
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).rejects.toMatchObject({ code: 'GITHUB_REQUEST_FAILED' });
+    for (const repo of ['acme', '../user', 'a/b/c', 'acme/..'])
+      await expect(
+        services.gitConnections.test(ALICE, { repo }),
+      ).rejects.toMatchObject({ code: 'INVALID_FIELD' });
+    vi.mocked(github.getRepository).mockClear();
+    await expect(services.gitConnections.test(ALICE, {})).resolves.toEqual({
+      ok: true,
+      login: 'octo',
+      scopes: ['repo'],
+    });
+    expect(github.getRepository).not.toHaveBeenCalled();
   });
 
   it('reveals the saved webhook secret only to whoever may change it (NP-227)', async () => {

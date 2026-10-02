@@ -77,13 +77,16 @@ export async function revealWebhookSecret(
   );
 }
 
+/** Signs in with the saved token; `repo` (`owner/name`) also checks what the token may do there (NP-228). */
 export async function testGitConnection(
   api: ApiClient,
+  repo?: string,
 ): Promise<GitConnectionTestResult> {
   return unwrap(
-    await api.request<unknown>({
+    await api.request<unknown, { repo: string }>({
       path: 'np/integrations/github/test',
       method: 'POST',
+      ...(repo ? { json: { repo } } : {}),
     }),
   );
 }

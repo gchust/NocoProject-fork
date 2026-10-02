@@ -55,6 +55,11 @@ export interface GitHubClient {
   getAuthenticatedUser(
     credentials: GitHubCredentials,
   ): Promise<{ login: string; scopes: string[] }>;
+  /** The repository as the token sees it (404 when it cannot); `push` is the token user's write permission. */
+  getRepository(
+    credentials: GitHubCredentials,
+    repo: string,
+  ): Promise<{ fullName: string; push: boolean }>;
   getPullRequest(
     credentials: GitHubCredentials,
     repo: string,
@@ -254,6 +259,17 @@ export function createFetchGitHubClient(
         .filter(Boolean);
       const login = (body as { login?: unknown }).login;
       return { login: typeof login === 'string' ? login : '', scopes };
+    },
+    async getRepository(credentials, repo) {
+      const { body } = await request(credentials, `/repos/${repo}`);
+      const { full_name: fullName, permissions } = body as {
+        full_name?: unknown;
+        permissions?: { push?: unknown };
+      };
+      return {
+        fullName: typeof fullName === 'string' && fullName ? fullName : repo,
+        push: permissions?.push === true,
+      };
     },
     async getPullRequest(credentials, repo, number) {
       const { body } = await request(

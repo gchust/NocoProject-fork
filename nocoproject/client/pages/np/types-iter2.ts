@@ -39,10 +39,17 @@ export interface GitWebhookSecretReveal {
   readonly webhookSecret: string | null;
 }
 
+/** NP-228: what the saved token may do in one repository; `none` = GitHub does not show it the repository. */
+export interface GitRepoAccess {
+  readonly fullName: string;
+  readonly access: 'none' | 'read' | 'write';
+}
+
 export interface GitConnectionTestResult {
   readonly ok: boolean;
   readonly login?: string | null;
   readonly scopes?: readonly string[] | string | null;
+  readonly repo?: GitRepoAccess | null;
 }
 
 export type PullRequestState = 'open' | 'closed' | 'merged';

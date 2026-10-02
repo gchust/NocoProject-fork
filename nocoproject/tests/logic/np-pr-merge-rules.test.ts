@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * The pure parts of merging from NocoProject (NP-85): the merge blockers, the squash commit title, and the fetch
- * client's merge and CI run calls (a fake `fetch`; GitHub itself is never called).
+ * client's merge, CI run and repository calls (a fake `fetch`; GitHub itself is never called).
  */
 import { describe, expect, it } from 'vitest';
 
@@ -177,6 +177,31 @@ describe('fetch GitHub client: merge and CI runs', () => {
       runUrl: 'https://github.com/a/b/actions/runs/1',
       screenshotsUrl: null,
     });
+  });
+});
+
+describe('fetch GitHub client: repository access (NP-228)', () => {
+  it('reads the full name and the push permission, and fails on 404', async () => {
+    const { client } = fakeFetch({
+      'https://api.github.com/repos/acme/app': {
+        body: {
+          full_name: 'Acme/App',
+          permissions: { pull: true, push: true },
+        },
+      },
+      'https://api.github.com/repos/acme/read': {
+        body: { full_name: 'acme/read', permissions: { pull: true } },
+      },
+    });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/app'),
+    ).resolves.toEqual({ fullName: 'Acme/App', push: true });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/read'),
+    ).resolves.toEqual({ fullName: 'acme/read', push: false });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/hidden'),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 

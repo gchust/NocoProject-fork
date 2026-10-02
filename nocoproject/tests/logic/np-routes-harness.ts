@@ -219,6 +219,7 @@ export function createDoubles() {
       webhookUrl,
     })),
     revealWebhookSecret: vi.fn(async () => ({ webhookSecret: 'whsec' })),
+    test: vi.fn(async () => ({ ok: true, login: 'octo' })),
   };
   return {
     issues,

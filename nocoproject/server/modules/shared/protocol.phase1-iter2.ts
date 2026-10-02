@@ -63,10 +63,25 @@ export interface GitWebhookSecretRevealResponse {
   readonly webhookSecret: string | null;
 }
 
+/** NP-228: `POST /np/integrations/github/test`; `repo` (`owner/name`) also checks the token's access to it. */
+export interface GitConnectionTestRequest {
+  readonly repo?: string;
+}
+
+/** What the token may do in one repository: `none` = GitHub does not show it the repository. */
+export type GitRepoAccessLevel = 'none' | 'read' | 'write';
+
+export interface GitRepoAccess {
+  readonly fullName: string;
+  readonly access: GitRepoAccessLevel;
+}
+
 export interface GitConnectionTestResponse {
   readonly ok: boolean;
   readonly login: string;
   readonly scopes?: readonly string[];
+  /** Only when the request named a repository. */
+  readonly repo?: GitRepoAccess;
 }
 
 export type PullRequestState = 'open' | 'closed' | 'merged';

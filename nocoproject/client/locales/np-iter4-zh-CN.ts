@@ -294,8 +294,9 @@ const npIter4ZhCN: NpIter4Resource = {
     open: '{{name}} 的 Webhook 设置',
     title: '在 GitHub 上添加 Webhook',
     description:
-      '每个 GitHub 仓库都要单独添加 Webhook，否则 PR 合并后任务状态不会自动更新。',
-    newHint: '添加后，还要在 GitHub 上为这个仓库添加 NocoProject 的 Webhook：',
+      '每个 GitHub 仓库都要单独添加 Webhook，NocoProject 的令牌也要能访问该仓库，否则 PR 合并后任务状态不会自动更新。',
+    newHint:
+      '添加后，还要在 GitHub 上为这个仓库添加 NocoProject 的 Webhook，并确认令牌能访问它：',
     stepOpen: '打开 {{repo}} 的 Webhook 设置。',
     openSettings: '在 GitHub 打开',
     stepOpenGeneric:
@@ -308,6 +309,15 @@ const npIter4ZhCN: NpIter4Resource = {
       '选 Let me select individual events，勾选 Pull requests、Check suites、Statuses、Pushes（勾选 Pushes 才能发现合并冲突）。',
     stepSave:
       '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
+    stepToken:
+      '确认 NocoProject 的 GitHub 令牌能访问 {{repo}}：细粒度令牌（fine-grained）要在仓库范围中加入该仓库；经典令牌需要 repo 权限。',
+    stepTokenGeneric:
+      '确认 NocoProject 的 GitHub 令牌能访问这个仓库：细粒度令牌（fine-grained）要在仓库范围中加入它；经典令牌需要 repo 权限。',
+    tokenNotSet: '令牌未设置',
+    checkAccess: '检查访问权限',
+    accessWrite: '令牌可读写',
+    accessRead: '只读：无法在 NocoProject 中合并',
+    accessNone: '令牌无法访问该仓库',
   },
   access: {
     section: 'NocoProject',
