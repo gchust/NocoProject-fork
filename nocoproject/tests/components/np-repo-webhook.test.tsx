@@ -191,7 +191,7 @@ describe('token access to a new repository (NP-228)', () => {
     );
     expect(
       screen.getByText(
-        'Make sure NocoProject’s GitHub token can access nocobase/nocoitam: a fine-grained token must list this repository; a classic token needs the repo scope.',
+        'Make sure NocoProject’s GitHub token can access nocobase/nocoitam: a classic token needs the repo scope; a fine-grained token must list this repository with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
       ),
     ).toBeVisible();
     const check = await screen.findByRole('button', { name: 'Check access' });
@@ -208,6 +208,66 @@ describe('token access to a new repository (NP-228)', () => {
     expect(
       await screen.findByText('Token cannot access this repository'),
     ).toBeVisible();
+  });
+
+  it('tells seeing the repository apart from reading its pull requests and CI (NP-229)', async () => {
+    const user = userEvent.setup();
+    const reads = [
+      { pullRequests: false, statuses: false, checks: false },
+      { pullRequests: true, statuses: true, checks: false },
+      { pullRequests: true, statuses: null, checks: null },
+    ];
+    api.request.mockImplementation(
+      answer({
+        ...members('owner'),
+        ...connection(true),
+        'POST np/integrations/github/test': () => ({
+          data: {
+            ok: true,
+            login: 'octo',
+            repo: {
+              fullName: 'nocobase/nocoitam',
+              access: 'write',
+              reads: reads.shift(),
+            },
+          },
+        }),
+      }),
+    );
+    await renderNp(
+      <GithubWebhookGuide repoUrl='git@github.com:nocobase/nocoitam.git' />,
+    );
+    const check = await screen.findByRole('button', { name: 'Check access' });
+    await user.click(check);
+    expect(
+      await screen.findByText(
+        'Sees the repository but not its pull requests: Pull requests read access is missing',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('Token can read and write')).toBeNull();
+    expect(screen.getByText('Cannot read commit statuses')).toBeVisible();
+    expect(
+      screen.getByText(
+        'Cannot read Checks: a refresh reads commit statuses only',
+      ),
+    ).toBeVisible();
+    await user.click(check);
+    expect(await screen.findByText('Token can read and write')).toBeVisible();
+    expect(screen.queryByText('Cannot read commit statuses')).toBeNull();
+    expect(
+      screen.getByText(
+        'Cannot read Checks: a refresh reads commit statuses only',
+      ),
+    ).toBeVisible();
+    await user.click(check);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          'Cannot read Checks: a refresh reads commit statuses only',
+        ),
+      ).toBeNull(),
+    );
+    expect(screen.getByText('Token can read and write')).toBeVisible();
   });
 
   it('says when no token is saved and offers no check', async () => {
@@ -228,7 +288,7 @@ describe('token access to a new repository (NP-228)', () => {
     );
     expect(
       await screen.findByText(
-        'Make sure NocoProject’s GitHub token can access nocobase/NocoProject: a fine-grained token must list this repository; a classic token needs the repo scope.',
+        'Make sure NocoProject’s GitHub token can access nocobase/NocoProject: a classic token needs the repo scope; a fine-grained token must list this repository with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
       ),
     ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Check access' })).toBeNull();

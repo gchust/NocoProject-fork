@@ -169,20 +169,34 @@ function repoValue(value: unknown): string | undefined {
   return repo;
 }
 
-/** A 404 means the token cannot see the repository; anything else is a failed test. */
+/**
+ * A 404 means the token cannot see the repository; anything else is a failed test. NP-229: seeing a repository is not
+ * enough (a fine-grained token needs only its metadata permission for that), so the reads a refresh makes are tried
+ * too, on the default branch.
+ */
 async function repoAccess(
   github: GitHubClient,
   credentials: GitHubCredentials,
   repo: string,
 ): Promise<GitRepoAccess> {
+  let found: Awaited<ReturnType<GitHubClient['getRepository']>>;
   try {
-    const found = await github.getRepository(credentials, repo);
-    return { fullName: found.fullName, access: found.push ? 'write' : 'read' };
+    found = await github.getRepository(credentials, repo);
   } catch (error) {
     if (error instanceof GitHubApiError && error.status === 404)
       return { fullName: repo, access: 'none' };
     throw error;
   }
+  const reads = await github.getReadAccess(
+    credentials,
+    found.fullName,
+    found.defaultBranch,
+  );
+  return {
+    fullName: found.fullName,
+    access: found.push ? 'write' : 'read',
+    reads,
+  };
 }
 
 function secretValue(

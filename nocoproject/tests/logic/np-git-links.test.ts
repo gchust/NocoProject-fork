@@ -93,7 +93,16 @@ beforeEach(async () => {
       login: 'octo',
       scopes: ['repo'],
     })),
-    getRepository: vi.fn(async () => ({ fullName: 'acme/app', push: true })),
+    getRepository: vi.fn(async () => ({
+      fullName: 'acme/app',
+      push: true,
+      defaultBranch: 'main',
+    })),
+    getReadAccess: vi.fn(async () => ({
+      pullRequests: true,
+      statuses: true,
+      checks: true,
+    })),
     getPullRequest: vi.fn(async () => prPayload()),
     getCiState: vi.fn(async () => 'success' as const),
     mergePullRequest: vi.fn(async () => ({ sha: 'merged' })),
@@ -168,7 +177,11 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
       ok: true,
       login: 'octo',
       scopes: ['repo'],
-      repo: { fullName: 'acme/app', access: 'write' },
+      repo: {
+        fullName: 'acme/app',
+        access: 'write',
+        reads: { pullRequests: true, statuses: true, checks: true },
+      },
     });
     expect(github.getRepository).toHaveBeenCalledWith(
       expect.objectContaining({ token: TOKEN }),
@@ -177,12 +190,18 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
     vi.mocked(github.getRepository).mockResolvedValueOnce({
       fullName: 'Acme/App',
       push: false,
+      defaultBranch: 'trunk',
     });
     await expect(
       services.gitConnections.test(ALICE, { repo: 'acme/app' }),
     ).resolves.toMatchObject({
       repo: { fullName: 'Acme/App', access: 'read' },
     });
+    expect(github.getReadAccess).toHaveBeenLastCalledWith(
+      expect.objectContaining({ token: TOKEN }),
+      'Acme/App',
+      'trunk',
+    );
     vi.mocked(github.getRepository).mockRejectedValueOnce(
       new GitHubApiError(404, 'GitHub answered 404.'),
     );
@@ -192,6 +211,7 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
       ok: true,
       repo: { fullName: 'acme/private', access: 'none' },
     });
+    expect(github.getReadAccess).toHaveBeenCalledTimes(2);
     vi.mocked(github.getRepository).mockRejectedValueOnce(
       new GitHubApiError(500, 'GitHub answered 500.'),
     );
@@ -209,6 +229,39 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
       scopes: ['repo'],
     });
     expect(github.getRepository).not.toHaveBeenCalled();
+  });
+
+  it('tells a token that sees a repository apart from one that reads its pull requests (NP-229)', async () => {
+    await configure();
+    vi.mocked(github.getReadAccess).mockResolvedValueOnce({
+      pullRequests: false,
+      statuses: false,
+      checks: false,
+    });
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).resolves.toMatchObject({
+      repo: {
+        access: 'write',
+        reads: { pullRequests: false, statuses: false, checks: false },
+      },
+    });
+    vi.mocked(github.getReadAccess).mockResolvedValueOnce({
+      pullRequests: true,
+      statuses: true,
+      checks: false,
+    });
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).resolves.toMatchObject({
+      repo: { reads: { pullRequests: true, statuses: true, checks: false } },
+    });
+    vi.mocked(github.getReadAccess).mockRejectedValueOnce(
+      new GitHubApiError(500, 'GitHub answered 500.'),
+    );
+    await expect(
+      services.gitConnections.test(ALICE, { repo: 'acme/app' }),
+    ).rejects.toMatchObject({ code: 'GITHUB_REQUEST_FAILED' });
   });
 
   it('reveals the saved webhook secret only to whoever may change it (NP-227)', async () => {

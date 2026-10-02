@@ -74,7 +74,16 @@ beforeEach(async () => {
   await resetData(db);
   github = {
     getAuthenticatedUser: vi.fn(async () => ({ login: 'octo', scopes: [] })),
-    getRepository: vi.fn(async () => ({ fullName: 'acme/app', push: true })),
+    getRepository: vi.fn(async () => ({
+      fullName: 'acme/app',
+      push: true,
+      defaultBranch: 'main',
+    })),
+    getReadAccess: vi.fn(async () => ({
+      pullRequests: true,
+      statuses: true,
+      checks: true,
+    })),
     getPullRequest: vi.fn(async () => prPayload()),
     getCiState: vi.fn(async () => 'pending' as const),
     mergePullRequest: vi.fn(async () => ({ sha: 'squashed1' })),

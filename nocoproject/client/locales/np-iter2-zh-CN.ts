@@ -36,7 +36,7 @@ const npIter2ZhCN: NpIter2Resource = {
     githubError: {
       notConfigured: '尚未连接 GitHub，请管理员在“设置 → GitHub”中添加令牌。',
       authFailed:
-        'GitHub 拒绝了令牌：令牌可能已过期或被撤销，或缺少 Pull requests、Checks、Commit statuses 的读权限。请管理员在“设置 → GitHub”中检查令牌。',
+        'GitHub 拒绝了令牌：令牌可能已过期或被撤销，或缺少该仓库 Pull requests 的读权限。请管理员在“设置 → GitHub”中检查令牌，或在该仓库的 Webhook 向导里检查访问权限。',
       notFound:
         'GitHub 找不到这个 PR，或令牌没有该仓库的访问权限。请管理员在“设置 → GitHub”中检查令牌可访问的仓库。',
       requestFailed:
@@ -82,7 +82,7 @@ const npIter2ZhCN: NpIter2Resource = {
       'https://api.github.com，或 GitHub Enterprise 的 API 地址。',
     token: '访问令牌',
     tokenHint:
-      '能访问所有已接入仓库的令牌：读取 PR 与检查状态，在 NocoProject 中合并还需要写权限。细粒度令牌要逐个加入新仓库。加密保存，保存后不再显示。',
+      '能访问所有已接入仓库的令牌。经典令牌需要 repo 权限；细粒度令牌要逐个加入新仓库，并授予 Pull requests、Commit statuses 读权限，在 NocoProject 中合并还需要 Contents 写权限；读不到 Checks 时，刷新只读 commit status。加密保存，保存后不再显示。',
     webhookSecret: 'Webhook 密钥',
     webhookSecretHint:
       '所有仓库的 Webhook 都填写这同一个密钥。加密保存，管理员可再次查看，用于为新仓库添加 Webhook。',

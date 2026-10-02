@@ -43,6 +43,12 @@ export interface GitWebhookSecretReveal {
 export interface GitRepoAccess {
   readonly fullName: string;
   readonly access: 'none' | 'read' | 'write';
+  /** NP-229: the reads a refresh makes, tried with the token; null = GitHub could not tell (empty repository). */
+  readonly reads?: {
+    readonly pullRequests: boolean;
+    readonly statuses: boolean | null;
+    readonly checks: boolean | null;
+  } | null;
 }
 
 export interface GitConnectionTestResult {

@@ -310,14 +310,17 @@ const npIter4ZhCN: NpIter4Resource = {
     stepSave:
       '点 Add webhook。GitHub 会发送一次 ping，「设置 → GitHub」中的最近一次投递时间随之更新。',
     stepToken:
-      '确认 NocoProject 的 GitHub 令牌能访问 {{repo}}：细粒度令牌（fine-grained）要在仓库范围中加入该仓库；经典令牌需要 repo 权限。',
+      '确认 NocoProject 的 GitHub 令牌能访问 {{repo}}：经典令牌需要 repo 权限；细粒度令牌（fine-grained）要在仓库范围中加入该仓库，并授予 Pull requests、Commit statuses 读权限，在 NocoProject 中合并还需要 Contents 写权限。令牌读不到 Checks 时，刷新只读 commit status，检查结果靠 Webhook 更新。',
     stepTokenGeneric:
-      '确认 NocoProject 的 GitHub 令牌能访问这个仓库：细粒度令牌（fine-grained）要在仓库范围中加入它；经典令牌需要 repo 权限。',
+      '确认 NocoProject 的 GitHub 令牌能访问这个仓库：经典令牌需要 repo 权限；细粒度令牌（fine-grained）要在仓库范围中加入它，并授予 Pull requests、Commit statuses 读权限，在 NocoProject 中合并还需要 Contents 写权限。令牌读不到 Checks 时，刷新只读 commit status，检查结果靠 Webhook 更新。',
     tokenNotSet: '令牌未设置',
     checkAccess: '检查访问权限',
     accessWrite: '令牌可读写',
     accessRead: '只读：无法在 NocoProject 中合并',
     accessNone: '令牌无法访问该仓库',
+    accessNoPullRequests: '看得到仓库，但读不了 PR：缺少 Pull requests 读权限',
+    accessNoStatuses: '读不了 Commit statuses',
+    accessNoChecks: '读不了 Checks：刷新只读 commit status',
   },
   access: {
     section: 'NocoProject',

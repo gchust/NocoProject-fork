@@ -333,14 +333,18 @@ const npIter4EnUS = {
     stepSave:
       'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
     stepToken:
-      'Make sure NocoProject’s GitHub token can access {{repo}}: a fine-grained token must list this repository; a classic token needs the repo scope.',
+      'Make sure NocoProject’s GitHub token can access {{repo}}: a classic token needs the repo scope; a fine-grained token must list this repository with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
     stepTokenGeneric:
-      'Make sure NocoProject’s GitHub token can access this repository: a fine-grained token must list it; a classic token needs the repo scope.',
+      'Make sure NocoProject’s GitHub token can access this repository: a classic token needs the repo scope; a fine-grained token must list it with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
     tokenNotSet: 'Token not set',
     checkAccess: 'Check access',
     accessWrite: 'Token can read and write',
     accessRead: 'Read only: merging from NocoProject fails',
     accessNone: 'Token cannot access this repository',
+    accessNoPullRequests:
+      'Sees the repository but not its pull requests: Pull requests read access is missing',
+    accessNoStatuses: 'Cannot read commit statuses',
+    accessNoChecks: 'Cannot read Checks: a refresh reads commit statuses only',
   },
   // NP-117: titles the permission workspace shows for the NocoProject settings items and permission sets.
   access: {

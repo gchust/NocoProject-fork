@@ -21,10 +21,34 @@ const ACCESS: Record<
   none: { tone: 'red', key: 'np.repoWebhook.accessNone' },
 };
 
+const NO_PULL_REQUESTS = {
+  tone: 'red',
+  key: 'np.repoWebhook.accessNoPullRequests',
+} as const;
+
+/** A refused CI read (NP-229): a refresh still works, it only learns less about CI. */
+const READ_GAPS = [
+  { read: 'statuses', tone: 'amber', key: 'np.repoWebhook.accessNoStatuses' },
+  { read: 'checks', tone: 'grey', key: 'np.repoWebhook.accessNoChecks' },
+] as const;
+
+/** The tags for one result: seeing a repository is not reading its pull requests (NP-229). */
+function accessTags(
+  repo: GitRepoAccess,
+): readonly { readonly tone: NpTone; readonly key: string }[] {
+  const { reads } = repo;
+  if (repo.access === 'none' || !reads) return [ACCESS[repo.access]];
+  return [
+    reads.pullRequests ? ACCESS[repo.access] : NO_PULL_REQUESTS,
+    ...READ_GAPS.filter((gap) => reads[gap.read] === false),
+  ];
+}
+
 /**
  * NP-228: a new repository needs NocoProject's token to reach it as well as its webhook, or linking, refreshing and
  * merging its pull requests fails. Runs "Test connection" for this repository (`POST …/github/test` with `repo`, the
- * settings item `nocoproject.github` `update`) and shows what the token may do there.
+ * settings item `nocoproject.github` `update`) and shows what the token may do there; since NP-229 that includes
+ * reading its pull requests, commit statuses and check suites.
  */
 export function RepoAccessCheck({
   repo,
@@ -46,7 +70,7 @@ export function RepoAccessCheck({
             : t('np.github.testFailed'),
       }),
   });
-  const result = check.data?.repo ? ACCESS[check.data.repo.access] : null;
+  const tags = check.data?.repo ? accessTags(check.data.repo) : [];
 
   return (
     <span className='flex flex-wrap items-center gap-2'>
@@ -64,11 +88,13 @@ export function RepoAccessCheck({
         )}
         {t('np.repoWebhook.checkAccess')}
       </Button>
-      {result && !check.isPending ? (
-        <NpTag tone={result.tone} dot>
-          {t(result.key)}
-        </NpTag>
-      ) : null}
+      {check.isPending
+        ? null
+        : tags.map((tag) => (
+            <NpTag key={tag.key} tone={tag.tone} dot>
+              {t(tag.key)}
+            </NpTag>
+          ))}
     </span>
   );
 }

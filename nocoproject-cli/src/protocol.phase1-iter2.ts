@@ -71,9 +71,22 @@ export interface GitConnectionTestRequest {
 /** What the token may do in one repository: `none` = GitHub does not show it the repository. */
 export type GitRepoAccessLevel = 'none' | 'read' | 'write';
 
+/**
+ * NP-229: the reads a refresh makes, each tried with the token (a fine-grained token may see a private repository
+ * through its metadata permission and still be refused its pull requests). null when GitHub cannot tell, e.g. for an
+ * empty repository.
+ */
+export interface GitRepoReads {
+  readonly pullRequests: boolean;
+  readonly statuses: boolean | null;
+  readonly checks: boolean | null;
+}
+
 export interface GitRepoAccess {
   readonly fullName: string;
   readonly access: GitRepoAccessLevel;
+  /** NP-229: absent when `access` is `none`. */
+  readonly reads?: GitRepoReads;
 }
 
 export interface GitConnectionTestResponse {
