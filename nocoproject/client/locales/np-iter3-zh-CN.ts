@@ -235,8 +235,10 @@ const npIter3ZhCN: NpIter3Resource = {
   githubSecrets: {
     show: '显示内容',
     hide: '隐藏内容',
+    showSaved: '查看已保存的密钥',
+    hideSaved: '隐藏已保存的密钥',
     generatedHint:
-      '请现在复制这个密钥（例如填入 gh webhook forward --secret）。保存后将不再显示。',
+      '请现在复制这个密钥（例如填入 gh webhook forward --secret）。保存后只有管理员可以再次查看。',
   },
   inboxActions: {
     accept: '接受',

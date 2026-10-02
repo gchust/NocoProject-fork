@@ -91,6 +91,26 @@ describe('iteration 2 browser routes', () => {
     expect(doubles.runQueries.detail).toHaveBeenCalledTimes(1);
   });
 
+  it('reveals the webhook secret only through an authenticated POST (NP-227)', async () => {
+    const { router, doubles } = await build(npApiRoutes);
+    const path = '/np/integrations/github/webhook-secret/reveal';
+    expect((await router.request(path, { method: 'POST' })).status).toBe(401);
+    expect((await router.request(path, { headers: signedIn })).status).toBe(
+      404,
+    );
+    const response = await router.request(path, {
+      method: 'POST',
+      headers: signedIn,
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      data: { webhookSecret: 'whsec' },
+    });
+    expect(doubles.connections.revealWebhookSecret).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'user', id: 'u1' }),
+    );
+  });
+
   it('computes the webhook URL from the request origin and base path', async () => {
     const { router, doubles } = await build(npApiRoutes);
     const response = await router.request(

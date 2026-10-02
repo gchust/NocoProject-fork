@@ -84,7 +84,7 @@ const npIter2ZhCN: NpIter2Resource = {
     tokenHint: '能读取仓库 PR 与检查状态的令牌。加密保存，保存后不再显示。',
     webhookSecret: 'Webhook 密钥',
     webhookSecretHint:
-      '在仓库的 Webhook 设置中填写同一个密钥。加密保存，保存后不再显示。',
+      '所有仓库的 Webhook 都填写这同一个密钥。加密保存，管理员可再次查看，用于为新仓库添加 Webhook。',
     webhookUrl: 'Webhook 地址',
     webhookUrlHint:
       '每个接入 NocoProject 的仓库都要单独添加这个地址的 Webhook（内容类型 application/json），订阅 Pull request、Check suite、Status 和 Push 事件。项目的代码仓库列表中有每个仓库的步骤。',

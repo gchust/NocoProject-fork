@@ -58,6 +58,11 @@ export interface UpdateGitConnectionRequest {
   readonly webhookSecret?: string;
 }
 
+/** NP-227: `POST /np/integrations/github/webhook-secret/reveal` (settings item `nocoproject.github` `update`). */
+export interface GitWebhookSecretRevealResponse {
+  readonly webhookSecret: string | null;
+}
+
 export interface GitConnectionTestResponse {
   readonly ok: boolean;
   readonly login: string;

@@ -5,6 +5,7 @@ import type {
   GitConnectionInput,
   GitConnectionTestResult,
   GitConnectionView,
+  GitWebhookSecretReveal,
   IssuePullRequestView,
   UsageQuery,
   UsageResponse,
@@ -60,6 +61,18 @@ export async function saveGitConnection(
       path: 'np/integrations/github',
       method: 'PUT',
       json: input,
+    }),
+  );
+}
+
+/** NP-227: the saved webhook secret in plain text; needs `update` on the GitHub settings item. */
+export async function revealWebhookSecret(
+  api: ApiClient,
+): Promise<GitWebhookSecretReveal> {
+  return unwrap(
+    await api.request<unknown>({
+      path: 'np/integrations/github/webhook-secret/reveal',
+      method: 'POST',
     }),
   );
 }

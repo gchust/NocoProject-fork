@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { authzDouble } from './np-authz-double.js';
 
+import GithubConfigTab from '../../client/pages/np/config/github.js';
 import { ResourcesSection } from '../../client/pages/np/projects/detail/resources-section.js';
 import { GithubWebhookGuide } from '../../client/pages/np/projects/detail/webhook-guide.js';
 import type { ProjectResource } from '../../client/pages/np/types.js';
@@ -103,6 +104,34 @@ describe('GitHub webhook guide for project repositories (NP-118)', () => {
     ).toHaveAttribute('href', '/config/github');
   });
 
+  it('lets an admin copy the saved secret from the steps (NP-227)', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({
+        ...members('owner'),
+        'GET np/integrations/github': {
+          data: {
+            apiBaseUrl: 'https://api.github.com',
+            tokenSet: true,
+            webhookSecretSet: true,
+            webhookUrl: 'https://np.example.com/np/webhooks/github',
+            lastEventAt: null,
+          },
+        },
+        'POST np/integrations/github/webhook-secret/reveal': {
+          data: { webhookSecret: 'whsec-saved' },
+        },
+      }),
+    );
+    await renderNp(
+      <GithubWebhookGuide repoUrl='https://github.com/nocobase/NocoProject.git' />,
+    );
+    await user.click(
+      await screen.findByRole('button', { name: 'Show saved secret' }),
+    );
+    expect(await screen.findByText('whsec-saved')).toBeVisible();
+  });
+
   it('points a member at an admin without requesting the admin-only connection', async () => {
     api.request.mockImplementation(answer(members('member')));
     await renderNp(
@@ -124,5 +153,36 @@ describe('GitHub webhook guide for project repositories (NP-118)', () => {
         ),
       ).toBe(false),
     );
+  });
+});
+
+describe('showing the saved webhook secret (NP-227)', () => {
+  it('shows it on request in Settings → GitHub and hides it again', async () => {
+    const user = userEvent.setup();
+    api.request.mockImplementation(
+      answer({
+        ...members('owner'),
+        'GET np/integrations/github': {
+          data: {
+            configured: true,
+            apiBaseUrl: 'https://api.github.com',
+            tokenSet: true,
+            webhookSecretSet: true,
+            webhookUrl: 'https://np.example.com/np/webhooks/github',
+            lastEventAt: null,
+          },
+        },
+        'POST np/integrations/github/webhook-secret/reveal': {
+          data: { webhookSecret: 'whsec-saved' },
+        },
+      }),
+    );
+    await renderNp(<GithubConfigTab />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Show saved secret' }),
+    );
+    expect(await screen.findByText('whsec-saved')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Hide saved secret' }));
+    expect(screen.queryByText('whsec-saved')).toBeNull();
   });
 });

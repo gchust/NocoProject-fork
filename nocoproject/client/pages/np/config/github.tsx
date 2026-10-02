@@ -38,12 +38,14 @@ import { generateSecret, gitConnectionChanges } from './github-model.js';
 import { SecretInput } from './secret-input.js';
 import { settingsCheck } from './config-access.js';
 import { SignalRulesSection } from './signal-rules.js';
+import { WebhookSecretReveal } from './webhook-secret-reveal.js';
 
 /**
  * Tab `/config/github` (iteration 2 §C, moved from the system settings shell in iteration 3 §G; the settings item
  * `nocoproject.github`, owner/admin by default, NP-117): the API
  * base URL, the token used to read pull requests, and the webhook secret GitHub signs deliveries with. Secrets are
- * write-only — the tab only shows whether each is set. The webhook URL is what to paste into the repository's webhook
+ * write-only — the tab only shows whether each is set — except that whoever may change the GitHub item can show the
+ * saved webhook secret to add it to another repository (NP-227). The webhook URL is what to paste into the repository's webhook
  * settings; "Test connection" signs in with the token. Below the connection, the GitHub signal rules
  * (`signal-rules.tsx`): whether failed checks or merge conflicts on a linked pull request wake the executor agent.
  * Members see why the tab is empty instead of a 403.
@@ -114,6 +116,9 @@ function GithubForm({
   const api = useApiClient();
   const queryClient = useQueryClient();
   const format = useNpFormatters();
+  const canUpdate = useCan(settingsCheck('github', 'update')).can;
+  // Bumped on save, so a secret shown before a replacement is not left on screen.
+  const [revision, setRevision] = useState(0);
   const [apiBaseUrl, setApiBaseUrl] = useState(connection.apiBaseUrl);
   const [token, setToken] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
@@ -141,6 +146,7 @@ function GithubForm({
       setShowToken(false);
       setShowSecret(false);
       setGenerated(false);
+      setRevision((value) => value + 1);
       queryClient.setQueryData(npKeys.gitConnection, next);
       void queryClient.invalidateQueries({ queryKey: npKeys.gitConnection });
     },
@@ -301,6 +307,9 @@ function GithubForm({
             ? t('np.githubSecrets.generatedHint')
             : t('np.github.webhookSecretHint')}
         </FieldDescription>
+        {connection.webhookSecretSet && !clearSecret && canUpdate ? (
+          <WebhookSecretReveal key={revision} />
+        ) : null}
       </Field>
       <Field>
         <FieldLabel htmlFor='np-github-webhook'>

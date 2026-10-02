@@ -34,6 +34,11 @@ export interface GitConnectionInput {
   readonly webhookSecret?: string;
 }
 
+/** NP-227: the saved webhook secret, for whoever may change it (null when none is set). */
+export interface GitWebhookSecretReveal {
+  readonly webhookSecret: string | null;
+}
+
 export interface GitConnectionTestResult {
   readonly ok: boolean;
   readonly login?: string | null;

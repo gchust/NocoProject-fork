@@ -154,6 +154,26 @@ describe.skipIf(!db)('GitHub connection (PostgreSQL)', () => {
       webhookSecretSet: true,
     });
   });
+
+  it('reveals the saved webhook secret only to whoever may change it (NP-227)', async () => {
+    await expect(
+      services.gitConnections.revealWebhookSecret(ALICE),
+    ).resolves.toEqual({ webhookSecret: null });
+    await services.gitConnections.update(
+      ALICE,
+      { token: TOKEN, webhookSecret: SECRET },
+      'u',
+    );
+    await expect(
+      services.gitConnections.revealWebhookSecret(BOB),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      services.gitConnections.revealWebhookSecret(ALICE),
+    ).resolves.toEqual({ webhookSecret: SECRET });
+    expect(
+      JSON.stringify(await services.gitConnections.view(ALICE, 'u')),
+    ).not.toContain(SECRET);
+  });
 });
 
 describe.skipIf(!db)('pull request links (PostgreSQL)', () => {

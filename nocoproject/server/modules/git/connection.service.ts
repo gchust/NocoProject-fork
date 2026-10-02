@@ -1,7 +1,8 @@
 /**
  * The GitHub connection (docs/phase1/iteration-2-contract.md §C): one row in `gitConnections` (provider `github`),
- * managed by owner/admin. The token and the webhook secret are stored encrypted (`shared/crypto.ts`) and never
- * returned; the view only says whether each is set.
+ * managed by owner/admin. The token and the webhook secret are stored encrypted (`shared/crypto.ts`); the view only
+ * says whether each is set. The token is never returned. The webhook secret is shared by every repository's webhook,
+ * so whoever may change it (`update`) may also read it back to add the webhook to another repository (NP-227).
  */
 import type { Actor } from '../shared/activity.js';
 import { NP_SETTINGS, type NpSettingsAction } from '../shared/access.js';
@@ -14,6 +15,7 @@ import type { SecretBox } from '../shared/crypto.js';
 import type {
   GitConnectionTestResponse,
   GitConnectionView,
+  GitWebhookSecretRevealResponse,
   UpdateGitConnectionRequest,
 } from '../shared/protocol.js';
 import {
@@ -35,6 +37,8 @@ export interface GitConnectionService {
   ): Promise<GitConnectionView>;
   /** `GET /user` with the stored token; 409 `GITHUB_NOT_CONFIGURED` without one. */
   test(actor: Actor): Promise<GitConnectionTestResponse>;
+  /** The saved webhook secret in plain text (null when unset); needs `update`, like replacing it. */
+  revealWebhookSecret(actor: Actor): Promise<GitWebhookSecretRevealResponse>;
 }
 
 export interface GitConnectionDeps {
@@ -251,6 +255,12 @@ export function createGitConnectionService(
       } catch (error) {
         throw githubError(error);
       }
+    },
+    async revealWebhookSecret(actor) {
+      const conn = deps.tx.read();
+      await requireGitHub(conn, actor, 'update');
+      const connection = await loadConnection(conn, deps.secrets);
+      return { webhookSecret: connection?.webhookSecret ?? null };
     },
   };
 }

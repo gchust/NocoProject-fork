@@ -95,7 +95,7 @@ const npIter2EnUS = {
       'A token that can read the repositories’ pull requests and checks. It is stored encrypted and never shown again.',
     webhookSecret: 'Webhook secret',
     webhookSecretHint:
-      'Use the same secret in the repository’s webhook settings. Stored encrypted and never shown again.',
+      'Every repository’s webhook uses this same secret. Stored encrypted; admins can show it again to add another repository.',
     webhookUrl: 'Webhook URL',
     webhookUrlHint:
       'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite, status and push events. A project’s repository list has the steps for each repository.',

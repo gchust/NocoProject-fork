@@ -255,8 +255,10 @@ const npIter3EnUS = {
   githubSecrets: {
     show: 'Show value',
     hide: 'Hide value',
+    showSaved: 'Show saved secret',
+    hideSaved: 'Hide saved secret',
     generatedHint:
-      'Copy this secret now (for example into gh webhook forward --secret). Once saved it is never shown again.',
+      'Copy this secret now (for example into gh webhook forward --secret). After saving, only admins can show it again.',
   },
   inboxActions: {
     accept: 'Accept',
