@@ -9,9 +9,10 @@ import { createHmac } from 'node:crypto';
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  GitHubClient,
-  GitHubPullRequestPayload,
+import {
+  GitHubApiError,
+  type GitHubClient,
+  type GitHubPullRequestPayload,
 } from '../../server/modules/git/github-client.ts';
 import { createWebhookRoutes } from '../../server/modules/git/webhook.routes.ts';
 import type { NpServices } from '../../server/modules/services.ts';
@@ -80,6 +81,16 @@ beforeEach(async () => {
   await resetData(db);
   github = {
     getAuthenticatedUser: vi.fn(async () => ({ login: 'octo', scopes: [] })),
+    getRepository: vi.fn(async () => ({
+      fullName: 'acme/app',
+      push: true,
+      defaultBranch: 'main',
+    })),
+    getReadAccess: vi.fn(async () => ({
+      pullRequests: true,
+      statuses: true,
+      checks: true,
+    })),
     getPullRequest: vi.fn(async () => prPayload()),
     getCiState: vi.fn(async () => 'success' as const),
     mergePullRequest: vi.fn(async () => ({ sha: 'squashed1' })),
@@ -220,6 +231,38 @@ describe.skipIf(!db)(
       expect(await rows(db!, 'activities', "action = 'pr_merged'")).toEqual([
         expect.objectContaining({ issue_id: issue.id }),
       ]);
+    });
+
+    it('still runs the flow when the token may not read the CI state (NP-229)', async () => {
+      const { issue, prId } = await agentPullRequest();
+      // A fine-grained token on a private repository: GitHub has no Checks permission to grant.
+      github.getCiState.mockRejectedValue(
+        new GitHubApiError(403, 'GitHub answered 403.'),
+      );
+      github.getLatestCiRun.mockRejectedValue(
+        new GitHubApiError(403, 'GitHub answered 403.'),
+      );
+      github.getPullRequest.mockImplementation(async () => prPayload(MERGED));
+      const view = await services.pullRequests.refresh(BOB, issue.id, prId);
+      expect(view).toMatchObject({ state: 'merged', ciState: 'success' });
+      expect(
+        (await services.issueQueries.detail(BOB, issue.id)).issue.statusKey,
+      ).toBe('done');
+      expect(await mergedActivities()).toBe(1);
+    });
+
+    it('resolves the card from a refresh and keeps the stored CI for the merge check when CI is unknown (NP-229)', async () => {
+      const { issue, prId } = await agentPullRequest();
+      github.getCiState.mockResolvedValue(undefined);
+      await expect(
+        services.pullRequestMerges.preflight(BOB, issue.id, prId),
+      ).resolves.toMatchObject({ blocker: null });
+      await services.deliveries.accept(BOB, issue.id, {});
+      expect((await reviewCards())[0]?.resolved_at).toBeNull();
+      github.getPullRequest.mockImplementation(async () => prPayload(MERGED));
+      await services.pullRequests.refresh(BOB, issue.id, prId);
+      expect((await reviewCards())[0]?.resolved_at).not.toBeNull();
+      expect(await mergedActivities()).toBe(1);
     });
 
     it('runs the flow once when a refresh and a late webhook race', async () => {

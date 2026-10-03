@@ -255,6 +255,7 @@ export type NpTestOptions = Partial<
     | 'attachmentText'
     | 'mailer'
     | 'accounts'
+    | 'builtinAi'
   >
 >;
 
@@ -363,6 +364,7 @@ export async function createAgent(
     instructions: `You are ${name}.`,
     runtimeId,
     provider: 'echo',
+    runtimeType: 'computer',
     maxConcurrentRuns,
   });
   return agent.id;

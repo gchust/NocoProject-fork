@@ -120,7 +120,9 @@ export interface RunUsageInput {
 
 // ---------- Daemon interface ----------
 
-export type AgentProvider = 'claude' | 'opencode' | 'codex' | 'echo';
+/** `nocobase-ai`: built-in agents and runtimes (NP-219, protocol-runtime-types.md §5); daemons never register it. */
+export type AgentProvider =
+  'claude' | 'opencode' | 'codex' | 'echo' | 'nocobase-ai';
 
 export interface RuntimeCapabilities {
   readonly resume: boolean;
@@ -1200,3 +1202,7 @@ export * from './protocol.phase2-pm-assistant.js';
 // ---------- Comment attachments (NP-214) ----------
 
 export * from './protocol.phase2-comment-attachments.js';
+
+// ---------- Runtime types: computer and built-in agents (NP-219) ----------
+
+export * from './protocol.runtime-types.js';

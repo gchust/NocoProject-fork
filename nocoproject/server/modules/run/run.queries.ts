@@ -11,6 +11,8 @@ import type {
   RunSummary,
   RunTriggerItem,
   RunTriggerType,
+  RuntimeType,
+  RuntimeTypeFields,
 } from '../shared/protocol.js';
 import { findIssue } from '../issue/issue.records.js';
 import { EXECUTING_STATUSES, findRun, mapRun } from './run.records.js';
@@ -55,15 +57,20 @@ export async function agentNames(
   return new Map(rows.map((row) => [str(row.id) ?? '', str(row.name) ?? '']));
 }
 
+/** NP-219: `runtimeType` narrows the list to one type (`?runtimeType=`). */
 export async function runSummariesForIssue(
   conn: Conn,
   issueId: string,
-): Promise<RunSummary[]> {
-  const rows = await conn.query
+  runtimeType?: RuntimeType | null,
+): Promise<(RunSummary & RuntimeTypeFields)[]> {
+  const query = conn.query
     .selectFrom('runs')
     .selectAll()
     .where('subjectType', '=', 'issue')
-    .where('subjectId', '=', issueId)
+    .where('subjectId', '=', issueId);
+  const rows = await (
+    runtimeType ? query.where('runtimeType', '=', runtimeType) : query
+  )
     .orderBy('createdAt', 'desc')
     .limit(50)
     .execute();
@@ -95,6 +102,7 @@ export async function runSummariesForIssue(
     id: run.id,
     agentId: run.agentId,
     agentName: names.get(run.agentId) ?? run.agentId,
+    runtimeType: run.runtimeType,
     triggerType: firstTrigger.get(run.id) ?? null,
     status: run.status,
     attempt: run.attempt,

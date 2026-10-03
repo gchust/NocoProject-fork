@@ -262,6 +262,11 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
             name: 'np-runtime-connect',
             path: 'connect',
           },
+          {
+            componentLoader: () => import('./pages/np/runtimes/builtin.js'),
+            name: 'np-runtime-builtin',
+            path: 'builtin',
+          },
         ],
       },
       {

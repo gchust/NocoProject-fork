@@ -148,6 +148,7 @@ describe('NP-111 agents read issue attachments', () => {
         name: 'Reader',
         instructions: 'Read files',
         provider: 'echo',
+        runtimeType: 'computer',
         runtimeId,
         capabilities: ['context.read', 'comment.create', 'issue.execute'],
       }),

@@ -43,7 +43,7 @@ const npIter2EnUS = {
       notConfigured:
         'GitHub is not connected. Ask an admin to add a token in Settings → GitHub.',
       authFailed:
-        'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to Pull requests, Checks or Commit statuses. Ask an admin to check it in Settings → GitHub.',
+        'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to this repository’s Pull requests. Ask an admin to check it in Settings → GitHub, or with Check access in the repository’s webhook setup.',
       notFound:
         'GitHub cannot find this pull request, or the token has no access to its repository. Ask an admin to check which repositories the token can access in Settings → GitHub.',
       requestFailed:
@@ -92,10 +92,10 @@ const npIter2EnUS = {
       'https://api.github.com, or your GitHub Enterprise API address.',
     token: 'Access token',
     tokenHint:
-      'A token that can read the repositories’ pull requests and checks. It is stored encrypted and never shown again.',
+      'A token that can access every connected repository. A classic token needs the repo scope. A fine-grained token must list each new repository with read access to Pull requests and Commit statuses, and write access to Contents to merge from NocoProject; without Checks, a refresh reads commit statuses only. It is stored encrypted and never shown again.',
     webhookSecret: 'Webhook secret',
     webhookSecretHint:
-      'Use the same secret in the repository’s webhook settings. Stored encrypted and never shown again.',
+      'Every repository’s webhook uses this same secret. Stored encrypted; admins can show it again to add another repository.',
     webhookUrl: 'Webhook URL',
     webhookUrlHint:
       'Add a webhook with this URL to every repository connected to NocoProject (content type application/json) for pull request, check suite, status and push events. A project’s repository list has the steps for each repository.',
@@ -349,6 +349,7 @@ const npIter2EnUS = {
       model: 'Model',
       actor: 'Person',
       conversation: 'Project manager conversations',
+      runtimeType: 'Type',
     },
     pmConversations: 'Project manager conversations',
     noActor: 'No member',

@@ -34,10 +34,28 @@ export interface GitConnectionInput {
   readonly webhookSecret?: string;
 }
 
+/** NP-227: the saved webhook secret, for whoever may change it (null when none is set). */
+export interface GitWebhookSecretReveal {
+  readonly webhookSecret: string | null;
+}
+
+/** NP-228: what the saved token may do in one repository; `none` = GitHub does not show it the repository. */
+export interface GitRepoAccess {
+  readonly fullName: string;
+  readonly access: 'none' | 'read' | 'write';
+  /** NP-229: the reads a refresh makes, tried with the token; null = GitHub could not tell (empty repository). */
+  readonly reads?: {
+    readonly pullRequests: boolean;
+    readonly statuses: boolean | null;
+    readonly checks: boolean | null;
+  } | null;
+}
+
 export interface GitConnectionTestResult {
   readonly ok: boolean;
   readonly login?: string | null;
   readonly scopes?: readonly string[] | string | null;
+  readonly repo?: GitRepoAccess | null;
 }
 
 export type PullRequestState = 'open' | 'closed' | 'merged';
@@ -292,7 +310,15 @@ export interface IntakeConfirmInput {
 // ---------- §I usage and settings ----------
 
 export type UsageGroupBy =
-  'agent' | 'issue' | 'project' | 'day' | 'model' | 'actor' | 'conversation';
+  | 'agent'
+  | 'issue'
+  | 'project'
+  | 'day'
+  | 'model'
+  | 'actor'
+  | 'conversation'
+  /** NP-219 (`protocol-runtime-types.md` §8): keys `computer` / `builtin`. */
+  | 'runtimeType';
 
 export interface UsageRow {
   readonly key: string;
@@ -319,6 +345,8 @@ export interface UsageQuery {
   readonly projectId?: string;
   readonly agentId?: string;
   readonly issueId?: string;
+  /** NP-219: only the runs of one type; combines with any grouping. */
+  readonly runtimeType?: 'computer' | 'builtin';
 }
 
 export interface ModelPrice {

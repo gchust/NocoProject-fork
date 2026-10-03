@@ -119,7 +119,7 @@ export const GITHUB_ERRORS: readonly (readonly [string, number, string])[] = [
   [
     'GITHUB_AUTH_FAILED',
     409,
-    'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to Pull requests, Checks or Commit statuses. Ask an admin to check it in Settings → GitHub.',
+    'GitHub rejected the token: it may have expired or been revoked, or it lacks read access to this repository’s Pull requests. Ask an admin to check it in Settings → GitHub, or with Check access in the repository’s webhook setup.',
   ],
   [
     'GITHUB_NOT_FOUND',

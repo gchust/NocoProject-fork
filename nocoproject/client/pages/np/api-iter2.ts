@@ -5,6 +5,7 @@ import type {
   GitConnectionInput,
   GitConnectionTestResult,
   GitConnectionView,
+  GitWebhookSecretReveal,
   IssuePullRequestView,
   UsageQuery,
   UsageResponse,
@@ -64,13 +65,28 @@ export async function saveGitConnection(
   );
 }
 
-export async function testGitConnection(
+/** NP-227: the saved webhook secret in plain text; needs `update` on the GitHub settings item. */
+export async function revealWebhookSecret(
   api: ApiClient,
-): Promise<GitConnectionTestResult> {
+): Promise<GitWebhookSecretReveal> {
   return unwrap(
     await api.request<unknown>({
+      path: 'np/integrations/github/webhook-secret/reveal',
+      method: 'POST',
+    }),
+  );
+}
+
+/** Signs in with the saved token; `repo` (`owner/name`) also checks what the token may do there (NP-228). */
+export async function testGitConnection(
+  api: ApiClient,
+  repo?: string,
+): Promise<GitConnectionTestResult> {
+  return unwrap(
+    await api.request<unknown, { repo: string }>({
       path: 'np/integrations/github/test',
       method: 'POST',
+      ...(repo ? { json: { repo } } : {}),
     }),
   );
 }
@@ -265,6 +281,7 @@ export async function fetchUsage(
         projectId: query.projectId || undefined,
         agentId: query.agentId || undefined,
         issueId: query.issueId || undefined,
+        runtimeType: query.runtimeType || undefined,
       },
       signal,
     }),

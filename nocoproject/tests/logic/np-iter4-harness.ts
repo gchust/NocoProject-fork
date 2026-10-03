@@ -138,6 +138,7 @@ export async function createKindAgent(
         : AGENT_CAPABILITIES.filter((c) => c !== 'workspace.read'),
     instructions: `You are ${name}.`,
     runtimeId,
+    runtimeType: 'computer',
     provider: 'echo',
     access: 'everyone',
     kind,

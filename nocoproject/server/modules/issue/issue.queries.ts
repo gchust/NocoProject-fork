@@ -18,6 +18,7 @@ import type { Conn, TxRunner } from '../shared/db.js';
 import { str } from '../shared/db.js';
 import { notFound } from '../shared/errors.js';
 import { pageLimit } from '../shared/pagination.js';
+import type { RuntimeType } from '../shared/protocol.js';
 import type {
   ActivityPage,
   AgentContextResponseV1,
@@ -97,7 +98,11 @@ export interface IssueQueries {
     options: TimelineOptions,
   ): Promise<CommentPage>;
   /** `GET /np/issues/:id/runs`: the issue's runs and the run queued behind the current turn. */
-  runs(actor: Actor, idOrKey: string): Promise<IssueRunsResponse>;
+  runs(
+    actor: Actor,
+    idOrKey: string,
+    runtimeType?: RuntimeType | null,
+  ): Promise<IssueRunsResponse>;
   /** Any issue, unscoped (the caller already checked the run's scope). */
   forAgent(idOrKey: string): Promise<IssueForAgentV4>;
   /** An issue the run may read (iteration 2 §K: same project, or no project), else 404. */
@@ -276,7 +281,7 @@ async function issueQueryDetail(
 
 async function issueQueryRuns(
   deps: IssueQueryDeps,
-  ...[actor, idOrKey]: Parameters<IssueQueries['runs']>
+  ...[actor, idOrKey, runtimeType]: Parameters<IssueQueries['runs']>
 ) {
   const conn = deps.tx.read();
   const issue = await requireVisibleIssue(
@@ -285,7 +290,7 @@ async function issueQueryRuns(
     idOrKey,
   );
   return {
-    data: await runSummariesForIssue(conn, issue.id),
+    data: await runSummariesForIssue(conn, issue.id, runtimeType),
     queuedRun: await queuedRunOf(conn, issue.id),
   };
 }

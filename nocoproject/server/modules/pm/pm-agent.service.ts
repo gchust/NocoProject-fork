@@ -14,6 +14,7 @@ import type {
   PmAgentChoiceRequest,
   PmAgentCopyRequest,
 } from '../shared/protocol.js';
+import { BUILTIN_PROVIDER } from '../shared/protocol.js';
 import type { UserDirectory } from '../shared/users.js';
 import type { AgentService } from '../agent/agent.service.js';
 import { preferencesOf, writePreferences } from '../member/member.service.js';
@@ -194,13 +195,10 @@ async function copyFromDefault(
   if (
     !runtimeFitsPersonal(
       {
-        id: String(runtime.id),
-        name: str(runtime.name) ?? '',
         ownerUserId: str(runtime.ownerUserId),
         visibility: str(runtime.visibility) ?? 'private',
         pmAllowed: !!runtime.pmAllowed,
-        online: runtime.status === 'online',
-        compat: 'ok',
+        runtimeType: str(runtime.runtimeType) ?? 'computer',
       },
       userId,
     )
@@ -220,13 +218,24 @@ async function copyFromDefault(
     typeof input.name === 'string' && input.name.trim()
       ? input.name.trim()
       : `${(await deps.users.names(conn, [userId])).get(userId) ?? userId} 的项目经理`;
+  // NP-219: the copy takes the chosen runtime's type; the default's model only carries over within one type.
+  const runtimeType = str(runtime.runtimeType) ?? 'computer';
+  const sameType = runtimeType === (system.runtime?.runtimeType ?? 'computer');
   const agent = await deps.agents().create(actor, {
     name,
     description: null,
     instructions: '',
     runtimeId: String(runtime.id),
-    provider: system.provider as never,
-    model: input.model === undefined ? system.model : input.model,
+    runtimeType,
+    provider: (runtimeType === 'builtin'
+      ? BUILTIN_PROVIDER
+      : system.provider) as never,
+    model:
+      input.model === undefined
+        ? sameType
+          ? system.model
+          : null
+        : input.model,
     maxConcurrentRuns: Number(source?.maxConcurrentRuns ?? 1),
     access: 'ownerOnly',
     kind: 'manager',

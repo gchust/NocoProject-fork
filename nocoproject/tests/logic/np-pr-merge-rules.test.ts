@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * The pure parts of merging from NocoProject (NP-85): the merge blockers, the squash commit title, and the fetch
- * client's merge and CI run calls (a fake `fetch`; GitHub itself is never called).
+ * client's merge, CI run and repository calls (a fake `fetch`; GitHub itself is never called).
  */
 import { describe, expect, it } from 'vitest';
 
@@ -180,6 +180,93 @@ describe('fetch GitHub client: merge and CI runs', () => {
   });
 });
 
+describe('fetch GitHub client: repository access (NP-228)', () => {
+  it('reads the full name and the push permission, and fails on 404', async () => {
+    const { client } = fakeFetch({
+      'https://api.github.com/repos/acme/app': {
+        body: {
+          full_name: 'Acme/App',
+          default_branch: 'trunk',
+          permissions: { pull: true, push: true },
+        },
+      },
+      'https://api.github.com/repos/acme/read': {
+        body: { full_name: 'acme/read', permissions: { pull: true } },
+      },
+    });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/app'),
+    ).resolves.toEqual({
+      fullName: 'Acme/App',
+      push: true,
+      defaultBranch: 'trunk',
+    });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/read'),
+    ).resolves.toEqual({
+      fullName: 'acme/read',
+      push: false,
+      defaultBranch: 'main',
+    });
+    await expect(
+      client.getRepository(CREDENTIALS, 'acme/hidden'),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('tries each read a refresh makes on the default branch (NP-229)', async () => {
+    const at = (repo: string, path: string) =>
+      `https://api.github.com/repos/${repo}/${path}`;
+    const { client, calls } = fakeFetch({
+      [at('acme/app', 'pulls?per_page=1')]: { body: [] },
+      [at('acme/app', 'commits/release%2F1/status')]: { body: {} },
+      [at('acme/app', 'commits/release%2F1/check-suites?per_page=1')]: {
+        body: {},
+      },
+      // A fine-grained token on a private repository: no Checks permission exists.
+      [at('acme/fine', 'pulls?per_page=1')]: { body: [] },
+      [at('acme/fine', 'commits/main/status')]: { body: {} },
+      [at('acme/fine', 'commits/main/check-suites?per_page=1')]: {
+        status: 403,
+        body: {},
+      },
+      // Metadata only: the repository is visible, its pull requests are not.
+      [at('acme/meta', 'pulls?per_page=1')]: { status: 403, body: {} },
+      [at('acme/meta', 'commits/main/status')]: { status: 403, body: {} },
+      [at('acme/meta', 'commits/main/check-suites?per_page=1')]: {
+        status: 403,
+        body: {},
+      },
+      [at('acme/empty', 'pulls?per_page=1')]: { body: [] },
+      [at('acme/empty', 'commits/main/status')]: { status: 409, body: {} },
+      [at('acme/empty', 'commits/main/check-suites?per_page=1')]: {
+        status: 409,
+        body: {},
+      },
+      [at('acme/down', 'pulls?per_page=1')]: { status: 502, body: {} },
+    });
+    await expect(
+      client.getReadAccess(CREDENTIALS, 'acme/app', 'release/1'),
+    ).resolves.toEqual({ pullRequests: true, statuses: true, checks: true });
+    expect(calls.map((call) => call.init.method)).toEqual([
+      'GET',
+      'GET',
+      'GET',
+    ]);
+    await expect(
+      client.getReadAccess(CREDENTIALS, 'acme/fine', 'main'),
+    ).resolves.toEqual({ pullRequests: true, statuses: true, checks: false });
+    await expect(
+      client.getReadAccess(CREDENTIALS, 'acme/meta', 'main'),
+    ).resolves.toEqual({ pullRequests: false, statuses: false, checks: false });
+    await expect(
+      client.getReadAccess(CREDENTIALS, 'acme/empty', 'main'),
+    ).resolves.toEqual({ pullRequests: true, statuses: null, checks: null });
+    await expect(
+      client.getReadAccess(CREDENTIALS, 'acme/down', 'main'),
+    ).rejects.toMatchObject({ status: 502 });
+  });
+});
+
 describe('fetch GitHub client: CI state', () => {
   const statusUrl = (sha: string) =>
     `https://api.github.com/repos/acme/app/commits/${sha}/status`;
@@ -239,5 +326,48 @@ describe('fetch GitHub client: CI state', () => {
     await expect(
       client.getCiState(CREDENTIALS, 'acme/app', 'empty'),
     ).resolves.toBeNull();
+  });
+
+  it('leaves out a part the token may not read, and is unknown when nothing is left (NP-229)', async () => {
+    const denied = { status: 403, body: {} };
+    const { client } = fakeFetch({
+      [statusUrl('passed')]: {
+        body: { state: 'success', total_count: 1 },
+      },
+      [suitesUrl('passed')]: denied,
+      [statusUrl('suites')]: denied,
+      [suitesUrl('suites')]: {
+        body: {
+          check_suites: [
+            {
+              status: 'completed',
+              conclusion: 'failure',
+              latest_check_runs_count: 1,
+            },
+          ],
+        },
+      },
+      [statusUrl('silent')]: noStatus,
+      [suitesUrl('silent')]: denied,
+      [statusUrl('none')]: denied,
+      [suitesUrl('none')]: { status: 404, body: {} },
+      [statusUrl('down')]: { status: 500, body: {} },
+      [suitesUrl('down')]: denied,
+    });
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'passed'),
+    ).resolves.toBe('success');
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'suites'),
+    ).resolves.toBe('failure');
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'silent'),
+    ).resolves.toBeUndefined();
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'none'),
+    ).resolves.toBeUndefined();
+    await expect(
+      client.getCiState(CREDENTIALS, 'acme/app', 'down'),
+    ).rejects.toMatchObject({ status: 500 });
   });
 });

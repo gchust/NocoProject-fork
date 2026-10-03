@@ -124,6 +124,7 @@ const npIter3ZhCN: NpIter3Resource = {
     tables: {
       failures: '失败原因分布',
       byAgent: '按 Agent 的费用',
+      byRuntimeType: '按 Agent 类型的费用',
       byType: '按类型的决定',
       reason: '原因',
       agent: 'Agent',
@@ -234,8 +235,10 @@ const npIter3ZhCN: NpIter3Resource = {
   githubSecrets: {
     show: '显示内容',
     hide: '隐藏内容',
+    showSaved: '查看已保存的密钥',
+    hideSaved: '隐藏已保存的密钥',
     generatedHint:
-      '请现在复制这个密钥（例如填入 gh webhook forward --secret）。保存后将不再显示。',
+      '请现在复制这个密钥（例如填入 gh webhook forward --secret）。保存后只有管理员可以再次查看。',
   },
   inboxActions: {
     accept: '接受',

@@ -6,6 +6,9 @@
  * first price whose provider matches (`*` or equal) and whose model glob matches; a usage record without a price
  * adds no cost, a row with no priced record has `estimatedCost: null`, and the totals add only priced records and
  * count `pricedRuns`. Visibility: members see usage of issues they can see; owner/admin see everything.
+ *
+ * NP-219 (protocol-runtime-types.md §8): records carry their run's `runtimeType`; `groupBy=runtimeType` gives one row
+ * per type (keys `computer` / `builtin`) and `runtimeType` filters any grouping.
  */
 import type { Actor } from '../shared/activity.js';
 import { reportHiddenProjectIds, viewerOf } from '../shared/authz.js';
@@ -20,8 +23,15 @@ import type {
 import {
   USAGE_CONVERSATION_KEY,
   USAGE_GROUP_BYS_V5,
-  type UsageGroupByV5,
+  type RuntimeType,
+  type UsageGroupByV6,
 } from '../shared/protocol.js';
+import { runtimeTypeFilter } from '../shared/runtime-types.js';
+
+const USAGE_GROUP_BYS_V6: readonly UsageGroupByV6[] = [
+  ...USAGE_GROUP_BYS_V5,
+  'runtimeType',
+];
 import { isConversation } from '../shared/conversation.js';
 import type { UserDirectory } from '../shared/users.js';
 import { validateDate } from '../shared/validate.js';
@@ -39,6 +49,8 @@ export interface UsageQuery {
   readonly projectId?: string | null;
   readonly agentId?: string | null;
   readonly issueId?: string | null;
+  /** NP-219: one runtime type only. */
+  readonly runtimeType?: string | null;
 }
 
 export interface UsageService {
@@ -53,6 +65,8 @@ export interface UsageRecord {
   /** NP-183: the member the run acted for, and whether it was a project manager conversation run. */
   readonly actorUserId?: string | null;
   readonly conversation?: boolean;
+  /** NP-219: the run's type (absent = computer). */
+  readonly runtimeType?: RuntimeType;
   readonly provider: string;
   readonly model: string | null;
   readonly day: string;
@@ -96,8 +110,10 @@ export function costOf(price: ModelPrice, record: UsageRecord): number {
   );
 }
 
-function keyOf(record: UsageRecord, groupBy: UsageGroupByV5): string {
+function keyOf(record: UsageRecord, groupBy: UsageGroupByV6): string {
   switch (groupBy) {
+    case 'runtimeType':
+      return record.runtimeType ?? 'computer';
     case 'agent':
       return record.agentId;
     case 'issue':
@@ -172,7 +188,7 @@ function toRow(key: string, name: string, acc: Accumulator): UsageRow {
 /** Groups records; `names` maps a group key to its display name (the key itself when missing). */
 export function aggregateUsage(
   records: readonly UsageRecord[],
-  groupBy: UsageGroupByV5,
+  groupBy: UsageGroupByV6,
   prices: readonly ModelPrice[],
   names: ReadonlyMap<string, string> = new Map(),
 ): UsageResponse {
@@ -232,7 +248,7 @@ export async function usageRecords(
   if (usage.length === 0) return [];
   const runs = await conn.query
     .selectFrom('runs')
-    .select(['id', 'agentId', 'subjectId', 'actorUserId'])
+    .select(['id', 'agentId', 'subjectId', 'actorUserId', 'runtimeType'])
     .where('id', 'in', unique(usage.map((row) => str(row.runId))))
     .execute();
   const runById = new Map(runs.map((row) => [str(row.id) ?? '', row]));
@@ -259,6 +275,7 @@ export async function usageRecords(
       projectId: projectOf.get(issueId) ?? null,
       actorUserId: str(run.actorUserId),
       conversation: conversations.has(issueId),
+      runtimeType: run.runtimeType === 'builtin' ? 'builtin' : 'computer',
       provider: str(row.provider) ?? '',
       model: str(row.model),
       day: iso(row.createdAt).slice(0, 10),
@@ -309,7 +326,7 @@ function dateRange(query: UsageQuery): { from: Date; to: Date } {
 async function groupNames(
   conn: Conn,
   users: UserDirectory,
-  groupBy: UsageGroupByV5,
+  groupBy: UsageGroupByV6,
   keys: readonly string[],
 ): Promise<Map<string, string>> {
   if (groupBy === 'agent') return agentNames(conn, keys);
@@ -352,12 +369,13 @@ export function createUsageService(deps: {
 }): UsageService {
   return {
     async query(actor, query) {
-      const groupBy = (query.groupBy ?? 'agent') as UsageGroupByV5;
-      if (!USAGE_GROUP_BYS_V5.includes(groupBy))
+      const groupBy = (query.groupBy ?? 'agent') as UsageGroupByV6;
+      if (!USAGE_GROUP_BYS_V6.includes(groupBy))
         throw invalid(
           'INVALID_GROUP_BY',
-          `groupBy must be one of ${USAGE_GROUP_BYS_V5.join(', ')}.`,
+          `groupBy must be one of ${USAGE_GROUP_BYS_V6.join(', ')}.`,
         );
+      const runtimeType = runtimeTypeFilter(query.runtimeType);
       const { from, to } = dateRange(query);
       const conn = deps.tx.read();
       const hidden = new Set(
@@ -368,7 +386,8 @@ export function createUsageService(deps: {
           (!record.projectId || !hidden.has(record.projectId)) &&
           (!query.projectId || record.projectId === query.projectId) &&
           (!query.agentId || record.agentId === query.agentId) &&
-          (!query.issueId || record.issueId === query.issueId),
+          (!query.issueId || record.issueId === query.issueId) &&
+          (!runtimeType || (record.runtimeType ?? 'computer') === runtimeType),
       );
       const { modelPrices } = await deps.settings.read(conn);
       const result = aggregateUsage(records, groupBy, modelPrices);

@@ -210,6 +210,7 @@ describe('daemon authentication through the application', () => {
         name: 'Echo',
         instructions: 'Echo.',
         runtimeId,
+        runtimeType: 'computer',
         provider: 'echo',
         capabilities: ['context.read', 'comment.create', 'issue.execute'],
       },

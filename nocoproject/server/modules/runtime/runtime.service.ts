@@ -1,6 +1,7 @@
 /**
  * Runtimes: one row per (daemon, provider). The daemon registers with its owner's API key, heartbeats every 15s, and
- * the sweeper marks silent runtimes offline.
+ * the sweeper marks silent runtimes offline. NP-219: built-in runtimes (an LLM service of the AI plugin) are rows too,
+ * managed by owners / admins through `builtin-runtime.ts`; listing recomputes their status.
  */
 import type { Actor } from '../shared/activity.js';
 import { forbid, requireSetting } from '../shared/authz.js';
@@ -25,7 +26,9 @@ import {
   type DaemonRegisterRequest,
   type DaemonRegisterRequestV2,
   type DaemonRegisterResponse,
-  type Runtime,
+  type BuiltinCandidates,
+  type EnableBuiltinRuntimeRequest,
+  type RuntimeType,
 } from '../shared/protocol.js';
 import {
   daemonDeviceInfo,
@@ -36,7 +39,18 @@ import {
   storedIdentity,
   type DaemonRow,
 } from './daemon-compat.js';
-import { isAgentProvider, mapRuntime } from './runtime.records.js';
+import { isComputerProvider, type RuntimeView } from './runtime.records.js';
+import type { BuiltinAiSource } from './builtin-ai.js';
+import { builtinDeps, findView, listRuntimes } from './runtime.list.js';
+import {
+  builtinCandidates,
+  checkAllBuiltinRuntimes,
+  checkBuiltinRuntime,
+  enableBuiltinRuntime,
+  removeBuiltinRuntime,
+  renameBuiltinRuntime,
+  type BuiltinCheck,
+} from './builtin-runtime.js';
 
 export type RegisterRequest = DaemonRegisterRequest & DaemonRegisterRequestV2;
 export type RegisterResponse = DaemonRegisterResponse &
@@ -65,13 +79,17 @@ export interface RuntimeService {
     request: HeartbeatRequest,
   ): Promise<HeartbeatResult>;
   deregister(ownerUserId: string, daemonId: string): Promise<number>;
-  list(): Promise<Runtime[]>;
-  /** Only the runtime owner may change its visibility (contract §B). */
+  /** NP-219: both types, or one (`?runtimeType=`); built-in rows are recomputed and carry the catalog's fields. */
+  list(runtimeType?: RuntimeType | null): Promise<RuntimeView[]>;
+  /**
+   * Only the runtime owner may change a computer runtime's visibility (contract §B); a built-in runtime's needs
+   * `nocoproject.general` `update`.
+   */
   setVisibility(
     actor: Actor,
     runtimeId: string,
     visibility: unknown,
-  ): Promise<Runtime>;
+  ): Promise<RuntimeView>;
   /**
    * NP-183: whether a public runtime may run members' personal project managers (`pmAllowed`); whoever may change the
    * general settings (owner / admin) may change it.
@@ -80,7 +98,18 @@ export interface RuntimeService {
     actor: Actor,
     runtimeId: string,
     value: unknown,
-  ): Promise<Runtime>;
+  ): Promise<RuntimeView>;
+  /** NP-219 (protocol-runtime-types.md §4, §5): built-in runtimes. */
+  builtinCandidates(actor: Actor): Promise<BuiltinCandidates>;
+  enableBuiltin(
+    actor: Actor,
+    input: EnableBuiltinRuntimeRequest,
+  ): Promise<BuiltinCheck>;
+  checkBuiltin(actor: Actor, runtimeId: string): Promise<BuiltinCheck>;
+  /** At application start: one connectivity check per built-in runtime. */
+  checkAllBuiltin(): Promise<void>;
+  rename(actor: Actor, runtimeId: string, name: unknown): Promise<RuntimeView>;
+  remove(actor: Actor, runtimeId: string): Promise<void>;
   /** Whether a daemon authenticated as `userId` may act on `runId` (it must own the run's runtime). */
   runAccess(runId: string, userId: string): Promise<RunAccess>;
 }
@@ -100,7 +129,7 @@ function validateRegister(request: RegisterRequest): void {
   if (!isArrayValue(request.runtimes))
     throw invalid('INVALID_REGISTER', 'runtimes must be an array.');
   for (const runtime of request.runtimes) {
-    if (!isAgentProvider(runtime?.provider)) {
+    if (!isComputerProvider(runtime?.provider)) {
       throw invalid(
         'INVALID_REGISTER',
         `Unknown provider "${String(runtime?.provider)}".`,
@@ -113,6 +142,8 @@ export interface RuntimeDeps {
   readonly tx: TxRunner;
   readonly ids: IdSource;
   readonly users: UserDirectory;
+  /** NP-219: the AI plugin, for built-in runtimes; absent = not registered. */
+  readonly ai?: BuiltinAiSource;
 }
 
 async function registerRuntimes(
@@ -305,44 +336,40 @@ async function deregister(
   });
 }
 
-async function listRuntimes(deps: RuntimeDeps): Promise<Runtime[]> {
-  const conn = deps.tx.read();
-  const runtimes = (
-    await conn.query
-      .selectFrom('runtimes')
-      .selectAll()
-      .orderBy('name', 'asc')
-      .execute()
-  ).map(mapRuntime);
-  const owners = await deps.users.names(
-    conn,
-    runtimes.map((runtime) => runtime.ownerUserId),
-  );
-  return runtimes.map((runtime) => ({
-    ...runtime,
-    ownerName: owners.get(runtime.ownerUserId) ?? null,
-  }));
-}
-
 async function setVisibility(
   deps: RuntimeDeps,
   actor: Actor,
   runtimeId: string,
   visibility: unknown,
-): Promise<Runtime> {
+): Promise<RuntimeView> {
   if (visibility !== 'private' && visibility !== 'public')
     throw invalid(
       'INVALID_VISIBILITY',
       'visibility must be private or public.',
     );
+  const target = await deps.tx
+    .read()
+    .query.selectFrom('runtimes')
+    .select(['runtimeType'])
+    .where('id', '=', runtimeId)
+    .executeTakeFirst();
+  // Checked before the write transaction (authorization reads on its own connection).
+  if (target?.runtimeType === 'builtin')
+    await requireSetting(
+      deps.tx.read(),
+      actor,
+      NP_SETTINGS.general,
+      'update',
+      'Only an owner or admin may manage built-in runtimes.',
+    );
   await deps.tx.run(async (tx) => {
     const row = await tx.conn.query
       .selectFrom('runtimes')
-      .select(['id', 'ownerUserId'])
+      .select(['id', 'ownerUserId', 'runtimeType'])
       .where('id', '=', runtimeId)
       .executeTakeFirst();
     if (!row) throw notFound('Runtime');
-    if (row.ownerUserId !== actor.id)
+    if (row.runtimeType !== 'builtin' && row.ownerUserId !== actor.id)
       forbid('Only the runtime owner may change its visibility.');
     await tx.conn.query
       .updateTable('runtimes')
@@ -351,11 +378,7 @@ async function setVisibility(
       .execute();
     tx.emit({ type: 'agents.changed' });
   });
-  const runtime = (await listRuntimes(deps)).find(
-    (item) => item.id === runtimeId,
-  );
-  if (!runtime) throw notFound('Runtime');
-  return runtime;
+  return findView(deps, runtimeId);
 }
 
 async function runAccess(
@@ -387,7 +410,7 @@ export function createRuntimeService(deps: RuntimeDeps): RuntimeService {
     heartbeat: (ownerUserId, request) => heartbeat(deps, ownerUserId, request),
     deregister: (ownerUserId, daemonId) =>
       deregister(deps, ownerUserId, daemonId),
-    list: () => listRuntimes(deps),
+    list: (runtimeType) => listRuntimes(deps, runtimeType ?? null),
     setVisibility: (actor, runtimeId, visibility) =>
       setVisibility(deps, actor, runtimeId, visibility),
     async setPmAllowed(actor, runtimeId, value) {
@@ -414,12 +437,20 @@ export function createRuntimeService(deps: RuntimeDeps): RuntimeService {
           .execute();
         tx.emit({ type: 'agents.changed' });
       });
-      const runtime = (await listRuntimes(deps)).find(
-        (item) => item.id === runtimeId,
-      );
-      if (!runtime) throw notFound('Runtime');
-      return runtime;
+      return findView(deps, runtimeId);
     },
+    builtinCandidates: (actor) => builtinCandidates(builtinDeps(deps), actor),
+    enableBuiltin: (actor, input) =>
+      enableBuiltinRuntime(builtinDeps(deps), actor, input),
+    checkBuiltin: (actor, runtimeId) =>
+      checkBuiltinRuntime(builtinDeps(deps), actor, runtimeId),
+    checkAllBuiltin: () => checkAllBuiltinRuntimes(builtinDeps(deps)),
+    async rename(actor, runtimeId, name) {
+      await renameBuiltinRuntime(builtinDeps(deps), actor, runtimeId, name);
+      return findView(deps, runtimeId);
+    },
+    remove: (actor, runtimeId) =>
+      removeBuiltinRuntime(builtinDeps(deps), actor, runtimeId),
     runAccess: (runId, userId) => runAccess(deps, runId, userId),
   };
 }

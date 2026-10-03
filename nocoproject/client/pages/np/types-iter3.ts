@@ -201,6 +201,13 @@ export interface MetricsCost {
     readonly name: string | null;
     readonly cost: number | null;
   }[];
+  /** NP-219 (`protocol-runtime-types.md` §8): the cost of each agent type; absent from older servers. */
+  readonly byRuntimeType?: Readonly<
+    Record<
+      'computer' | 'builtin',
+      { readonly estimatedCost: number | null; readonly pricedRuns: number }
+    >
+  >;
 }
 
 export interface MetricsHumanLoad {

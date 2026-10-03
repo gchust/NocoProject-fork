@@ -8,6 +8,7 @@ import { Link, useParams } from 'react-router';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NpOnlineState } from '@/components/np-badges';
 import { NpActorAvatar } from '@/components/np-actor-avatar';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { NpDetailSkeleton } from '@/components/np-states';
 import { PageContainer } from '@/components/page-container';
 import { PageHeader } from '@/components/page-header';
@@ -24,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { fetchMembers } from '../../api-collab.js';
 import { fetchAgents, fetchMe, fetchRuntimes } from '../../api.js';
 import { isRuntimeOnline, npKeys } from '../../constants.js';
+import { runtimeTypeOf } from '../../types-runtime-types.js';
 import { canAuditAgentEnv, canEditAgent } from '../../permissions.js';
 import { useWorkspaceViewer } from '../../use-workspace-viewer.js';
 import { AgentEnvSection } from './agent-env.js';
@@ -124,7 +126,11 @@ function AgentDetailView({
           <span className='inline-flex flex-wrap items-center gap-3'>
             <NpActorAvatar type='agent' name={agent.name} size='default' />
             {agent.name}
-            <NpTag tone='grey'>{agent.provider}</NpTag>
+            <RuntimeTypeTag type={runtimeTypeOf(agent)} />
+            {/* A built-in agent's provider is always the AI plugin; the type tag already says so. */}
+            {runtimeTypeOf(agent) === 'builtin' ? null : (
+              <NpTag tone='grey'>{agent.provider}</NpTag>
+            )}
             <NpOnlineState online={isRuntimeOnline(agent)} />
           </span>
         }
@@ -154,11 +160,14 @@ function AgentDetailView({
         agent={agent}
         canEdit={canEdit}
       />
-      <AgentEnvSection
-        agentId={agent.id}
-        canEdit={canEdit}
-        canAudit={canAuditAgentEnv(viewer)}
-      />
+      {/* A built-in run reads no environment variables (NP-219 §3.1), so the section is hidden for those agents. */}
+      {runtimeTypeOf(agent) === 'builtin' ? null : (
+        <AgentEnvSection
+          agentId={agent.id}
+          canEdit={canEdit}
+          canAudit={canAuditAgentEnv(viewer)}
+        />
+      )}
     </PageContainer>
   );
 }

@@ -55,17 +55,32 @@ export interface GitHubClient {
   getAuthenticatedUser(
     credentials: GitHubCredentials,
   ): Promise<{ login: string; scopes: string[] }>;
+  /** The repository as the token sees it (404 when it cannot); `push` is the token user's write permission. */
+  getRepository(
+    credentials: GitHubCredentials,
+    repo: string,
+  ): Promise<{ fullName: string; push: boolean; defaultBranch: string }>;
+  /** NP-229: whether the token may read what a refresh reads, probed on `ref` (the default branch). */
+  getReadAccess(
+    credentials: GitHubCredentials,
+    repo: string,
+    ref: string,
+  ): Promise<RepoReadAccess>;
   getPullRequest(
     credentials: GitHubCredentials,
     repo: string,
     number: number,
   ): Promise<GitHubPullRequestPayload>;
-  /** Combined commit status and check suites for a commit; null when there are none. */
+  /**
+   * Combined commit status and check suites for a commit; null when there are none. NP-229: a part the token may not
+   * read (403/404; GitHub lists no Checks permission for fine-grained tokens, so a private repository may refuse check
+   * suites) is left out, and the state is undefined (unknown) when nothing readable is left to tell.
+   */
   getCiState(
     credentials: GitHubCredentials,
     repo: string,
     sha: string,
-  ): Promise<PullRequestCiState | null>;
+  ): Promise<PullRequestCiState | null | undefined>;
   /** Squash-merges the pull request; returns the merge commit SHA. */
   mergePullRequest(
     credentials: GitHubCredentials,
@@ -79,6 +94,13 @@ export interface GitHubClient {
     repo: string,
     sha: string,
   ): Promise<CiRunLinks | null>;
+}
+
+/** NP-229: each read a refresh makes; null when GitHub cannot tell (an empty repository has no commit to probe). */
+export interface RepoReadAccess {
+  readonly pullRequests: boolean;
+  readonly statuses: boolean | null;
+  readonly checks: boolean | null;
 }
 
 export class GitHubApiError extends Error {
@@ -204,6 +226,40 @@ export function ciStateOfCheckSuite(
   return 'failure';
 }
 
+/** GitHub refusing a read to this token: 403 for a missing permission, 404 for a private resource it cannot see. */
+function isDenied(error: unknown): boolean {
+  return (
+    error instanceof GitHubApiError &&
+    (error.status === 403 || error.status === 404)
+  );
+}
+
+/** The body of a read, or undefined when GitHub refuses it to this token. */
+async function unlessDenied<T>(read: Promise<T>): Promise<T | undefined> {
+  try {
+    return await read;
+  } catch (error) {
+    if (isDenied(error)) return undefined;
+    throw error;
+  }
+}
+
+/** Whether a read is allowed; null when GitHub cannot tell (409 empty repository, 422 unknown ref). */
+async function probe(read: Promise<unknown>): Promise<boolean | null> {
+  try {
+    await read;
+    return true;
+  } catch (error) {
+    if (isDenied(error)) return false;
+    if (
+      error instanceof GitHubApiError &&
+      (error.status === 409 || error.status === 422)
+    )
+      return null;
+    throw error;
+  }
+}
+
 /** The artifact `.github/workflows/ci.yml` uploads from `pnpm screenshots`. */
 export const SCREENSHOTS_ARTIFACT = 'screenshots';
 
@@ -255,6 +311,40 @@ export function createFetchGitHubClient(
       const login = (body as { login?: unknown }).login;
       return { login: typeof login === 'string' ? login : '', scopes };
     },
+    async getRepository(credentials, repo) {
+      const { body } = await request(credentials, `/repos/${repo}`);
+      const {
+        full_name: fullName,
+        permissions,
+        default_branch: defaultBranch,
+      } = body as {
+        full_name?: unknown;
+        permissions?: { push?: unknown };
+        default_branch?: unknown;
+      };
+      return {
+        fullName: typeof fullName === 'string' && fullName ? fullName : repo,
+        push: permissions?.push === true,
+        defaultBranch:
+          typeof defaultBranch === 'string' && defaultBranch
+            ? defaultBranch
+            : 'main',
+      };
+    },
+    async getReadAccess(credentials, repo, ref) {
+      const at = encodeURIComponent(ref);
+      const [pullRequests, statuses, checks] = await Promise.all([
+        probe(request(credentials, `/repos/${repo}/pulls?per_page=1`)),
+        probe(request(credentials, `/repos/${repo}/commits/${at}/status`)),
+        probe(
+          request(
+            credentials,
+            `/repos/${repo}/commits/${at}/check-suites?per_page=1`,
+          ),
+        ),
+      ]);
+      return { pullRequests: pullRequests === true, statuses, checks };
+    },
     async getPullRequest(credentials, repo, number) {
       const { body } = await request(
         credentials,
@@ -263,30 +353,27 @@ export function createFetchGitHubClient(
       return body as GitHubPullRequestPayload;
     },
     async getCiState(credentials, repo, sha) {
-      const status = await request(
-        credentials,
-        `/repos/${repo}/commits/${sha}/status`,
-      );
-      const suites = await request(
-        credentials,
-        `/repos/${repo}/commits/${sha}/check-suites`,
-      );
-      const combined = status.body as {
-        state?: unknown;
-        total_count?: unknown;
-      };
-      const list =
-        (
-          suites.body as {
-            check_suites?: CheckSuiteFields[];
-          }
-        ).check_suites ?? [];
-      return combineCiStates([
-        Number(combined.total_count ?? 0) > 0
+      const [status, suites] = await Promise.all([
+        unlessDenied(
+          request(credentials, `/repos/${repo}/commits/${sha}/status`),
+        ),
+        unlessDenied(
+          request(credentials, `/repos/${repo}/commits/${sha}/check-suites`),
+        ),
+      ]);
+      const combined = status?.body as
+        { state?: unknown; total_count?: unknown } | undefined;
+      const list = (
+        suites?.body as { check_suites?: CheckSuiteFields[] } | undefined
+      )?.check_suites;
+      const state = combineCiStates([
+        combined && Number(combined.total_count ?? 0) > 0
           ? ciStateOfStatus(combined.state)
           : null,
-        ...list.map(ciStateOfCheckSuite),
+        ...(list ?? []).map(ciStateOfCheckSuite),
       ]);
+      // A part was refused and the rest says nothing: unknown, not "no CI".
+      return state === null && (!status || !suites) ? undefined : state;
     },
     async mergePullRequest(credentials, repo, number, input) {
       const { body } = await request(

@@ -85,6 +85,8 @@ async function markRuntimesOffline(
     .query.updateTable('runtimes')
     .set({ status: 'offline', updatedAt: now })
     .where('status', '=', 'online')
+    // NP-219: a built-in runtime has no heartbeat; its status is computed (builtin-runtime.ts).
+    .where('runtimeType', '=', 'computer')
     .where((eb) =>
       eb.or([
         eb('lastSeenAt', 'is', null),
@@ -152,6 +154,8 @@ async function failOrphanedRunning(
       .query.selectFrom('runs')
       .selectAll()
       .where('status', '=', 'running')
+      // NP-219: built-in runs are not tied to a daemon; a lost one is recovered by its lease.
+      .where('runtimeType', '=', 'computer')
       .limit(500)
       .execute()
   ).map(mapRun);

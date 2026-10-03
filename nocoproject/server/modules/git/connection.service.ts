@@ -1,7 +1,8 @@
 /**
  * The GitHub connection (docs/phase1/iteration-2-contract.md §C): one row in `gitConnections` (provider `github`),
- * managed by owner/admin. The token and the webhook secret are stored encrypted (`shared/crypto.ts`) and never
- * returned; the view only says whether each is set.
+ * managed by owner/admin. The token and the webhook secret are stored encrypted (`shared/crypto.ts`); the view only
+ * says whether each is set. The token is never returned. The webhook secret is shared by every repository's webhook,
+ * so whoever may change it (`update`) may also read it back to add the webhook to another repository (NP-227).
  */
 import type { Actor } from '../shared/activity.js';
 import { NP_SETTINGS, type NpSettingsAction } from '../shared/access.js';
@@ -12,8 +13,11 @@ import { conflict, invalid, NpError } from '../shared/errors.js';
 import type { IdSource } from '../shared/ids.js';
 import type { SecretBox } from '../shared/crypto.js';
 import type {
+  GitConnectionTestRequest,
   GitConnectionTestResponse,
   GitConnectionView,
+  GitRepoAccess,
+  GitWebhookSecretRevealResponse,
   UpdateGitConnectionRequest,
 } from '../shared/protocol.js';
 import {
@@ -33,8 +37,16 @@ export interface GitConnectionService {
     input: UpdateGitConnectionRequest,
     webhookUrl: string,
   ): Promise<GitConnectionView>;
-  /** `GET /user` with the stored token; 409 `GITHUB_NOT_CONFIGURED` without one. */
-  test(actor: Actor): Promise<GitConnectionTestResponse>;
+  /**
+   * `GET /user` with the stored token; 409 `GITHUB_NOT_CONFIGURED` without one. With `repo`, also what the token may
+   * do there (NP-228): a new repository needs the token's access as well as its webhook.
+   */
+  test(
+    actor: Actor,
+    input?: GitConnectionTestRequest,
+  ): Promise<GitConnectionTestResponse>;
+  /** The saved webhook secret in plain text (null when unset); needs `update`, like replacing it. */
+  revealWebhookSecret(actor: Actor): Promise<GitWebhookSecretRevealResponse>;
 }
 
 export interface GitConnectionDeps {
@@ -144,6 +156,49 @@ function toView(
   };
 }
 
+function repoValue(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const repo = typeof value === 'string' ? value.trim() : '';
+  const parts = repo.split('/');
+  if (
+    repo.length > 200 ||
+    parts.length !== 2 ||
+    parts.some((part) => !/^[\w.-]+$/u.test(part) || /^\.+$/u.test(part))
+  )
+    throw invalid('INVALID_FIELD', 'repo must look like owner/name.');
+  return repo;
+}
+
+/**
+ * A 404 means the token cannot see the repository; anything else is a failed test. NP-229: seeing a repository is not
+ * enough (a fine-grained token needs only its metadata permission for that), so the reads a refresh makes are tried
+ * too, on the default branch.
+ */
+async function repoAccess(
+  github: GitHubClient,
+  credentials: GitHubCredentials,
+  repo: string,
+): Promise<GitRepoAccess> {
+  let found: Awaited<ReturnType<GitHubClient['getRepository']>>;
+  try {
+    found = await github.getRepository(credentials, repo);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404)
+      return { fullName: repo, access: 'none' };
+    throw error;
+  }
+  const reads = await github.getReadAccess(
+    credentials,
+    found.fullName,
+    found.defaultBranch,
+  );
+  return {
+    fullName: found.fullName,
+    access: found.push ? 'write' : 'read',
+    reads,
+  };
+}
+
 function secretValue(
   secrets: SecretBox,
   value: unknown,
@@ -234,9 +289,10 @@ export function createGitConnectionService(
         webhookUrl,
       );
     },
-    async test(actor) {
+    async test(actor, input) {
       const conn = deps.tx.read();
       await requireGitHub(conn, actor, 'update');
+      const repo = repoValue(input?.repo);
       const credentials = credentialsOf(
         await loadConnection(conn, deps.secrets),
       );
@@ -247,10 +303,23 @@ export function createGitConnectionService(
         );
       try {
         const user = await deps.github.getAuthenticatedUser(credentials);
-        return { ok: true, login: user.login, scopes: user.scopes };
+        return {
+          ok: true,
+          login: user.login,
+          scopes: user.scopes,
+          ...(repo
+            ? { repo: await repoAccess(deps.github, credentials, repo) }
+            : {}),
+        };
       } catch (error) {
         throw githubError(error);
       }
+    },
+    async revealWebhookSecret(actor) {
+      const conn = deps.tx.read();
+      await requireGitHub(conn, actor, 'update');
+      const connection = await loadConnection(conn, deps.secrets);
+      return { webhookSecret: connection?.webhookSecret ?? null };
     },
   };
 }

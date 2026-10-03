@@ -3,6 +3,7 @@ import type { Context, Hono } from 'hono';
 
 import { npRouter, readJson, sessionActor } from '../shared/http.js';
 import type {
+  GitConnectionTestRequest,
   LinkPullRequestRequest,
   MergePullRequestRequest,
   UpdateGitConnectionRequest,
@@ -26,7 +27,10 @@ export function webhookUrlOf(
   return `${origin}${base}/np/webhooks/github`;
 }
 
-/** `/np/integrations/github` (browser, owner/admin; contract §C). Secrets are never echoed. */
+/**
+ * `/np/integrations/github` (browser, owner/admin; contract §C). The token is never echoed; the webhook secret only by
+ * `POST /github/webhook-secret/reveal` (NP-227).
+ */
 export function createIntegrationRoutes(deps: {
   connections: GitConnectionService;
   publicOrigin?: string;
@@ -49,8 +53,19 @@ export function createIntegrationRoutes(deps: {
       ),
     }),
   );
-  routes.post('/github/test', async (context) =>
-    context.json({ data: await deps.connections.test(sessionActor(context)) }),
+  // An empty body tests the token alone; `{ repo }` also checks one repository (NP-228).
+  routes.post('/github/test', async (context) => {
+    const input = (await context.req.text()).trim()
+      ? await readJson<GitConnectionTestRequest>(context)
+      : {};
+    return context.json({
+      data: await deps.connections.test(sessionActor(context), input),
+    });
+  });
+  routes.post('/github/webhook-secret/reveal', async (context) =>
+    context.json({
+      data: await deps.connections.revealWebhookSecret(sessionActor(context)),
+    }),
   );
   return routes;
 }

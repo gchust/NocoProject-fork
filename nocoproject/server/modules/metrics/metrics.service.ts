@@ -13,11 +13,13 @@ import type {
   MetricThresholdKey,
   MetricThresholds,
   MetricsCost,
+  MetricsCostRuntimeTypeFields,
   MetricsReport,
 } from '../shared/protocol.js';
 import {
   METRIC_THRESHOLD_DIRECTIONS,
   METRIC_THRESHOLD_KEYS,
+  RUNTIME_TYPES,
 } from '../shared/protocol.js';
 import { validateDate } from '../shared/validate.js';
 import type { SettingsService } from '../system/settings.service.js';
@@ -99,13 +101,25 @@ async function cost(
   range: { from: string; to: string },
   projectId: string | null,
   deliveredTotal: number,
-): Promise<MetricsCost> {
+): Promise<MetricsCost & MetricsCostRuntimeTypeFields> {
   const usage = await deps.usage().query(actor, {
     from: range.from,
     to: range.to,
     groupBy: 'agent',
     projectId,
   });
+  // NP-219 (protocol-runtime-types.md §8): the cost of each runtime type.
+  const byType = await Promise.all(
+    RUNTIME_TYPES.map((runtimeType) =>
+      deps.usage().query(actor, {
+        from: range.from,
+        to: range.to,
+        groupBy: 'runtimeType',
+        projectId,
+        runtimeType,
+      }),
+    ),
+  );
   const estimatedCost = usage.totals.estimatedCost;
   return {
     inputTokens: usage.totals.inputTokens,
@@ -120,6 +134,15 @@ async function cost(
       name: row.name,
       cost: row.estimatedCost,
     })),
+    byRuntimeType: Object.fromEntries(
+      RUNTIME_TYPES.map((runtimeType, index) => [
+        runtimeType,
+        {
+          estimatedCost: byType[index].totals.estimatedCost,
+          pricedRuns: byType[index].totals.pricedRuns,
+        },
+      ]),
+    ) as MetricsCostRuntimeTypeFields['byRuntimeType'],
   };
 }
 

@@ -13,6 +13,7 @@ import { memberAccessOf } from '../shared/authz.js';
 import type { RoleAssignments } from '../member/member.roles.js';
 import type { TxRunner } from '../shared/db.js';
 import { forbidden, invalid } from '../shared/errors.js';
+import type { RuntimeType } from '../shared/protocol.js';
 import type {
   InboxUnreadCounts,
   InboxItemV4,
@@ -79,7 +80,11 @@ export interface PmService {
   ): Promise<KnowledgeDocSummary[]>;
   /** NP-183 (§7.1): the executor roster, an issue's runs and pull requests, a run's latest events. */
   agents(auth: RunAuth): Promise<PmRosterAgent[]>;
-  runs(auth: RunAuth, issueId: string): Promise<PmIssueDetailV4['runs']>;
+  runs(
+    auth: RunAuth,
+    issueId: string,
+    runtimeType?: RuntimeType | null,
+  ): Promise<PmIssueDetailV4['runs']>;
   runEvents(
     auth: RunAuth,
     runId: string,
@@ -203,8 +208,12 @@ export function createPmService(deps: PmDeps): PmService {
       const actor = await asking(auth);
       return roster(deps.tx.read(), actor.id ?? '');
     },
-    runs: async (auth, issueId) =>
-      (await deps.queries().detail(await asking(auth), issueId)).runs,
+    runs: async (auth, issueId, runtimeType) =>
+      (await deps.queries().detail(await asking(auth), issueId)).runs.filter(
+        (run) =>
+          !runtimeType ||
+          (run as { runtimeType?: string }).runtimeType === runtimeType,
+      ),
     async runEvents(auth, runId, limit) {
       await deps.runQueries().assertVisible(await asking(auth), runId);
       const events = await deps.runEvents().list(runId, null);

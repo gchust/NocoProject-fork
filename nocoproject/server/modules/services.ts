@@ -144,6 +144,7 @@ import {
   createRuntimeService,
   type RuntimeService,
 } from './runtime/runtime.service.js';
+import type { BuiltinAiSource } from './runtime/builtin-ai.js';
 import { createActivityRecorder } from './shared/activity.js';
 import { createTxRunner, type TxRunner } from './shared/db.js';
 import { createDomainEventBus, type DomainEventBus } from './shared/events.js';
@@ -246,7 +247,7 @@ export interface NpServiceDeps {
   /** The AI intake parser; null or absent = heuristic only. */
   readonly aiIntake?: AiIntakeParser | null;
   /** Whether an LLM service is configured (`ai.llmServices` not empty). */
-  readonly aiConfigured?: () => boolean;
+  readonly aiConfigured?: () => boolean | Promise<boolean>;
   /** Iteration 4: the AI process classifier; null or absent = heuristic only. */
   readonly aiProcess?: AiProcessClassifier | null;
   /** NP-78: deletes stored attachment objects; the provider backs it with Drive. Absent = objects are kept (tests). */
@@ -271,6 +272,11 @@ export interface NpServiceDeps {
    * management answers 409 `ROLES_UNAVAILABLE`.
    */
   readonly roleStore?: () => RoleStore;
+  /**
+   * NP-219: the AI plugin's LLM services, for built-in runtimes and agents (`runtime/builtin-ai.ts`); the provider
+   * backs it with the plugin's `aiManagerToken`. Absent = the plugin is not registered.
+   */
+  readonly builtinAi?: BuiltinAiSource;
   /** Replaces the database approval gateway (the replacement checklist test). */
   readonly approvalGateway?: (
     context: ApprovalGatewayContext,
@@ -387,8 +393,14 @@ export function createNpServices(deps: NpServiceDeps): NpServices {
       conversations: () => services.pmConversations,
       contentBasePath: deps.contentBasePath,
     }),
-    agents: createAgentService({ tx, ids, users, activity }),
-    runtimes: createRuntimeService({ tx, ids, users }),
+    agents: createAgentService({
+      tx,
+      ids,
+      users,
+      activity,
+      ai: deps.builtinAi,
+    }),
+    runtimes: createRuntimeService({ tx, ids, users, ai: deps.builtinAi }),
     triggers: createTriggerService({
       runs: () => services.runs,
       workflows,

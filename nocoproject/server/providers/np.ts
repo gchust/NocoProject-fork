@@ -22,10 +22,7 @@
  */
 import { Readable } from 'node:stream';
 
-import {
-  aiManagerToken,
-  type AIApplicationConfig,
-} from '@nocobase/app-plugin-ai-employee/server';
+import { aiManagerToken } from '@nocobase/app-plugin-ai-employee/server';
 import type { AuthConfig } from '@nocobase/app-plugin-authentication/server';
 import type { Application } from '@nocobase/app-server/application';
 import { driveManagerToken } from '@nocobase/app-server/drive';
@@ -42,6 +39,7 @@ import {
 } from '@nocobase/service-provider';
 
 import type { NocoProjectConfig } from '../config/nocoproject.js';
+import { aiModelsConfigured, createBuiltinAiSource } from './np-builtin-ai.js';
 import type { AgentService } from '../modules/agent/agent.service.js';
 import type {
   AttachmentService,
@@ -281,9 +279,9 @@ export default class NpProvider extends ServiceProvider<Application> {
         roles: () => createBuiltinRoles(resolver.resolve(authorizationToken)),
         roleStore: () =>
           createPermissionSetRoles(resolver.resolve(authorizationToken)),
-        aiConfigured: () =>
-          (this.app.config.get<AIApplicationConfig>('ai')?.llmServices
-            ?.length ?? 0) > 0,
+        // NP-219: an enabled service with an enabled model, the built-in runtimes' test (np-builtin-ai.ts).
+        aiConfigured: () => aiModelsConfigured(this.app),
+        builtinAi: createBuiltinAiSource(this.app),
       });
     });
     bindModule(container, npProjectServiceToken, 'projects');
@@ -440,6 +438,13 @@ export default class NpProvider extends ServiceProvider<Application> {
 
   public override async start(): Promise<void> {
     if (this.app.container.has(authorizationToken)) await this.reconcileRoles();
+    // NP-219 (protocol-runtime-types.md §4.2): one connectivity check per built-in runtime, off the start path.
+    void this.app.container
+      .resolve(npRuntimeServiceToken)
+      .checkAllBuiltin()
+      .catch((error: unknown) =>
+        this.logError(error, 'NocoProject built-in runtime check failed.'),
+      );
     this.cron = createCronJobManager();
     this.cron.addJob({
       cronTime: SWEEP_CRON_TIME,

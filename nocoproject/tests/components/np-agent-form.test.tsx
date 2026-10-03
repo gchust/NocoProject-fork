@@ -21,6 +21,10 @@ vi.mock('@nocobase/app-client', async (original) => ({
   useApiClient: () => api,
 }));
 vi.mock('@/components/ui/toast', () => ({ toast }));
+vi.mock(
+  '@nocobase/app-plugin-authorization/client',
+  () => import('./np-authz-double.js'),
+);
 
 const RUNTIME = {
   id: 'r1',
@@ -62,6 +66,13 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
       url: '/agents/new',
       path: '/agents/new',
     });
+    // NP-219: the type comes first; the other fields appear once it is chosen.
+    expect(
+      screen.queryByRole('textbox', { name: 'Name' }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('radio', { name: /^Computer agent/ }),
+    );
     await user.type(await screen.findByRole('textbox', { name: 'Name' }), 'PM');
     await user.type(
       screen.getByRole('textbox', { name: 'Instructions' }),
@@ -88,6 +99,7 @@ describe('agent kind and reasoning effort (iteration 4 §C)', () => {
           provider: 'opencode',
           capabilities: ['context.read', 'comment.create'],
           reasoningEffort: 'high',
+          runtimeType: 'computer',
         }),
       ]),
     );
@@ -166,7 +178,8 @@ describe('closing the new agent dialog with unsaved input (NP-200)', () => {
       >
         <Route path='new' element={<NewAgentPage />} />
       </Route>,
-      { url: '/agents/new' },
+      // A type preselected by the link is where the form starts, not input.
+      { url: '/agents/new?runtimeType=computer' },
     );
     const name = await screen.findByRole('textbox', { name: 'Name' });
     await user.type(name, 'PM');
@@ -210,7 +223,7 @@ describe('closing the new agent dialog with unsaved input (NP-200)', () => {
       </Route>,
       { url: '/agents/new?kind=manager' },
     );
-    await screen.findByRole('textbox', { name: 'Name' });
+    await screen.findByRole('radio', { name: /^Computer agent/ });
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),

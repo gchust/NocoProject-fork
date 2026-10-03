@@ -3,13 +3,19 @@
  */
 import type { Conn } from '../shared/db.js';
 import { iso, isoOrNull, num, str } from '../shared/db.js';
-import type { FailureReason, Run, RunStatus } from '../shared/protocol.js';
+import type {
+  FailureReason,
+  Run,
+  RunStatus,
+  RuntimeTypeFields,
+} from '../shared/protocol.js';
 
-/** A run with the checkout the daemon reported (iteration 1). */
-export type RunV1 = Run & {
-  readonly branchName: string | null;
-  readonly repoUrl: string | null;
-};
+/** A run with the checkout the daemon reported (iteration 1) and (NP-219) the agent's type when it was enqueued. */
+export type RunV1 = Run &
+  RuntimeTypeFields & {
+    readonly branchName: string | null;
+    readonly repoUrl: string | null;
+  };
 
 /** Statuses the pending-run unique index covers: a new trigger coalesces into such a run. */
 export const PENDING_STATUSES: readonly RunStatus[] = [
@@ -50,6 +56,7 @@ export function mapRun(row: Record<string, unknown>): RunV1 {
     id: str(row.id) ?? '',
     agentId: str(row.agentId) ?? '',
     runtimeId: str(row.runtimeId),
+    runtimeType: row.runtimeType === 'builtin' ? 'builtin' : 'computer',
     kind: 'issue',
     status: (RUN_STATUSES.includes(status) ? status : 'queued') as RunStatus,
     priority: num(row.priority),

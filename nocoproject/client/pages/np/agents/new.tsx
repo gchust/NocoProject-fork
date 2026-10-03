@@ -1,5 +1,6 @@
 import { CapabilityFields } from './capability-fields.js';
 import type { AgentCapability } from '../agent-capabilities.js';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { ApiClientError, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import { type FormEvent, type ReactElement, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { NpOnlineState } from '@/components/np-badges';
+import { useRuntimeTypeCopy } from '@/components/np-runtime-type-copy';
 import { RouteDialog } from '@/components/route-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -37,9 +39,20 @@ import {
 import { useRouteOverlay } from '@/components/use-route-overlay';
 
 import { createAgent, fetchRuntimes } from '../api.js';
+import { settingsCheck } from '../config/config-access.js';
 import { npKeys } from '../constants.js';
 import type { AgentKind, ReasoningEffort } from '../types-iter4.js';
+import {
+  BUILTIN_PROVIDER,
+  capabilitiesForType,
+  readRuntimeType,
+  runtimeTypeOf,
+  type RuntimeType,
+} from '../types-runtime-types.js';
 import { AgentKindFields } from './agent-kind-fields.js';
+import { agentTypeErrorMessage } from './agent-type-errors.js';
+import { BuiltinModelField } from './builtin-model-field.js';
+import { RuntimeTypePicker } from './runtime-type-picker.js';
 import { SummaryField } from './summary-field.js';
 
 const FORM_ID = 'np-agent-new-form';
@@ -52,7 +65,12 @@ const DEFAULT_CAPABILITIES: readonly AgentCapability[] = [
 type FieldName =
   'name' | 'summary' | 'instructions' | 'runtimeId' | 'maxConcurrentRuns';
 
-/** Route `/agents/new`: create an agent bound to one runtime, of a kind (iteration 4 §C: Coding / Project manager). */
+/**
+ * Route `/agents/new`: create an agent bound to one runtime, of a kind (iteration 4 §C: Coding / Project manager).
+ * NP-219: the type (computer / built-in) comes first, beside the comparison cards; the other fields appear once it is
+ * chosen and follow it — only runtimes of that type, a built-in agent's models from its model service, no reasoning
+ * effort for built-in agents, and the capabilities it cannot hold disabled with the reason. `?runtimeType=` preselects.
+ */
 export default function NewAgentPage(): ReactElement {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +110,9 @@ function NewAgentBody({
     queryKey: npKeys.runtimes,
     queryFn: () => fetchRuntimes(api),
   });
+  const copyOf = useRuntimeTypeCopy();
+  const canUseService = useCan(settingsCheck('general', 'update')).can;
+  const [searchParams] = useSearchParams();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -107,7 +128,13 @@ function NewAgentBody({
   );
   // `?kind=manager` (the project manager settings link) preselects the kind; it is where the form starts, not an edit.
   const [initialKind] = useState<AgentKind>(
-    useSearchParams()[0].get('kind') === 'manager' ? 'manager' : 'coder',
+    searchParams.get('kind') === 'manager' ? 'manager' : 'coder',
+  );
+  const [initialType] = useState(() =>
+    readRuntimeType(searchParams.get('runtimeType')),
+  );
+  const [runtimeType, setRuntimeType] = useState<RuntimeType | null>(
+    initialType,
   );
   const [kind, setKind] = useState<AgentKind>(initialKind);
   const [reasoningEffort, setReasoningEffort] =
@@ -123,14 +150,46 @@ function NewAgentBody({
       runtimeId !== null ||
       maxConcurrentRuns !== String(DEFAULT_MAX_CONCURRENT_RUNS) ||
       kind !== initialKind ||
-      reasoningEffort !== null,
+      reasoningEffort !== null ||
+      runtimeType !== initialType,
   );
 
-  const runtime = runtimes.data?.find((item) => item.id === runtimeId);
-  const runtimeItems = (runtimes.data ?? []).map((item) => ({
+  // A type without any runtime cannot be chosen yet; the computer type stays open, as before, with its "connect" hint.
+  const builtinRuntimes = (runtimes.data ?? []).filter(
+    (item) => runtimeTypeOf(item) === 'builtin',
+  );
+  const unavailable =
+    runtimes.data && builtinRuntimes.length === 0
+      ? {
+          builtin: t('np.agentType.unavailableNoRuntime', {
+            runtimeName: copyOf('builtin').runtimeName,
+          }),
+        }
+      : undefined;
+  const typed = runtimeType ?? 'computer';
+  const sameType = (runtimes.data ?? []).filter(
+    (item) => runtimeTypeOf(item) === typed,
+  );
+  const runtime = sameType.find((item) => item.id === runtimeId);
+  const runtimeItems = sameType.map((item) => ({
     value: item.id,
-    label: `${item.name} · ${item.provider}`,
+    label: `${item.name} · ${
+      typed === 'builtin'
+        ? (item.llmServiceTitle ?? item.llmService)
+        : item.provider
+    }`,
   }));
+
+  function chooseType(next: RuntimeType): void {
+    if (next === runtimeType) return;
+    setRuntimeType(next);
+    setRuntimeId(null);
+    setModel('');
+    setCapabilities((current) => capabilitiesForType(current, next));
+    if (next === 'builtin') setReasoningEffort(null);
+    setErrors({});
+    setFormError(undefined);
+  }
 
   function validate(): Partial<Record<FieldName, string>> {
     const next: Partial<Record<FieldName, string>> = {};
@@ -151,9 +210,13 @@ function NewAgentBody({
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!runtimeType) {
+      setFormError(t('np.agentType.errors.INVALID_RUNTIME_TYPE'));
+      return;
+    }
     const found = validate();
     setErrors(found);
-    if (Object.keys(found).length > 0 || !runtime) return;
+    if (Object.keys(found).length > 0 || !runtime || !runtimeType) return;
     setFormError(undefined);
     onSubmittingChange(true);
     try {
@@ -164,11 +227,13 @@ function NewAgentBody({
         instructions: instructions.trim(),
         capabilities,
         runtimeId: runtime.id,
-        provider: runtime.provider,
+        provider:
+          runtimeType === 'builtin' ? BUILTIN_PROVIDER : runtime.provider,
         model: model.trim() || undefined,
         maxConcurrentRuns: Number(maxConcurrentRuns),
         kind,
-        reasoningEffort,
+        reasoningEffort: runtimeType === 'builtin' ? null : reasoningEffort,
+        runtimeType,
       });
       onSubmittingChange(false);
       toast.add({
@@ -183,7 +248,8 @@ function NewAgentBody({
       setFormError(
         error instanceof ApiClientError && error.status === 403
           ? t('np.common.forbidden')
-          : t('np.common.requestFailed'),
+          : (agentTypeErrorMessage(t, error, copyOf(runtimeType)) ??
+              t('np.common.requestFailed')),
       );
     }
   }
@@ -197,6 +263,27 @@ function NewAgentBody({
             <AlertDescription>{formError}</AlertDescription>
           </Alert>
         ) : null}
+        <RuntimeTypePicker
+          value={runtimeType}
+          unavailable={unavailable}
+          onChange={chooseType}
+        />
+        {runtimeType ? (
+          renderFields(runtimeType)
+        ) : (
+          <FieldDescription>{t('np.agentType.choose')}</FieldDescription>
+        )}
+      </FieldGroup>
+    </form>
+  );
+
+  // The fields after the type: a plain function over the form state above (not a component, so the inputs are not
+  // remounted on every keystroke), split out only to keep the JSX readable.
+  function renderFields(type: RuntimeType): ReactElement {
+    const builtin = type === 'builtin';
+    const copy = copyOf(type);
+    return (
+      <>
         <Field data-invalid={errors.name ? true : undefined}>
           <FieldLabel htmlFor='np-agent-name'>
             {t('np.agentForm.name')}
@@ -204,7 +291,7 @@ function NewAgentBody({
           <Input
             id='np-agent-name'
             value={name}
-            autoFocus
+            autoFocus={initialType !== null}
             maxLength={100}
             aria-invalid={errors.name ? true : undefined}
             onChange={(event) => setName(event.target.value)}
@@ -232,6 +319,7 @@ function NewAgentBody({
           value={capabilities}
           instructions={instructions}
           disabled={false}
+          runtimeType={type}
           onChange={setCapabilities}
         />
         <Field data-invalid={errors.instructions ? true : undefined}>
@@ -257,7 +345,10 @@ function NewAgentBody({
           <Select
             items={runtimeItems}
             value={runtimeId}
-            onValueChange={(value) => setRuntimeId(value)}
+            onValueChange={(value) => {
+              setRuntimeId(value);
+              setModel('');
+            }}
           >
             <SelectTrigger
               id='np-agent-runtime'
@@ -267,12 +358,14 @@ function NewAgentBody({
               <SelectValue placeholder={t('np.agentForm.runtimePlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              {(runtimes.data ?? []).map((item) => (
+              {sameType.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
                   <span className='flex min-w-0 flex-1 items-center gap-2'>
                     <span className='truncate'>{item.name}</span>
                     <span className='text-xs text-muted-foreground'>
-                      {item.provider}
+                      {builtin
+                        ? (item.llmServiceTitle ?? item.llmService)
+                        : item.provider}
                     </span>
                     <NpOnlineState
                       online={item.status === 'online'}
@@ -285,39 +378,69 @@ function NewAgentBody({
           </Select>
           {errors.runtimeId ? (
             <FieldError>{errors.runtimeId}</FieldError>
-          ) : runtimes.data && runtimes.data.length === 0 ? (
+          ) : runtimes.data && sameType.length === 0 ? (
             <FieldDescription>
-              {t('np.agentForm.noRuntimes')}{' '}
-              <Link to='/runtimes/connect' className='underline'>
-                {t('np.runtimes.connect')}
-              </Link>
+              {builtin
+                ? t('np.agentType.noRuntimes', {
+                    runtimeName: copy.runtimeName,
+                  })
+                : t('np.agentForm.noRuntimes')}{' '}
+              {builtin && !canUseService ? null : (
+                <Link
+                  to={builtin ? '/runtimes/builtin' : '/runtimes/connect'}
+                  className='underline'
+                >
+                  {builtin
+                    ? t('np.runtimeAdd.builtin')
+                    : t('np.runtimes.connect')}
+                </Link>
+              )}
             </FieldDescription>
-          ) : null}
+          ) : (
+            <FieldDescription>
+              {t('np.agentType.sameTypeHint', {
+                runtimeName: copy.runtimeName,
+              })}
+            </FieldDescription>
+          )}
         </Field>
         <div className='grid gap-4 sm:grid-cols-3'>
-          <Field>
-            <FieldLabel htmlFor='np-agent-provider'>
-              {t('np.agentForm.provider')}
-            </FieldLabel>
-            <Input
-              id='np-agent-provider'
-              value={runtime?.provider ?? ''}
-              placeholder={t('np.agentForm.providerPlaceholder')}
-              readOnly
-              aria-readonly='true'
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor='np-agent-model'>
-              {t('np.agentForm.model')}
-            </FieldLabel>
-            <Input
-              id='np-agent-model'
-              value={model}
-              placeholder={t('np.agents.defaultModel')}
-              onChange={(event) => setModel(event.target.value)}
-            />
-          </Field>
+          {builtin ? (
+            <div className='sm:col-span-2'>
+              <BuiltinModelField
+                id='np-agent-model'
+                runtime={runtime}
+                value={model}
+                onChange={setModel}
+              />
+            </div>
+          ) : (
+            <>
+              <Field>
+                <FieldLabel htmlFor='np-agent-provider'>
+                  {t('np.agentForm.provider')}
+                </FieldLabel>
+                <Input
+                  id='np-agent-provider'
+                  value={runtime?.provider ?? ''}
+                  placeholder={t('np.agentForm.providerPlaceholder')}
+                  readOnly
+                  aria-readonly='true'
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor='np-agent-model'>
+                  {t('np.agentForm.model')}
+                </FieldLabel>
+                <Input
+                  id='np-agent-model'
+                  value={model}
+                  placeholder={t('np.agents.defaultModel')}
+                  onChange={(event) => setModel(event.target.value)}
+                />
+              </Field>
+            </>
+          )}
           <Field data-invalid={errors.maxConcurrentRuns ? true : undefined}>
             <FieldLabel htmlFor='np-agent-max'>
               {t('np.agentForm.maxConcurrentRuns')}
@@ -337,16 +460,19 @@ function NewAgentBody({
             ) : null}
           </Field>
         </div>
-        <AgentKindFields
-          idPrefix='np-agent'
-          kind={kind}
-          reasoningEffort={reasoningEffort}
-          onKindChange={setKind}
-          onReasoningEffortChange={setReasoningEffort}
-        />
-      </FieldGroup>
-    </form>
-  );
+        {/* Reasoning effort is a coding tool's flag; a built-in agent has none (§3.1). */}
+        {builtin ? null : (
+          <AgentKindFields
+            idPrefix='np-agent'
+            kind={kind}
+            reasoningEffort={reasoningEffort}
+            onKindChange={setKind}
+            onReasoningEffortChange={setReasoningEffort}
+          />
+        )}
+      </>
+    );
+  }
 }
 
 function NewAgentFooter({

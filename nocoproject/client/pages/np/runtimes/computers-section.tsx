@@ -197,14 +197,14 @@ export function ComputersSection(): ReactElement | null {
   const revoked = rows.filter((computer) => computer.revokedAt);
 
   return (
-    <section className='space-y-3 pt-6' aria-labelledby='np-computers-heading'>
+    <section className='space-y-3 pt-3' aria-labelledby='np-computers-heading'>
       <div className='space-y-1'>
-        <h2
+        <h3
           id='np-computers-heading'
-          className='font-heading text-base font-semibold'
+          className='font-heading text-sm font-semibold'
         >
           {t('np.computers.title')}
-        </h2>
+        </h3>
         <p className='text-sm text-muted-foreground'>
           {t('np.computers.description')}
         </p>

@@ -175,7 +175,7 @@ async function insertRun(
   tx: Tx,
   ids: IdSource,
   input: EnqueueInput,
-  runtimeId: string | null,
+  agent: { readonly runtimeId: string | null; readonly runtimeType: string },
 ): Promise<{ id: string; status: RunStatus }> {
   const timestamp = now();
   const deferred =
@@ -192,7 +192,9 @@ async function insertRun(
       .values({
         id,
         agentId: input.agentId,
-        runtimeId,
+        runtimeId: agent.runtimeId,
+        // NP-219: the type is the agent's at enqueue time; reports group by it even after the runtime is gone.
+        runtimeType: agent.runtimeType,
         kind: 'issue',
         status,
         priority: input.priority,
@@ -220,11 +222,12 @@ async function enqueue(
 ): Promise<EnqueueResult> {
   const agent = await tx.conn.query
     .selectFrom('agents')
-    .select(['id', 'runtimeId'])
+    .select(['id', 'runtimeId', 'runtimeType'])
     .where('id', '=', input.agentId)
     .executeTakeFirst();
   if (!agent) throw notFound('Agent');
   const runtimeId = (agent.runtimeId as string | null) ?? null;
+  const runtimeType = agent.runtimeType === 'builtin' ? 'builtin' : 'computer';
   if (input.appendInput) {
     const candidate = await currentInputRun(
       tx,
@@ -258,7 +261,10 @@ async function enqueue(
       return { runId: pendingId, coalesced: true };
     }
     try {
-      const created = await insertRun(tx, deps.ids, input, runtimeId);
+      const created = await insertRun(tx, deps.ids, input, {
+        runtimeId,
+        runtimeType,
+      });
       await insertTriggers(tx, deps.ids, created.id, input.triggers);
       emitRunStatus(
         tx,

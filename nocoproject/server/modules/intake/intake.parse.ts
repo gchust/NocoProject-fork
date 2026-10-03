@@ -21,7 +21,7 @@ export async function aiEnabled(
 ): Promise<boolean> {
   return (
     deps.ai !== null &&
-    deps.aiConfigured() &&
+    (await deps.aiConfigured()) &&
     (await deps.settings.read(conn)).intakeParser === 'auto'
   );
 }

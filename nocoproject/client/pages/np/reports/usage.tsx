@@ -16,12 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { fetchUsage } from '../api-iter2.js';
 import { npKeys } from '../constants.js';
 import { fromDateOnly, toDateOnly, useDateFnsLocale } from '../format.js';
+import { PropertySelect } from '../issues/detail/property-fields.js';
 import type { UsageGroupBy, UsageQuery, UsageRow } from '../types.js';
+import { readRuntimeType, RUNTIME_TYPES } from '../types-runtime-types.js';
 import {
   USAGE_CONVERSATION_KEY,
   USAGE_GROUPS,
@@ -46,6 +49,7 @@ const ROW_LINK: Partial<Record<UsageGroupBy, (key: string) => string>> = {
  * agent runs over a date range (the last 30 days by default), grouped by agent, issue, project, day or model, with a
  * totals row. A cost shows "—" when no model price matches; the totals add only priced rows. Members see the runs of
  * issues they can see; owner/admin see all. Range and grouping live in the query string.
+ * NP-219 (§8): grouped by type (computer / built-in) and filtered by type (`?runtimeType=`) with any grouping.
  */
 export default function UsageReport(): ReactElement {
   const { t } = useTranslation();
@@ -58,6 +62,7 @@ export default function UsageReport(): ReactElement {
     from: params.get('from') ?? fallback.from,
     to: params.get('to') ?? fallback.to,
     groupBy: readUsageGroup(params.get('groupBy')),
+    runtimeType: readRuntimeType(params.get('runtimeType')) ?? undefined,
   };
   const usage = useQuery({
     queryKey: npKeys.usage(query),
@@ -76,6 +81,9 @@ export default function UsageReport(): ReactElement {
 
   const tokens = (value: number): string => formatTokens(value, locale);
   const label = (row: UsageRow): ReactElement | string => {
+    const type =
+      query.groupBy === 'runtimeType' ? readRuntimeType(row.key) : null;
+    if (type) return <RuntimeTypeTag type={type} />;
     const pmRow =
       query.groupBy === 'conversation' && row.key === USAGE_CONVERSATION_KEY;
     const text = pmRow
@@ -230,6 +238,19 @@ export default function UsageReport(): ReactElement {
           </TabsList>
         </Tabs>
         <div className='flex items-center gap-2'>
+          <PropertySelect
+            id='np-usage-type'
+            size='sm'
+            className='w-40'
+            aria-label={t('np.runtimeType.filterLabel')}
+            noneLabel={t('np.runtimeType.all')}
+            options={RUNTIME_TYPES.map((type) => ({
+              value: type,
+              label: t(`np.runtimeType.${type}.name`),
+            }))}
+            value={query.runtimeType ?? null}
+            onChange={(value) => update({ runtimeType: value })}
+          />
           {usage.isFetching && usage.data ? (
             <Spinner
               className='size-4 text-muted-foreground'

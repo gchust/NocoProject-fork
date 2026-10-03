@@ -181,7 +181,8 @@ async function check(
     return saved;
   });
   const blocker = mergeBlockerOf(
-    { ...fresh.snapshot, ciState: fresh.snapshot.ciState ?? null },
+    // CI the token could not read (NP-229) falls back to the stored state.
+    { ...fresh.snapshot, ciState: fresh.snapshot.ciState ?? stored.ciState },
     fresh.payload.mergeable ?? null,
   );
   return {

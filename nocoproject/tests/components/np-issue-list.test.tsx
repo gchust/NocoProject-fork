@@ -195,11 +195,15 @@ describe('issue list', () => {
     const agentRow = (await screen.findByText('Claude Coder')).closest(
       'tr',
     ) as HTMLElement;
-    expect(within(agentRow).getByText('Agent')).toBeVisible();
+    expect(
+      within(agentRow).getByRole('img', { name: 'Computer agent' }),
+    ).toBeVisible();
     expect(within(agentRow).getByText('Working')).toBeVisible();
 
     const personRow = screen.getByText('Ada').closest('tr') as HTMLElement;
-    expect(within(personRow).queryByText('Agent')).toBeNull();
+    expect(
+      within(personRow).queryByRole('img', { name: 'Computer agent' }),
+    ).toBeNull();
     expect(within(personRow).queryByText('Working')).toBeNull();
   });
 

@@ -3,6 +3,7 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactElement, useState } from 'react';
 
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 
+import { fetchAgents } from '../np/api.js';
 import { readReasoningEffort } from '../np/api-iter4.js';
 import {
   copyPmAgentFromDefault,
@@ -37,6 +39,7 @@ import { npKeys } from '../np/constants.js';
 import { PropertySelect } from '../np/issues/detail/property-fields.js';
 import { REASONING_EFFORTS } from '../np/types-iter4.js';
 import type { PmAgentChoice } from '../np/types-pm.js';
+import { runtimeTypeOf } from '../np/types-runtime-types.js';
 
 /** The radio value of "System default"; agent ids are numeric strings, so it cannot clash. */
 const SYSTEM = 'system';
@@ -113,6 +116,13 @@ function PmAgentForm({
       ? choice.agentId
       : SYSTEM;
   const [selected, setSelected] = useState(initial);
+  // The choice carries no agent type; the agents list does (NP-219).
+  const agents = useQuery({
+    queryKey: npKeys.agents,
+    queryFn: () => fetchAgents(api),
+  });
+  const typeOf = (agentId: string) =>
+    runtimeTypeOf(agents.data?.find((agent) => agent.id === agentId) ?? {});
   const [refusal, setRefusal] = useState<string>();
 
   const fail = (error: unknown): void => {
@@ -159,7 +169,10 @@ function PmAgentForm({
               <FieldLabel htmlFor='np-pm-choice-system'>
                 {t('np.pmSetup.systemDefault')}
               </FieldLabel>
-              <FieldDescription>
+              <FieldDescription className='flex flex-wrap items-center gap-1.5'>
+                {choice.systemAgent ? (
+                  <RuntimeTypeTag type={typeOf(choice.systemAgent.id)} />
+                ) : null}
                 {choice.systemAgent
                   ? t('np.pmSetup.systemDefaultAgent', {
                       name: choice.systemAgent.name,
@@ -182,7 +195,8 @@ function PmAgentForm({
                     <FieldLabel htmlFor={`np-pm-choice-${candidate.id}`}>
                       {candidate.name}
                     </FieldLabel>
-                    <FieldDescription>
+                    <FieldDescription className='flex flex-wrap items-center gap-1.5'>
+                      <RuntimeTypeTag type={typeOf(candidate.id)} />
                       {[
                         candidate.provider,
                         candidate.model,

@@ -1,6 +1,7 @@
 import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Hono } from 'hono';
 
+import { runtimeTypeFilter } from '../shared/runtime-types.js';
 import {
   npRouter,
   queryInt,
@@ -136,6 +137,7 @@ export function createAgentPmRoutes(
       data: await pm.runs(
         context.get('runAuth'),
         queryText(context, 'issueId') ?? '',
+        runtimeTypeFilter(queryText(context, 'runtimeType')),
       ),
     }),
   );

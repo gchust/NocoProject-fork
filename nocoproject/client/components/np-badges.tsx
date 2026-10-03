@@ -3,6 +3,7 @@ import { AlertTriangleIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { NpActorAvatar } from '@/components/np-actor-avatar';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { NpTag } from '@/components/np-tag';
 import type { NpTone } from '@/components/np-tones';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,10 @@ import {
   statusLabelKey,
   statusTone,
 } from '@/pages/np/constants';
+import {
+  runtimeTypeOf,
+  type RuntimeType,
+} from '@/pages/np/types-runtime-types';
 import type {
   ExecutorType,
   IssuePriority,
@@ -141,15 +146,19 @@ export function NpPulse({
 export function NpOnlineState({
   online,
   className,
+  title,
 }: {
   readonly online: boolean;
   readonly className?: string;
+  /** Why it is offline, on hover. */
+  readonly title?: string;
 }): ReactElement {
   const { t } = useTranslation();
   return (
     <NpTag
       tone={online ? 'green' : 'grey'}
       data-online={online ? 'true' : 'false'}
+      title={title}
       className={className}
       icon={
         <span
@@ -167,7 +176,9 @@ export function NpOnlineState({
 }
 
 /**
- * Who executes an issue: a person, an agent (with an "Agent" marker), or nobody. An agent with active runs shows a
+ * Who executes an issue: a person, an agent (with its type tag, NP-219), or nobody. The tag is the icon alone (name and
+ * description on hover) unless `typeName` gives it room; an executor is a computer agent unless `runtimeType` says
+ * otherwise (the server refuses built-in executors). An agent with active runs shows a
  * pulsing "Working" indicator. A long name truncates to the space it is given (the markers keep their width) and the
  * full name shows on hover.
  */
@@ -175,10 +186,15 @@ export function NpExecutor({
   type,
   name,
   activeRunCount = 0,
+  runtimeType,
+  typeName = false,
 }: {
   readonly type: ExecutorType;
   readonly name?: string | null;
   readonly activeRunCount?: number;
+  readonly runtimeType?: RuntimeType;
+  /** Show the type's name beside its icon. */
+  readonly typeName?: boolean;
 }): ReactElement {
   const { t } = useTranslation();
   if (type === 'none' || !name) {
@@ -199,14 +215,15 @@ export function NpExecutor({
     >
       <NpActorAvatar type={type} name={name} size='xs' live={working} />
       <span className='truncate'>{name}</span>
-      {type === 'agent' && !working ? (
-        <span className='shrink-0 text-xs text-agent'>
-          {t('np.executor.agentMarker')}
-        </span>
+      {type === 'agent' ? (
+        <RuntimeTypeTag
+          type={runtimeTypeOf({ runtimeType })}
+          iconOnly={!typeName}
+          className='shrink-0'
+        />
       ) : null}
       {working ? (
         <span className='inline-flex shrink-0 items-center gap-1 text-xs text-primary'>
-          <span className='sr-only'>{t('np.executor.agentMarker')}</span>
           <NpPulse />
           {t('np.executor.working')}
         </span>

@@ -2,6 +2,7 @@ import type { AuthEnv } from '@nocobase/app-plugin-authentication';
 import type { Context, Hono } from 'hono';
 
 import { invalid } from '../shared/errors.js';
+import { runtimeTypeFilter } from '../shared/runtime-types.js';
 import {
   npRouter,
   queryInt,
@@ -135,7 +136,11 @@ export function createIssueRoutes(deps: {
   });
   routes.get('/:id/runs', async (context) =>
     context.json(
-      await deps.queries.runs(sessionActor(context), context.req.param('id')),
+      await deps.queries.runs(
+        sessionActor(context),
+        context.req.param('id'),
+        runtimeTypeFilter(queryText(context, 'runtimeType')),
+      ),
     ),
   );
   for (const timeline of ['activities', 'comments'] as const) {

@@ -124,6 +124,7 @@ describe('app client routes', () => {
       { name: 'np-agent-detail', authorizedAs: 'np-agents' },
       { name: 'np-runtimes', authorizedAs: 'np-runtimes' },
       { name: 'np-runtime-connect', authorizedAs: 'np-runtimes' },
+      { name: 'np-runtime-builtin', authorizedAs: 'np-runtimes' },
       { name: 'np-skills', authorizedAs: 'np-skills' },
       { name: 'np-skill-new', authorizedAs: 'np-skills' },
       { name: 'np-skill-detail', authorizedAs: 'np-skills' },

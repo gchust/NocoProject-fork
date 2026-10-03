@@ -134,7 +134,8 @@ async function ciLinks(
 
 /**
  * Full snapshot with the stored token (mergeable state, CI and its run links included), plus the raw payload (the
- * merge check reads `mergeable`). Called outside any transaction.
+ * merge check reads `mergeable`). Called outside any transaction. Only the pull request read can fail it; CI that
+ * cannot be read is left out (`ciState` undefined), so the stored value stays.
  */
 export async function fetchSnapshot(
   deps: Pick<PullRequestDeps, 'tx' | 'secrets' | 'github'>,
@@ -152,8 +153,11 @@ export async function fetchSnapshot(
       ref.number,
     );
     const snapshot = snapshotFromPayload(payload, ref.repo, ref.number);
+    // NP-229: CI the token may not read keeps the stored state (undefined) instead of failing the whole read.
     const ciState = snapshot.headSha
-      ? await deps.github.getCiState(credentials, ref.repo, snapshot.headSha)
+      ? await deps.github
+          .getCiState(credentials, ref.repo, snapshot.headSha)
+          .catch(() => undefined)
       : null;
     const links = await ciLinks(
       deps.github,

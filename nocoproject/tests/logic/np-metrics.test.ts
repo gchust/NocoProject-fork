@@ -382,6 +382,11 @@ describe.skipIf(!db)('GET /np/metrics (PostgreSQL)', () => {
       estimatedCost: 4.5,
       costPerDeliveredIssue: 1.5,
       byAgent: [{ agentId, name: 'Dev', cost: 4.5 }],
+      // NP-219: the cost of each runtime type.
+      byRuntimeType: {
+        computer: { estimatedCost: 4.5, pricedRuns: 1 },
+        builtin: { estimatedCost: null, pricedRuns: 0 },
+      },
     });
     expect(report.humanLoad).toEqual({
       decisionsCreated: 4,

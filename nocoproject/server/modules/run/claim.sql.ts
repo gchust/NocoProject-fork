@@ -1,6 +1,9 @@
 /**
  * Claim SQL (PostgreSQL), verbatim from protocol.md §4 apart from `updated_at` and bound parameters.
  *
+ * NP-219: only computer runs (`runtime_type = 'computer'`); built-in runs are claimed by the server itself. Their
+ * agents' runtimes are never a daemon's, so the condition is a safeguard and changes nothing in the payload.
+ *
  * Bindings: [runtimeId (SET runtime_id), runtimeId (a.runtime_id), whether the daemon may take project manager
  * conversation runs (NP-183: a daemon older than `PM_ASSISTANT_MIN_CLI` leaves them queued)].
  *
@@ -21,6 +24,7 @@ UPDATE runs
      FROM runs r
      JOIN agents a ON a.id = r.agent_id
     WHERE r.status = 'queued'
+      AND r.runtime_type = 'computer'
       AND a.runtime_id = ?
       AND a.archived_at IS NULL
       AND (?::boolean OR NOT EXISTS (

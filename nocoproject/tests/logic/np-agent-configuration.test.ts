@@ -40,6 +40,7 @@ async function setup(
     name: 'Any profession',
     instructions: 'Only answer; never split.',
     provider: 'echo',
+    runtimeType: 'computer',
     runtimeId: runtime.runtimeId,
     capabilities,
     kind: 'coder',
@@ -278,6 +279,7 @@ describe.skipIf(skipped)('configured agent capabilities', () => {
       instructions: 'Answer.',
       runtimeId: runtime.runtimeId,
       provider: 'echo',
+      runtimeType: 'computer',
       kind: 'manager',
     });
     const other = await services.agents.create(ALICE, {
@@ -285,6 +287,7 @@ describe.skipIf(skipped)('configured agent capabilities', () => {
       instructions: 'Review',
       runtimeId: runtime.runtimeId,
       provider: 'echo',
+      runtimeType: 'computer',
     });
     const current = await services.workspaceSettings.view(ALICE);
     const entries = current.agentEntries!;

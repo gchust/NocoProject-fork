@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { NpOnlineState } from '@/components/np-badges';
+import { RuntimeTypeTag } from '@/components/np-runtime-type';
 import { NpTag } from '@/components/np-tag';
 import {
   Alert,
@@ -17,6 +18,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 import { settingsCheck } from '../../config/config-access.js';
 import type { PmConversationAgent } from '../../types-pm.js';
+import { runtimeTypeOf } from '../../types-runtime-types.js';
 import { isAgentDown, isAgentUnreachable } from './pm-conversation-model.js';
 
 /** The conversation's agent: its name, where it comes from, and whether its computer is online (§5.4, §6.5). */
@@ -34,6 +36,11 @@ export function PmAgentBadge({
       >
         {agent.name}
       </span>
+      <RuntimeTypeTag
+        type={runtimeTypeOf(agent)}
+        iconOnly
+        data-testid='np-pm-agent-type'
+      />
       <NpTag tone={agent.source === 'personal' ? 'violet' : 'grey'}>
         {t(`np.pmAssistant.agent.source.${agent.source}`)}
       </NpTag>
@@ -43,6 +50,36 @@ export function PmAgentBadge({
         <NpOnlineState online={agent.online} />
       )}
     </span>
+  );
+}
+
+/**
+ * Why a down agent cannot answer, in the words of its type (NP-219): a computer is offline or needs an upgrade; a
+ * built-in agent's model service is unavailable, with the reason the runtime reports.
+ */
+function downTitle(
+  agent: PmConversationAgent,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  kind: 'personal' | 'default',
+): string {
+  if (runtimeTypeOf(agent) === 'builtin') {
+    return t('np.runtimeType.serviceUnavailable', {
+      reason: agent.statusReason
+        ? t(`np.builtinRuntimes.reasons.${agent.statusReason}`)
+        : t('np.common.offline'),
+    });
+  }
+  const upgrade = agent.compat === 'upgrade_required';
+  if (kind === 'personal')
+    return t(
+      upgrade
+        ? 'np.pmAssistant.agent.upgradeRequired'
+        : 'np.pmAssistant.agent.offline',
+    );
+  return t(
+    upgrade
+      ? 'np.pmAssistant.agent.defaultUpgradeRequired'
+      : 'np.pmAssistant.agent.defaultOffline',
   );
 }
 
@@ -93,12 +130,12 @@ export function PmAgentNotice({
     return (
       <Alert data-testid='np-pm-agent-offline'>
         <UnplugIcon />
-        <AlertTitle>
-          {agent.compat === 'upgrade_required'
-            ? t('np.pmAssistant.agent.upgradeRequired')
-            : t('np.pmAssistant.agent.offline')}
-        </AlertTitle>
-        <AlertDescription>{t('np.pmAssistant.agent.queued')}</AlertDescription>
+        <AlertTitle>{downTitle(agent, t, 'personal')}</AlertTitle>
+        {runtimeTypeOf(agent) === 'builtin' ? null : (
+          <AlertDescription>
+            {t('np.pmAssistant.agent.queued')}
+          </AlertDescription>
+        )}
         <AlertAction>
           <Button
             variant='outline'
@@ -118,12 +155,12 @@ export function PmAgentNotice({
     return (
       <Alert data-testid='np-pm-default-down'>
         <UnplugIcon />
-        <AlertTitle>
-          {agent.compat === 'upgrade_required'
-            ? t('np.pmAssistant.agent.defaultUpgradeRequired')
-            : t('np.pmAssistant.agent.defaultOffline')}
-        </AlertTitle>
-        <AlertDescription>{t('np.pmAssistant.agent.queued')}</AlertDescription>
+        <AlertTitle>{downTitle(agent, t, 'default')}</AlertTitle>
+        {runtimeTypeOf(agent) === 'builtin' ? null : (
+          <AlertDescription>
+            {t('np.pmAssistant.agent.queued')}
+          </AlertDescription>
+        )}
       </Alert>
     );
   }

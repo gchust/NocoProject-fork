@@ -55,7 +55,7 @@ const npIter4EnUS = {
   },
   agentForm: {
     title: 'New agent',
-    description: 'An agent runs one coding tool on one of your runtimes.',
+    description: 'An agent works on one runtime of its type.',
     name: 'Name',
     nameRequired: 'Enter a name.',
     descriptionLabel: 'Description',
@@ -317,9 +317,9 @@ const npIter4EnUS = {
     open: 'Webhook setup for {{name}}',
     title: 'Add the webhook on GitHub',
     description:
-      'Each GitHub repository needs its own webhook. Without it, merged pull requests do not update issues.',
+      'Each GitHub repository needs its own webhook, and NocoProject’s token must be able to access it. Otherwise merged pull requests do not update issues.',
     newHint:
-      'After adding it, add the NocoProject webhook to this repository on GitHub:',
+      'After adding it, add the NocoProject webhook to this repository on GitHub and make sure the token can access it:',
     stepOpen: 'Open the webhook settings of {{repo}}.',
     openSettings: 'Open on GitHub',
     stepOpenGeneric:
@@ -332,6 +332,19 @@ const npIter4EnUS = {
       'Let me select individual events: Pull requests, Check suites, Statuses, Pushes (Pushes lets NocoProject notice merge conflicts).',
     stepSave:
       'Add webhook. GitHub sends a ping; the last delivery time in Settings → GitHub updates.',
+    stepToken:
+      'Make sure NocoProject’s GitHub token can access {{repo}}: a classic token needs the repo scope; a fine-grained token must list this repository with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
+    stepTokenGeneric:
+      'Make sure NocoProject’s GitHub token can access this repository: a classic token needs the repo scope; a fine-grained token must list it with read access to Pull requests and Commit statuses, plus write access to Contents to merge from NocoProject. When the token cannot read Checks, a refresh reads commit statuses only and check results arrive through the webhook.',
+    tokenNotSet: 'Token not set',
+    checkAccess: 'Check access',
+    accessWrite: 'Token can read and write',
+    accessRead: 'Read only: merging from NocoProject fails',
+    accessNone: 'Token cannot access this repository',
+    accessNoPullRequests:
+      'Sees the repository but not its pull requests: Pull requests read access is missing',
+    accessNoStatuses: 'Cannot read commit statuses',
+    accessNoChecks: 'Cannot read Checks: a refresh reads commit statuses only',
   },
   // NP-117: titles the permission workspace shows for the NocoProject settings items and permission sets.
   access: {

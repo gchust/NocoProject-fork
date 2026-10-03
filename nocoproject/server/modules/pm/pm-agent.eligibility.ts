@@ -12,12 +12,16 @@ import type { Conn } from '../shared/db.js';
 import { str } from '../shared/db.js';
 import { invalid } from '../shared/errors.js';
 import type {
+  BuiltinStatusReason,
+  RuntimeType,
   PmAgentIneligibleReason,
   PmAgentSource,
   PmConversationAgent,
+  PmConversationAgentRuntimeFields,
 } from '../shared/protocol.js';
 import type { SettingsService } from '../system/settings.service.js';
 import { pmCompatOf } from '../runtime/daemon-compat.js';
+import { runtimeTypeOf, statusReasonOf } from '../runtime/runtime.records.js';
 
 export interface PmAgentFacts {
   readonly id: string;
@@ -36,6 +40,9 @@ export interface PmAgentFacts {
     readonly pmAllowed: boolean;
     readonly online: boolean;
     readonly compat: 'ok' | 'deprecated' | 'upgrade_required';
+    /** NP-219 */
+    readonly runtimeType: RuntimeType;
+    readonly statusReason: BuiltinStatusReason | null;
   } | null;
 }
 
@@ -75,21 +82,38 @@ export async function loadPmAgentFacts(
           visibility: str(runtime.visibility) ?? 'private',
           pmAllowed: !!runtime.pmAllowed,
           online: runtime.status === 'online',
-          compat: pmCompatOf(runtime),
+          compat:
+            runtimeTypeOf(runtime.runtimeType) === 'builtin'
+              ? 'ok'
+              : pmCompatOf(runtime),
+          runtimeType: runtimeTypeOf(runtime.runtimeType),
+          statusReason:
+            runtimeTypeOf(runtime.runtimeType) === 'builtin'
+              ? statusReasonOf(runtime.statusReason)
+              : null,
         }
       : null,
   };
 }
 
-/** Whether a runtime may run `userId`'s personal project manager: their own, or a public one marked `pmAllowed`. */
+/**
+ * Whether a runtime may run `userId`'s personal project manager: their own, or a public one marked `pmAllowed`.
+ * NP-219: a built-in runtime only when marked `pmAllowed` (it is an admin's, never the member's own computer).
+ */
 export function runtimeFitsPersonal(
-  runtime: PmAgentFacts['runtime'],
+  runtime:
+    | (Pick<
+        NonNullable<PmAgentFacts['runtime']>,
+        'ownerUserId' | 'visibility' | 'pmAllowed'
+      > & { readonly runtimeType?: string })
+    | null,
   userId: string,
 ): boolean {
+  if (!runtime) return false;
+  if (runtime.runtimeType === 'builtin') return runtime.pmAllowed;
   return (
-    !!runtime &&
-    (runtime.ownerUserId === userId ||
-      (runtime.visibility === 'public' && runtime.pmAllowed))
+    runtime.ownerUserId === userId ||
+    (runtime.visibility === 'public' && runtime.pmAllowed)
   );
 }
 
@@ -174,7 +198,7 @@ export async function conversationAgentView(
     readonly agentSource: PmAgentSource;
     readonly personalAgentId: string | null;
   },
-): Promise<PmConversationAgent | null> {
+): Promise<(PmConversationAgent & PmConversationAgentRuntimeFields) | null> {
   const facts = await loadPmAgentFacts(conn, row.agentId);
   if (!facts) return null;
   const personalAvailable =
@@ -193,5 +217,7 @@ export async function conversationAgentView(
     runtimeName: facts.runtime?.name ?? null,
     compat: facts.runtime?.compat ?? 'upgrade_required',
     personalAvailable,
+    runtimeType: facts.runtime?.runtimeType ?? 'computer',
+    statusReason: facts.runtime?.statusReason ?? null,
   };
 }

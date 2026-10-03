@@ -12,6 +12,10 @@
  *
  * The caller invalidates the workflow cache after its transaction commits.
  */
+import {
+  builtinAgentIds,
+  executorRuntimeTypeError,
+} from '../agent/agent.runtime-type.js';
 import type { Actor } from '../shared/activity.js';
 import type { Conn } from '../shared/db.js';
 import { fromJson, iso, now, num, str, toJson } from '../shared/db.js';
@@ -54,6 +58,24 @@ async function existingAgents(
     .where('archivedAt', 'is', null)
     .execute();
   return new Set(rows.map((row) => str(row.id) ?? ''));
+}
+
+/** NP-219 (protocol-runtime-types.md §3.3): a stage action's preset executor is never a built-in agent. */
+async function requireComputerPresets(
+  conn: Conn,
+  definition: WorkflowDefinitionV5,
+): Promise<void> {
+  const presets = definition.statuses.flatMap((status) =>
+    (status.onEnter ?? []).flatMap((action) =>
+      (action.type === 'runExecutor' || action.type === 'suggestExecutor') &&
+      action.agentId
+        ? [action.agentId]
+        : [],
+    ),
+  );
+  const builtin = await builtinAgentIds(conn, presets);
+  const first = presets.find((id) => builtin.has(id));
+  if (first) throw executorRuntimeTypeError(first);
 }
 
 /** Projects on a template: those naming it, plus those without a template when it is the default. */
@@ -138,6 +160,7 @@ export async function checkDefinition(
     base,
     agentExists: (ids) => existingAgents(conn, ids),
   });
+  await requireComputerPresets(conn, definition);
   if (template && base) {
     const keys = new Set(definition.statuses.map((status) => status.key));
     await assertNoRemovedStatusInUse(
