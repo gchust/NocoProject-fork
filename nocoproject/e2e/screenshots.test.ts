@@ -6,7 +6,7 @@
  *
  * Environment: NP_PREVIEW_URL (http://127.0.0.1:13100/main), NP_SCREENSHOT_DIR (output/screenshots),
  * NP_SCREENSHOT_PAGES ("name=/path,name=/path"; `{issue}` and `{project}` expand to the first seeded ids),
- * NP_SCREENSHOT_THEMES ("compact-dark,compact-light,default-dark,default-light").
+ * NP_SCREENSHOT_VIEWPORT ("1360x900"), NP_SCREENSHOT_THEMES ("compact-dark,compact-light,default-dark,default-light").
  */
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -56,7 +56,13 @@ const themes = (
     return { preset, mode };
   });
 
-test.use({ viewport: { width: 1360, height: 900 } });
+// NP_SCREENSHOT_VIEWPORT ("1024x768") overrides the window size, e.g. for the drawer's docked and overlay forms.
+const [viewportWidth, viewportHeight] = (
+  process.env.NP_SCREENSHOT_VIEWPORT ?? '1360x900'
+)
+  .split('x')
+  .map(Number);
+test.use({ viewport: { width: viewportWidth, height: viewportHeight } });
 
 async function signIn(context: BrowserContext): Promise<void> {
   const response = await context.request.post(

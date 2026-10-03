@@ -5,8 +5,12 @@ import {
   isSearchShortcut,
 } from '../../client/components/np-shortcut-keys.js';
 import {
+  clampDrawerWidth,
   drawerStateFromSearch,
   INITIAL_DRAWER_STATE,
+  PM_DOCK_QUERY,
+  PM_DRAWER_MAX_WIDTH,
+  PM_DRAWER_MIN_WIDTH,
   readDrawerState,
   switchTarget,
   withoutDrawerParams,
@@ -148,6 +152,7 @@ describe('drawer state', () => {
       mode: 'expanded',
       view: 'chat',
       conversationId: 'c1',
+      width: null,
     });
     expect(
       drawerStateFromSearch(new URLSearchParams('pm=new'), INITIAL_DRAWER_STATE)
@@ -175,7 +180,13 @@ describe('drawer state', () => {
       setItem: (key: string, value: string) => void store.set(key, value),
     } as unknown as Storage;
     writeDrawerState(
-      { open: true, mode: 'expanded', view: 'history', conversationId: 'c1' },
+      {
+        open: true,
+        mode: 'expanded',
+        view: 'history',
+        conversationId: 'c1',
+        width: 500,
+      },
       storage,
     );
     expect(readDrawerState(storage)).toEqual({
@@ -183,9 +194,29 @@ describe('drawer state', () => {
       mode: 'expanded',
       view: 'history',
       conversationId: 'c1',
+      width: 500,
     });
+    // A stored width outside the limits is clamped; a non-number is dropped.
+    store.set('nocoproject:pm-drawer', '{"open":true,"width":9000}');
+    expect(readDrawerState(storage).width).toBe(PM_DRAWER_MAX_WIDTH);
+    store.set('nocoproject:pm-drawer', '{"open":true,"width":"wide"}');
+    expect(readDrawerState(storage).width).toBeNull();
     store.set('nocoproject:pm-drawer', '{oops');
     expect(readDrawerState(storage)).toEqual(INITIAL_DRAWER_STATE);
+  });
+
+  it('keeps the dragged width within its limits', () => {
+    expect(clampDrawerWidth(100)).toBe(PM_DRAWER_MIN_WIDTH);
+    expect(clampDrawerWidth(9000)).toBe(PM_DRAWER_MAX_WIDTH);
+    expect(clampDrawerWidth(480.4)).toBe(480);
+    // The drawer docks from 1024px; below that it is the full-screen overlay.
+    expect(PM_DOCK_QUERY).toBe('(min-width: 1024px)');
+    expect(
+      drawerStateFromSearch(new URLSearchParams('pm=c1'), {
+        ...INITIAL_DRAWER_STATE,
+        width: 500,
+      })?.width,
+    ).toBe(500);
   });
 
   it('offers "switch and start a new conversation" only when there is somewhere to go', () => {

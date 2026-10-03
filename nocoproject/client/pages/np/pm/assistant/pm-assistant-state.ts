@@ -16,6 +16,8 @@ export interface PmDrawerState {
   readonly view: PmDrawerView;
   /** null: a new conversation that exists only once its first message is sent. */
   readonly conversationId: string | null;
+  /** The docked width in px the member dragged it to (NP-203); null: the default. */
+  readonly width: number | null;
 }
 
 export const PM_DRAWER_STORAGE_KEY = 'nocoproject:pm-drawer';
@@ -25,10 +27,27 @@ export const INITIAL_DRAWER_STATE: PmDrawerState = {
   mode: 'docked',
   view: 'chat',
   conversationId: null,
+  width: null,
 };
 
-/** Docking beside the content needs this width; below it the drawer covers the page (`pm-drawer.tsx`). */
-export const PM_DOCK_QUERY = '(min-width: 1536px)';
+/**
+ * From this width the drawer docks beside the content and narrows it (NP-203); below it the drawer is a full-screen
+ * overlay, the page and the conversation one or the other. 1024px (`lg`): the sidebar (16rem) and the drawer at its
+ * narrowest (22.5rem) leave the page 24rem, a single column like the phone layout, and pages answer to their own
+ * width (container queries) rather than the window's. Narrower, there is no width left for both.
+ */
+export const PM_DOCK_QUERY = '(min-width: 1024px)';
+
+export const PM_DRAWER_DEFAULT_WIDTH = 420;
+export const PM_DRAWER_MIN_WIDTH = 360;
+export const PM_DRAWER_MAX_WIDTH = 640;
+
+export function clampDrawerWidth(width: number): number {
+  return Math.min(
+    PM_DRAWER_MAX_WIDTH,
+    Math.max(PM_DRAWER_MIN_WIDTH, Math.round(width)),
+  );
+}
 
 export function readDrawerState(storage?: Storage | null): PmDrawerState {
   return readStoredDrawerState(storage) ?? INITIAL_DRAWER_STATE;
@@ -53,6 +72,10 @@ export function readStoredDrawerState(
         typeof value.conversationId === 'string' && value.conversationId
           ? value.conversationId
           : null,
+      width:
+        typeof value.width === 'number' && Number.isFinite(value.width)
+          ? clampDrawerWidth(value.width)
+          : null,
     };
   } catch {
     return INITIAL_DRAWER_STATE;
@@ -61,7 +84,7 @@ export function readStoredDrawerState(
 
 /**
  * The first load of a browser session (NP-197) opens the drawer where it docks beside the content; on narrower
- * screens it would cover the page, so it stays closed there. Once the member closes it, the stored state keeps it
+ * screens it would be a full-screen overlay, so it stays closed there. Once the member closes it, the stored state keeps it
  * closed on reloads until a new session. Returns the state and whether it was opened on its own.
  */
 export function firstVisitDrawerState(storage?: Storage | null): {
@@ -113,6 +136,7 @@ export function drawerStateFromSearch(
     mode,
     view: 'chat',
     conversationId: value === 'new' ? null : value,
+    width: current.width,
   };
 }
 

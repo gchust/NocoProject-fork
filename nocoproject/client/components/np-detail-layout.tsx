@@ -37,17 +37,17 @@ export function NpDetailLayout({
   return (
     // One scroll container (nocosolution/guidelines/frontend-standard.md §3.2): the covering page scrolls as a whole; neither column
     // scrolls on its own, and the side column stretches to the main column's height so its background runs through.
-    <div className={cn('flex min-h-full flex-col lg:flex-row', className)}>
+    <div className={cn('flex min-h-full flex-col @3xl:flex-row', className)}>
       <div className='flex min-w-0 flex-1 flex-col'>{main}</div>
       <aside
         aria-label={asideLabel}
-        className='border-t bg-muted/30 lg:w-[20rem] lg:shrink-0 lg:border-t-0 lg:border-l'
+        className='border-t bg-muted/30 @3xl:w-[20rem] @3xl:shrink-0 @3xl:border-t-0 @3xl:border-l'
       >
         {/* The cards follow the page from the top of the scroll container, which sits right below the page header.
             A sticky block taller than the viewport would hide its bottom until the page ends, and giving it its own
             scrollbar would add a second scroll container, so a column that does not fit simply scrolls with the page. */}
         <div
-          className={cn(fits && 'lg:sticky lg:top-0')}
+          className={cn(fits && '@3xl:sticky @3xl:top-0')}
           data-np-aside-content=''
           ref={contentRef}
         >

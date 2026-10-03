@@ -28,6 +28,7 @@ import {
   SELECTION_KEY,
 } from '../context/pm-context-model.js';
 import {
+  clampDrawerWidth,
   drawerStateFromSearch,
   firstVisitDrawerState,
   type PmDrawerMode,
@@ -71,6 +72,8 @@ export interface PmAssistantValue extends PmDrawerState {
   readonly toggleAssistant: () => void;
   readonly setMode: (mode: PmDrawerMode) => void;
   readonly setView: (view: PmDrawerView) => void;
+  /** Remembers the docked width (px, clamped); null goes back to the default. */
+  readonly setWidth: (width: number | null) => void;
   /** Shows a conversation in the drawer; null starts a new one. */
   readonly selectConversation: (conversationId: string | null) => void;
   readonly pinned: readonly PmContextObject[];
@@ -118,12 +121,14 @@ const UNAVAILABLE: PmAssistantValue = {
   mode: 'docked',
   view: 'chat',
   conversationId: null,
+  width: null,
   available: false,
   openAssistant: noop,
   closeAssistant: noop,
   toggleAssistant: noop,
   setMode: noop,
   setView: noop,
+  setWidth: noop,
   selectConversation: noop,
   pinned: [],
   clearPinned: noop,
@@ -302,6 +307,11 @@ export function PmAssistantProvider({
       toggleAssistant,
       setMode: (mode) => setState((current) => ({ ...current, mode })),
       setView: (view) => setState((current) => ({ ...current, view })),
+      setWidth: (width) =>
+        setState((current) => ({
+          ...current,
+          width: width === null ? null : clampDrawerWidth(width),
+        })),
       selectConversation: (conversationId) => {
         setAutoPick(false);
         setState((current) => ({ ...current, view: 'chat', conversationId }));
