@@ -1,0 +1,86 @@
+# Fork only: keeps `main` an exact mirror of nocobase/NocoProject's main and merges it into `custom/main`, the fork's
+# default branch where its own changes live. See docs/fork-maintenance.md.
+#
+# Pushes made with GITHUB_TOKEN cannot touch files under .github/workflows/. When upstream changes a workflow, the
+# mirror push fails until a fine-grained token with Contents, Pull requests and Workflows write access on this fork is
+# stored as the SYNC_TOKEN secret. Pushes made with SYNC_TOKEN do trigger workflows on `main`, including upstream's CI.
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  UPSTREAM: nocobase/NocoProject
+  MIRROR_BRANCH: main
+  CUSTOM_BRANCH: custom/main
+
+jobs:
+  sync:
+    # Never run in upstream itself or in somebody else's copy of this fork.
+    if: github.repository == 'gchust/NocoProject-fork'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MIRROR_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Mirror upstream main
+        id: mirror
+        run: |
+          git fetch --no-tags "https://github.com/${UPSTREAM}.git" "${MIRROR_BRANCH}"
+          upstream_sha="$(git rev-parse FETCH_HEAD)"
+          echo "sha=${upstream_sha}" >> "$GITHUB_OUTPUT"
+          if [ "$(git rev-parse HEAD)" = "$upstream_sha" ]; then
+            echo "${MIRROR_BRANCH} is already at ${UPSTREAM}@${upstream_sha::7}"
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor HEAD "$upstream_sha"; then
+            echo "::error::${MIRROR_BRANCH} has commits that are not in ${UPSTREAM}; it must only mirror upstream. Reset it by hand."
+            exit 1
+          fi
+          # Fast-forward only: the branch ruleset rejects anything else.
+          git push origin "${upstream_sha}:refs/heads/${MIRROR_BRANCH}"
+          echo "${MIRROR_BRANCH} -> ${UPSTREAM}@${upstream_sha::7}"
+
+      - name: Open or update the merge into custom/main
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          UPSTREAM_SHA: ${{ steps.mirror.outputs.sha }}
+        run: |
+          git fetch --no-tags origin "${CUSTOM_BRANCH}"
+          if git merge-base --is-ancestor "$UPSTREAM_SHA" "origin/${CUSTOM_BRANCH}"; then
+            echo "${CUSTOM_BRANCH} already contains ${UPSTREAM}@${UPSTREAM_SHA::7}"
+            exit 0
+          fi
+          pr="$(gh pr list --base "$CUSTOM_BRANCH" --head "$MIRROR_BRANCH" --state open --json number --jq '.[0].number')"
+          body="Merges ${UPSTREAM}@${UPSTREAM_SHA} (mirrored on \`${MIRROR_BRANCH}\`) into \`${CUSTOM_BRANCH}\`. Opened by the Upstream sync workflow."
+          if [ -z "$pr" ]; then
+            pr="$(gh pr create --base "$CUSTOM_BRANCH" --head "$MIRROR_BRANCH" \
+              --title "Sync upstream ${UPSTREAM}@${UPSTREAM_SHA::7}" --body "$body" | sed -E 's#.*/##')"
+          else
+            gh pr edit "$pr" --title "Sync upstream ${UPSTREAM}@${UPSTREAM_SHA::7}" --body "$body"
+          fi
+          # Merge right away when there is no conflict; a conflicting PR stays open for a manual merge.
+          for _ in 1 2 3 4 5 6; do
+            state="$(gh pr view "$pr" --json mergeable --jq .mergeable)"
+            [ "$state" != UNKNOWN ] && break
+            sleep 5
+          done
+          if [ "$state" = MERGEABLE ]; then
+            gh pr merge "$pr" --merge --subject "Merge upstream ${UPSTREAM}@${UPSTREAM_SHA::7} into ${CUSTOM_BRANCH}"
+            echo "merged #${pr}"
+          else
+            echo "::warning::PR #${pr} is ${state}; resolve it by hand: git switch ${CUSTOM_BRANCH} && git merge ${MIRROR_BRANCH}"
+          fi
