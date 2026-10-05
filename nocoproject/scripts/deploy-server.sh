@@ -5,12 +5,14 @@
 #   pnpm deploy:server                          # build, upload, deploy
 #   NP_DEPLOY_SKIP_BUILD=1 pnpm deploy:server   # reuse the existing linux-x64 dist/
 #   NP_DEPLOY_SCRIPTS_ONLY=1 pnpm deploy:server # only sync server scripts and the systemd unit
+#   NP_DEPLOY_HOST=<ssh host> pnpm deploy:server  # deploy to another server set up the same way (see scripts/server/np-deploy)
 set -euo pipefail
 
 HOST="${NP_DEPLOY_HOST:-ali-agents-ts}"
 cd "$(dirname "$0")/.."
 
 echo "==> sync server scripts"
+ssh "$HOST" 'mkdir -p nocoproject/bin .config/systemd/user'
 rsync -a --delete --exclude systemd scripts/server/ "$HOST:nocoproject/bin/"
 rsync -a scripts/server/systemd/ "$HOST:.config/systemd/user/"
 ssh "$HOST" 'systemctl --user daemon-reload && systemctl --user enable --now nocoproject-backup.timer >/dev/null 2>&1'

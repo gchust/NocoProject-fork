@@ -9,10 +9,15 @@
 # SUPPORTED_PROTOCOLS.min) with the running image and warn when it rose; after a healthy start, wait for the daemons'
 # next heartbeats and warn when the number of online runtimes dropped by half or more. Warnings never fail the deploy.
 # NP_DEPLOY_RUNTIME_WAIT (seconds, default 45; 0 skips the after-check).
+#
+# Servers other than ali-agents keep their settings in ~/nocoproject/deploy.env (NP_DEPLOY_BIND, and
+# NP_DEPLOY_NETWORK to also attach the app to a reverse proxy's docker network) and their proxy routing labels in
+# ~/nocoproject/app.labels (one docker label per line).
 set -euo pipefail
 
 TAG="${1:?usage: np-deploy <tag> [--stdin]}"
 ROOT="$HOME/nocoproject"
+if [ -f "$ROOT/deploy.env" ]; then . "$ROOT/deploy.env"; fi
 BIND="${NP_DEPLOY_BIND:-100.89.167.29:13001}"
 APP=nocoproject-app
 exec 9>"$ROOT/.deploy.lock"
@@ -64,6 +69,9 @@ if [ -n "$NEW_RULES" ] && [ "$(rule "$NEW_RULES" minCli)" != "$(rule "$OLD_RULES
 fi
 ONLINE_BEFORE="$(online_runtimes)"
 
+LABELS=()
+if [ -f "$ROOT/app.labels" ]; then LABELS=(--label-file "$ROOT/app.labels"); fi
+
 run_app() {
   docker rm -f "$APP" >/dev/null 2>&1 || true
   # Rootless Docker takes a moment to release the port; retry when it's still in use.
@@ -71,9 +79,10 @@ run_app() {
     sleep 3
     # The container runs as root, which maps to the host's agents user, so it can read and write the mounted config.yml and storage; it only binds the Tailscale address, and Caddy reverse-proxies to it.
     if docker run -d --name "$APP" --user 0:0 --network nocoproject --restart unless-stopped \
-      --env-file "$ROOT/app.env" -p "$BIND:13000" \
+      --env-file "$ROOT/app.env" -p "$BIND:13000" "${LABELS[@]}" \
       -v "$ROOT/config.yml:/app/config.yml:ro" -v "$ROOT/storage:/app/storage" \
       "$1" >/dev/null 2>&1; then
+      if [ -n "${NP_DEPLOY_NETWORK:-}" ]; then docker network connect "$NP_DEPLOY_NETWORK" "$APP"; fi
       return 0
     fi
     docker rm -f "$APP" >/dev/null 2>&1 || true
