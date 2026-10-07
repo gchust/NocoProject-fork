@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import {
   useEffect,
   type ComponentProps,
+  type CSSProperties,
   type ReactElement,
   type ReactNode,
 } from 'react';
@@ -26,13 +27,20 @@ import { AppBrand } from './app-brand.js';
  * NocoProject (NP-236): the App, Settings and Dev layouts' sidebar is the shadcn `Sidebar` instead of the template's own
  * dialog-based container. The provider wraps a layout's whole row, so the sidebar, the header toggle and the navigation
  * read one state: the desktop icon mode (`collapsible='icon'`) follows the origin-wide `useSidebarPreference`, and below
- * `md` the sidebar is the primitive's sheet, local to the layout. Widths are the primitive's fixed 16rem / 3rem, which
- * do not shrink under the compact preset (frontend standard §4.3).
+ * `md` the sidebar is the primitive's sheet, local to the layout.
+ *
+ * Width: the owner asked in NP-236 to keep the sidebar as wide as before, so the expanded width is the template's `w-64`
+ * (`--spacing` × 64: 12.8rem under the compact preset, 16rem under the default one) instead of the primitive's fixed
+ * 16rem — a deliberate exception to frontend standard §4.3. The icon rail keeps the primitive's 3rem.
  */
+const SIDEBAR_STYLE = {
+  '--sidebar-width': 'calc(var(--spacing) * 64)',
+} as CSSProperties;
 
 /** The sidebar context of a layout; renders the row (`flex`, full viewport height) its sidebar and content sit in. */
 export function LayoutSidebarProvider({
   className,
+  style,
   children,
   ...props
 }: ComponentProps<'div'>): ReactElement {
@@ -48,6 +56,7 @@ export function LayoutSidebarProvider({
         'h-svh min-h-0 bg-background motion-reduce:[&_[data-slot^=sidebar]]:transition-none',
         className,
       )}
+      style={{ ...SIDEBAR_STYLE, ...style }}
       {...props}
     >
       {children}

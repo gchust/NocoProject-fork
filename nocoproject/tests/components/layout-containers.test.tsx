@@ -101,6 +101,18 @@ it('collapses to icons on the desktop, keeps its content and shares the preferen
   expect(localStorage.getItem('nocobase:sidebar:collapsed')).toBe('false');
 });
 
+it('keeps the template width: 64 spacing units, so the compact preset stays narrower', () => {
+  viewport(1024);
+  render(<Shell />);
+  const wrapper = screen
+    .getByRole('complementary', { name: 'Tools' })
+    .closest('[data-slot=sidebar-wrapper]') as HTMLElement;
+  expect(wrapper.style.getPropertyValue('--sidebar-width')).toBe(
+    'calc(var(--spacing) * 64)',
+  );
+  expect(wrapper.style.getPropertyValue('--sidebar-width-icon')).toBe('3rem');
+});
+
 it('opens from the saved preference collapsed', () => {
   viewport(1024);
   localStorage.setItem('nocobase:sidebar:collapsed', 'true');
