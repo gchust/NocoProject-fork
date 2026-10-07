@@ -4,49 +4,49 @@ import {
   type RouteNavigationItem,
 } from '../../routing/route-navigation.js';
 import { ChevronRight } from 'lucide-react';
-import {
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { EMPTY_ARRAY } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from '@/components/ui/tooltip';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
   PopoverTitle,
 } from '@/components/ui/popover';
+import {
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  useSidebar,
+} from '@/components/ui/sidebar';
 
-// Match the sidebar's md breakpoint; mobile navigation always shows its labels.
-function subscribeDesktop(callback: () => void) {
-  const media = window.matchMedia('(min-width: 768px)');
-  media.addEventListener('change', callback);
-  return () => media.removeEventListener('change', callback);
-}
-function subscribeNothing() {
-  return () => {};
-}
-function notDesktop() {
-  return false;
-}
-function isDesktop() {
-  return window.matchMedia('(min-width: 768px)').matches;
-}
+/*
+ * NocoProject (NP-236): entries are shadcn sidebar menu items; groups are `Collapsible`s, and in the desktop icon mode
+ * a group is a hover popover and a leaf has a tooltip (the primitive's own, hidden unless collapsed on the desktop).
+ * The row keeps the template's size over the primitive's (nocosolution/guidelines/frontend-standard.md §2.1): muted
+ * icons, the selected row in `sidebar-primary` with its icon in primary, and `relative` so an entry's trailing count
+ * (the inbox badge) sits at the row's right end. In the icon mode the primitive's square button takes over.
+ */
+const ROW_CLASS =
+  'relative h-auto data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground [&_[data-slot=nav-icon]]:text-muted-foreground data-active:[&_[data-slot=nav-icon]]:text-primary';
+const SIDEBAR_ROW_CLASS = 'gap-3 px-3 py-2';
+const POPOVER_ROW_CLASS = 'gap-2 px-2 py-1.5';
 
 interface NavigationTreeProps {
   readonly labelOverride?: string;
-  readonly collapsed: boolean;
+  /** Rendered in a collapsed group's popover: always labelled, smaller rows. */
   readonly inPopover?: boolean;
   readonly item: RouteNavigationItem;
-  readonly onNavigate: () => void;
+  /** Runs when an entry is followed, after the mobile sheet closes (a popover closes itself through it). */
+  readonly onNavigate?: () => void;
   readonly selectedKey: string | undefined;
 }
 
@@ -60,17 +60,14 @@ export function NavigationTree(
 
 function NavigationTreeItem({
   labelOverride,
-  collapsed,
   inPopover = false,
   item,
   onNavigate,
   selectedKey,
 }: NavigationTreeProps): ReactElement | null {
-  const desktop = useSyncExternalStore(
-    collapsed ? subscribeDesktop : subscribeNothing,
-    collapsed ? isDesktop : notDesktop,
-    notDesktop,
-  );
+  const { isMobile, state, setOpenMobile } = useSidebar();
+  // The desktop icon mode; the mobile sheet and a popover always show labels.
+  const iconMode = state === 'collapsed' && !isMobile && !inPopover;
   const restoringFocusRef = useRef(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const { t } = useTranslation(item.route.packageName);
@@ -82,7 +79,18 @@ function NavigationTreeItem({
   const isSelected = routeKey(item.route) === selectedKey;
   const children = item.children ?? EMPTY_ARRAY;
   const Icon = item.route.navigation?.icon;
-  const icon = Icon ? <Icon /> : null;
+  const icon = Icon ? (
+    <NavigationIcon>
+      <Icon />
+    </NavigationIcon>
+  ) : null;
+  const link = item.route.componentLoader ? (
+    <Link to={item.route.path} />
+  ) : undefined;
+  const rowClass = cn(
+    inPopover ? POPOVER_ROW_CLASS : SIDEBAR_ROW_CLASS,
+    ROW_CLASS,
+  );
 
   const selected = containsSelection(item, selectedKey);
   const [disclosure, setDisclosure] = useState({
@@ -97,196 +105,189 @@ function NavigationTreeItem({
     });
   }
   const expanded = disclosure.expanded;
-  if (popoverOpen && (!collapsed || !desktop)) setPopoverOpen(false);
+  if (popoverOpen && !iconMode) setPopoverOpen(false);
+
+  const navigate = () => {
+    setOpenMobile(false);
+    onNavigate?.();
+  };
 
   // Collapsed groups need an interactive surface, not a tooltip containing links.
-  if (collapsed && desktop && children.length > 0) {
-    const navigate = () => {
+  if (iconMode && children.length > 0) {
+    const close = () => {
       setPopoverOpen(false);
-      onNavigate();
+      navigate();
     };
     return (
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger
-          onClick={
-            item.route.componentLoader
-              ? (event) => {
-                  event.preventBaseUIHandler();
-                  navigate();
-                }
-              : undefined
-          }
-          openOnHover
-          delay={0}
-          closeDelay={0}
-          onFocus={(event) => {
-            if (restoringFocusRef.current) {
-              restoringFocusRef.current = false;
-              return;
+      <SidebarMenuItem>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <PopoverTrigger
+            onClick={
+              link
+                ? (event) => {
+                    event.preventBaseUIHandler();
+                    close();
+                  }
+                : undefined
             }
-            if (event.currentTarget.matches(':focus-visible'))
-              setPopoverOpen(true);
-          }}
-          nativeButton={!item.route.componentLoader}
-          role={item.route.componentLoader ? 'link' : undefined}
-          render={
-            item.route.componentLoader ? (
-              <Link to={item.route.path} />
-            ) : (
-              <button type='button' />
-            )
-          }
-          aria-label={label}
-          aria-current={isSelected ? 'page' : undefined}
-          className={`flex w-full items-center justify-center gap-3 rounded-lg px-2 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring transition-colors ${
-            selected
-              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-              : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground'
-          }`}
-        >
-          {icon ? (
-            <NavigationIcon>{icon}</NavigationIcon>
-          ) : (
-            <span className='truncate'>{label}</span>
-          )}
-        </PopoverTrigger>
-        <PopoverContent
-          side='right'
-          align='start'
-          sideOffset={8}
-          initialFocus={false}
-          // Returning focus after Escape must not reopen the popup.
-          finalFocus={(interaction) => {
-            restoringFocusRef.current = interaction === 'keyboard';
-            return interaction === 'keyboard';
-          }}
-          className='max-h-(--available-height) w-max min-w-40 max-w-sm overflow-y-auto p-1.5 gap-0.5 border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-lg'
-        >
-          <div className='px-2 pt-1 pb-0.5'>
-            <PopoverTitle className='text-xs font-medium text-muted-foreground whitespace-nowrap'>
-              {label}
-            </PopoverTitle>
-          </div>
-          <div className='flex flex-col gap-0.5 pl-2'>
-            {children.map((child) => (
-              <NavigationTree
-                key={routeKey(child.route)}
-                item={child}
-                collapsed={false}
-                inPopover
-                onNavigate={navigate}
-                selectedKey={selectedKey}
+            openOnHover
+            delay={0}
+            closeDelay={0}
+            onFocus={(event) => {
+              if (restoringFocusRef.current) {
+                restoringFocusRef.current = false;
+                return;
+              }
+              if (event.currentTarget.matches(':focus-visible'))
+                setPopoverOpen(true);
+            }}
+            nativeButton={!link}
+            role={link ? 'link' : undefined}
+            render={
+              <SidebarMenuButton
+                isActive={selected}
+                render={link}
+                className={cn(
+                  rowClass,
+                  'font-medium',
+                  !selected &&
+                    'data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground',
+                )}
               />
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
-  if (children.length > 0 && item.route.componentLoader) {
-    return (
-      <div>
-        <div className='flex items-center'>
-          <div className='min-w-0 flex-1'>
-            <NavigationLink
-              collapsed={collapsed && desktop}
-              icon={icon}
-              inPopover={inPopover}
-              isSelected={isSelected}
-              label={label}
-              onNavigate={onNavigate}
-              route={item.route.path}
-            />
-          </div>
-          <button
-            type='button'
+            }
             aria-label={label}
-            aria-expanded={expanded}
-            onClick={() =>
-              setDisclosure({ key: selectedKey, expanded: !expanded })
-            }
-            className={`hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring transition-colors ${collapsed ? 'md:hidden' : ''} ${inPopover ? 'rounded-md p-1.5' : 'rounded-lg p-2'}`}
+            aria-current={isSelected ? 'page' : undefined}
           >
-            <ChevronRight className={`size-4 ${expanded ? 'rotate-90' : ''}`} />
-          </button>
-        </div>
-        {expanded ? (
-          <div
-            className={`space-y-1 ${collapsed ? 'md:hidden' : ''} ${inPopover ? 'pl-2 space-y-0.5' : 'ml-3 pl-2 border-l border-sidebar-border'}`}
+            {icon ?? <span className='truncate'>{label}</span>}
+          </PopoverTrigger>
+          <PopoverContent
+            side='right'
+            align='start'
+            sideOffset={8}
+            initialFocus={false}
+            // Returning focus after Escape must not reopen the popup.
+            finalFocus={(interaction) => {
+              restoringFocusRef.current = interaction === 'keyboard';
+              return interaction === 'keyboard';
+            }}
+            className='max-h-(--available-height) w-max min-w-40 max-w-sm overflow-y-auto p-1.5 gap-0.5 border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-lg'
           >
-            {children.map((child) => (
-              <NavigationTree
-                key={routeKey(child.route)}
-                item={child}
-                collapsed={collapsed}
-                inPopover={inPopover}
-                onNavigate={onNavigate}
-                selectedKey={selectedKey}
-              />
-            ))}
-          </div>
-        ) : null}
-      </div>
+            <div className='px-2 pt-1 pb-0.5'>
+              <PopoverTitle className='text-xs font-medium text-muted-foreground whitespace-nowrap'>
+                {label}
+              </PopoverTitle>
+            </div>
+            <SidebarMenu className='gap-0.5 pl-2'>
+              {children.map((child) => (
+                <NavigationTree
+                  key={routeKey(child.route)}
+                  item={child}
+                  inPopover
+                  onNavigate={close}
+                  selectedKey={selectedKey}
+                />
+              ))}
+            </SidebarMenu>
+          </PopoverContent>
+        </Popover>
+      </SidebarMenuItem>
     );
   }
 
   if (children.length > 0) {
-    return (
-      <details className='group' open={expanded}>
-        <summary
-          onClick={(event) => {
-            event.preventDefault();
-            setDisclosure({ key: selectedKey, expanded: !expanded });
-          }}
-          className={`flex cursor-pointer list-none items-center text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&::-webkit-details-marker]:hidden ${collapsed ? 'md:justify-center md:px-2' : 'justify-between'} ${inPopover ? 'gap-2 rounded-md px-2 py-1.5' : 'gap-3 rounded-lg px-3 py-2'}`}
-        >
-          <span
-            className={`flex min-w-0 items-center ${inPopover ? 'gap-2' : 'gap-3'}`}
-          >
-            {icon ? <NavigationIcon>{icon}</NavigationIcon> : null}
-            <span
-              className={`${inPopover ? 'whitespace-nowrap' : 'truncate'} ${collapsed && icon ? 'md:hidden' : ''}`}
-            >
-              {label}
-            </span>
-          </span>
-          <ChevronRight
-            className={`size-4 shrink-0 transition-transform group-open:rotate-90 ${collapsed ? 'md:hidden' : ''}`}
-          />
-        </summary>
-        <div
-          className={`space-y-1 ${collapsed ? 'md:hidden' : ''} ${inPopover ? 'mt-0.5 pl-2 space-y-0.5' : 'mt-1 ml-3 pl-2 border-l border-sidebar-border'}`}
+    const nested = (
+      <CollapsibleContent>
+        <SidebarMenuSub
+          className={
+            inPopover ? 'mx-0 mt-0.5 gap-0.5 border-l-0 px-0 py-0 pl-2' : 'mt-1'
+          }
         >
           {children.map((child) => (
             <NavigationTree
-              collapsed={collapsed}
-              inPopover={inPopover}
-              item={child}
               key={routeKey(child.route)}
+              item={child}
+              inPopover={inPopover}
               onNavigate={onNavigate}
               selectedKey={selectedKey}
             />
           ))}
-        </div>
-      </details>
+        </SidebarMenuSub>
+      </CollapsibleContent>
+    );
+    const onOpenChange = (open: boolean) =>
+      setDisclosure({ key: selectedKey, expanded: open });
+
+    // A group with a page of its own: the row follows the page, the chevron beside it toggles the group.
+    if (link) {
+      return (
+        <Collapsible
+          open={expanded}
+          onOpenChange={onOpenChange}
+          render={<SidebarMenuItem />}
+        >
+          <SidebarMenuButton
+            render={link}
+            isActive={isSelected}
+            aria-current={isSelected ? 'page' : undefined}
+            onClick={navigate}
+            className={rowClass}
+          >
+            {icon}
+            <span className='truncate'>{label}</span>
+          </SidebarMenuButton>
+          <CollapsibleTrigger
+            aria-label={label}
+            render={
+              <SidebarMenuAction className='top-1/2! -translate-y-1/2 transition-transform data-panel-open:rotate-90' />
+            }
+          >
+            <ChevronRight />
+          </CollapsibleTrigger>
+          {nested}
+        </Collapsible>
+      );
+    }
+
+    return (
+      <Collapsible
+        open={expanded}
+        onOpenChange={onOpenChange}
+        render={<SidebarMenuItem />}
+      >
+        <CollapsibleTrigger
+          render={<SidebarMenuButton className={cn(rowClass, 'font-medium')} />}
+        >
+          {icon}
+          <span className='truncate'>{label}</span>
+          <ChevronRight className='ml-auto transition-transform group-data-panel-open/menu-button:rotate-90' />
+        </CollapsibleTrigger>
+        {nested}
+      </Collapsible>
     );
   }
 
-  if (!item.route.componentLoader) {
+  if (!link) {
     return null;
   }
 
   return (
-    <NavigationLink
-      collapsed={collapsed && desktop}
-      icon={icon}
-      inPopover={inPopover}
-      isSelected={isSelected}
-      label={label}
-      onNavigate={onNavigate}
-      route={item.route.path}
-    />
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        render={link}
+        isActive={isSelected}
+        aria-current={isSelected ? 'page' : undefined}
+        onClick={navigate}
+        tooltip={
+          inPopover
+            ? undefined
+            : { children: label, role: 'tooltip', sideOffset: 8 }
+        }
+        className={rowClass}
+      >
+        {icon}
+        <span className='truncate'>{label}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 
@@ -297,61 +298,6 @@ function containsSelection(
   return (
     routeKey(item.route) === id ||
     item.children.some((child) => containsSelection(child, id))
-  );
-}
-
-interface NavigationLinkProps {
-  readonly collapsed: boolean;
-  readonly icon: ReactNode;
-  readonly inPopover?: boolean;
-  readonly isSelected: boolean;
-  readonly label: string;
-  readonly onNavigate: () => void;
-  readonly route: string;
-}
-
-function NavigationLink({
-  collapsed,
-  icon,
-  inPopover,
-  isSelected,
-  label,
-  onNavigate,
-  route,
-}: NavigationLinkProps): ReactElement {
-  const link = (
-    <Link
-      aria-current={isSelected ? 'page' : undefined}
-      // NocoProject (nocosolution/guidelines/frontend-standard.md §2.1): the template's row size, muted icons, the selected icon in
-      // primary, and `relative` so an entry's trailing count (the inbox badge) can sit at the row's right end.
-      className={`relative flex items-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring transition-colors ${
-        inPopover
-          ? 'gap-2 rounded-md px-2 py-1.5'
-          : 'gap-3 rounded-lg px-3 py-2'
-      } ${collapsed ? 'md:justify-center md:px-2' : ''} ${
-        isSelected
-          ? 'bg-sidebar-primary font-medium text-sidebar-primary-foreground [&_[data-slot=nav-icon]]:text-primary'
-          : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_[data-slot=nav-icon]]:text-muted-foreground'
-      }`}
-      onClick={onNavigate}
-      to={route}
-    >
-      {icon ? <NavigationIcon>{icon}</NavigationIcon> : null}
-      <span
-        className={`${inPopover ? 'whitespace-nowrap' : 'truncate'} ${collapsed && icon ? 'md:hidden' : ''}`}
-      >
-        {label}
-      </span>
-    </Link>
-  );
-  if (!collapsed) return link;
-  return (
-    <Tooltip>
-      <TooltipTrigger render={link} aria-label={label} delay={0} />
-      <TooltipContent role='tooltip' side='right' sideOffset={8}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
   );
 }
 

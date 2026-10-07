@@ -7,9 +7,15 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  SidebarMenu,
+  SidebarProvider,
+} from '../../client/components/ui/sidebar.js';
+import { TooltipProvider } from '../../client/components/ui/tooltip.js';
 import {
   routeKey,
   type RouteNavigationItem,
@@ -36,6 +42,40 @@ function page(name: string): AppClientRegisteredRoute {
 const child = page('child');
 const sibling = page('sibling');
 
+/** The tree inside the shadcn sidebar context, as `LayoutSidebar` renders it (expanded unless `collapsed`). */
+function inSidebar(tree: ReactElement, collapsed = false): ReactElement {
+  return (
+    <MemoryRouter>
+      <SidebarProvider open={!collapsed} keyboardShortcut={false}>
+        <TooltipProvider>
+          <SidebarMenu>{tree}</SidebarMenu>
+        </TooltipProvider>
+      </SidebarProvider>
+    </MemoryRouter>
+  );
+}
+
+/** shadcn's `useIsMobile` reads `innerWidth` (below 768px is the mobile sheet) and listens through `matchMedia`. */
+function viewport(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width,
+  });
+}
+
+beforeEach(() => {
+  viewport(1024);
+  vi.stubGlobal('matchMedia', () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  viewport(1024);
+});
+
 describe.each([
   { title: 'navigation group', clickable: false },
   { title: 'clickable parent', clickable: true },
@@ -51,29 +91,37 @@ describe.each([
     ],
   };
   function tree(selectedKey: string | undefined) {
-    return (
-      <MemoryRouter>
-        <NavigationTree
-          item={item}
-          collapsed={false}
-          selectedKey={selectedKey}
-          onNavigate={() => {}}
-        />
-      </MemoryRouter>
-    );
+    return inSidebar(<NavigationTree item={item} selectedKey={selectedKey} />);
   }
   function toggle() {
-    return clickable
-      ? screen.getByRole('button', { name: 'Group' })
-      : screen
-          .getByText('Group', { selector: 'summary span.truncate' })
-          .closest('summary')!;
+    return screen.getByRole('button', { name: 'Group' });
   }
   function expectExpanded(expanded: boolean) {
-    if (clickable)
-      expect(toggle()).toHaveAttribute('aria-expanded', String(expanded));
-    else expect(toggle().closest('details')!.open).toBe(expanded);
+    expect(toggle()).toHaveAttribute('aria-expanded', String(expanded));
+    if (expanded)
+      expect(screen.getByRole('link', { name: 'child' })).toBeVisible();
+    else
+      expect(
+        screen.queryByRole('link', { name: 'child' }),
+      ).not.toBeInTheDocument();
   }
+
+  it('renders the group as a shadcn menu item with its parent page link', () => {
+    render(tree(routeKey(child)));
+    expect(toggle().closest('li[data-sidebar=menu-item]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'child' })).toHaveAttribute(
+      'data-active',
+    );
+    if (clickable)
+      expect(screen.getByRole('link', { name: 'Group' })).toHaveAttribute(
+        'href',
+        '/Group',
+      );
+    else
+      expect(
+        screen.queryByRole('link', { name: 'Group' }),
+      ).not.toBeInTheDocument();
+  });
 
   it('keeps an active group open when navigating to another group', () => {
     const { rerender } = render(tree(routeKey(child)));
@@ -109,29 +157,28 @@ describe.each([
 });
 
 describe('collapsed navigation', () => {
-  beforeEach(() => {
-    vi.stubGlobal('matchMedia', () => ({
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
   function show(item: RouteNavigationItem, collapsed = true) {
-    const onNavigate = vi.fn();
     render(
-      <MemoryRouter>
-        <NavigationTree
-          item={item}
-          collapsed={collapsed}
-          selectedKey={routeKey(child)}
-          onNavigate={onNavigate}
-        />
-      </MemoryRouter>,
+      inSidebar(
+        <NavigationTree item={item} selectedKey={routeKey(child)} />,
+        collapsed,
+      ),
     );
-    return onNavigate;
   }
+
+  it('marks the selected leaf as the current page in the shadcn menu button', () => {
+    show({ route: child, children: [] }, false);
+    const link = screen.getByRole('link', { name: 'child' });
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(link).toHaveAttribute('data-slot', 'sidebar-menu-button');
+    expect(link).toHaveAttribute('data-active');
+    expect(link).toHaveClass(
+      'data-active:bg-sidebar-primary',
+      'data-active:text-sidebar-primary-foreground',
+      'px-3',
+      'py-2',
+    );
+  });
 
   it('shows a leaf label immediately on hover and dismisses it on leave', async () => {
     const user = userEvent.setup();
@@ -150,7 +197,7 @@ describe('collapsed navigation', () => {
     'opens a group list immediately on hover (clickable parent: %s)',
     async (clickable) => {
       const user = userEvent.setup();
-      const onNavigate = show({
+      show({
         route: {
           ...page('Group'),
           componentLoader: clickable
@@ -172,7 +219,6 @@ describe('collapsed navigation', () => {
       fireEvent.mouseLeave(trigger, { relatedTarget: popup });
       await user.hover(popup);
       await user.click(link);
-      expect(onNavigate).toHaveBeenCalledOnce();
       await waitFor(() =>
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
       );
@@ -197,7 +243,7 @@ describe('collapsed navigation', () => {
 
   it('keeps a parent link navigable and expands nested groups inside the popup', async () => {
     const user = userEvent.setup();
-    const onNavigate = show({
+    show({
       route: page('Parent'),
       children: [
         {
@@ -215,7 +261,6 @@ describe('collapsed navigation', () => {
     await user.click(within(popup).getByText('Nested'));
     expect(within(popup).getByRole('link', { name: 'sibling' })).toBeVisible();
     await user.click(parent);
-    expect(onNavigate).toHaveBeenCalledOnce();
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
@@ -227,16 +272,11 @@ describe('collapsed navigation', () => {
       route: { ...page('Group'), componentLoader: undefined },
       children: [{ route: child, children: [] }],
     };
-    const tree = (collapsed: boolean) => (
-      <MemoryRouter>
-        <NavigationTree
-          item={item}
-          collapsed={collapsed}
-          selectedKey={undefined}
-          onNavigate={() => {}}
-        />
-      </MemoryRouter>
-    );
+    const tree = (collapsed: boolean) =>
+      inSidebar(
+        <NavigationTree item={item} selectedKey={undefined} />,
+        collapsed,
+      );
     const { rerender } = render(tree(true));
     await user.hover(screen.getByRole('button', { name: 'Group' }));
     expect(await screen.findByRole('dialog')).toBeVisible();
@@ -249,12 +289,7 @@ describe('collapsed navigation', () => {
   it.each(['expanded', 'mobile'])(
     'does not add hover overlays when %s',
     async (mode) => {
-      if (mode === 'mobile')
-        vi.stubGlobal('matchMedia', () => ({
-          matches: false,
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-        }));
+      if (mode === 'mobile') viewport(500);
       const user = userEvent.setup();
       show({ route: page('Home'), children: [] }, mode !== 'expanded');
       await user.hover(screen.getByRole('link', { name: 'Home' }));
