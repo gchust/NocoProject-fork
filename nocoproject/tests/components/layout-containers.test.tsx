@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import {
   act,
@@ -7,26 +6,67 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { LayoutHeader } from '../../client/layouts/components/layout-header.js';
-import { LayoutSidebar } from '../../client/layouts/components/layout-sidebar.js';
+import {
+  LayoutSidebar,
+  LayoutSidebarProvider,
+  LayoutSidebarTrigger,
+} from '../../client/layouts/components/layout-sidebar.js';
 
-function viewport(desktop: boolean) {
+vi.mock('@nocobase/i18n/client', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: { defaultValue?: string }) =>
+      options?.defaultValue ?? key,
+  }),
+}));
+
+/** shadcn's `useIsMobile` reads `innerWidth` and re-reads it on a `matchMedia` change. */
+function viewport(width: number) {
   const listeners = new Set<() => void>();
-  const media = {
-    matches: desktop,
+  const resize = (value: number) =>
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value,
+    });
+  resize(width);
+  vi.stubGlobal('matchMedia', () => ({
+    matches: false,
     addEventListener: (_: string, listener: () => void) =>
       listeners.add(listener),
     removeEventListener: (_: string, listener: () => void) =>
       listeners.delete(listener),
-  };
-  vi.stubGlobal('matchMedia', () => media);
-  return (value: boolean) => {
-    media.matches = value;
+  }));
+  return (value: number) => {
+    resize(value);
     listeners.forEach((listener) => listener());
   };
 }
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: 1024,
+  });
+});
+
+function Shell() {
+  return (
+    <MemoryRouter>
+      <LayoutSidebarProvider>
+        <LayoutSidebar aria-label='Tools'>
+          <input aria-label='Draft' defaultValue='' />
+        </LayoutSidebar>
+        <main>
+          <LayoutSidebarTrigger />
+        </main>
+      </LayoutSidebarProvider>
+    </MemoryRouter>
+  );
+}
+
 it('renders arbitrary header content and native attributes without providers', () => {
   render(
     <LayoutHeader aria-label='Tools' className='justify-end'>
@@ -38,94 +78,75 @@ it('renders arbitrary header content and native attributes without providers', (
   );
   expect(screen.getByRole('textbox', { name: 'Search' })).toBeVisible();
 });
-it('preserves child state through desktop collapse and hiding', () => {
-  viewport(true);
-  const props = {
-    'aria-label': 'Tools',
-    mobileOpen: false,
-    onMobileOpenChange: vi.fn(),
-  };
-  const content = <input aria-label='Draft' defaultValue='' />;
-  const { rerender } = render(
-    <LayoutSidebar {...props} desktopState='expanded'>
-      {content}
-    </LayoutSidebar>,
-  );
+
+it('collapses to icons on the desktop, keeps its content and shares the preference', () => {
+  viewport(1024);
+  render(<Shell />);
+  const sidebar = screen.getByRole('complementary', { name: 'Tools' });
+  const frame = sidebar.closest('[data-slot=sidebar]')!;
+  expect(frame).toHaveAttribute('data-state', 'expanded');
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'kept' } });
-  rerender(
-    <LayoutSidebar {...props} desktopState='collapsed'>
-      {content}
-    </LayoutSidebar>,
-  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse navigation' }));
+  expect(frame).toHaveAttribute('data-state', 'collapsed');
+  expect(frame).toHaveAttribute('data-collapsible', 'icon');
+  expect(
+    screen.getByRole('button', { name: 'Expand navigation' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(localStorage.getItem('nocobase:sidebar:collapsed')).toBe('true');
   expect(screen.getByRole('textbox')).toHaveValue('kept');
-  rerender(
-    <LayoutSidebar {...props} desktopState='hidden'>
-      {content}
-    </LayoutSidebar>,
-  );
-  expect(screen.queryByRole('textbox')).toBeNull();
-  rerender(
-    <LayoutSidebar {...props} desktopState='expanded'>
-      {content}
-    </LayoutSidebar>,
-  );
-  expect(screen.getByRole('textbox')).toHaveValue('kept');
-});
-it('requests mobile close on Escape and desktop transition', async () => {
-  const resize = viewport(false);
-  const onMobileOpenChange = vi.fn();
-  render(
-    <LayoutSidebar
-      aria-label='Tools'
-      desktopState='expanded'
-      mobileOpen
-      onMobileOpenChange={onMobileOpenChange}
-    >
-      <button>Inside</button>
-    </LayoutSidebar>,
-  );
-  expect(await screen.findByRole('dialog', { name: 'Tools' })).toBeVisible();
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Inside' }), {
-    key: 'Escape',
-  });
-  await waitFor(() => expect(onMobileOpenChange).toHaveBeenCalledWith(false));
-  onMobileOpenChange.mockClear();
-  act(() => resize(true));
-  await waitFor(() => expect(onMobileOpenChange).toHaveBeenCalledWith(false));
-  expect(screen.queryByRole('dialog')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Expand navigation' }));
+  expect(frame).toHaveAttribute('data-state', 'expanded');
+  expect(localStorage.getItem('nocobase:sidebar:collapsed')).toBe('false');
 });
 
-it('restores focus and retains arbitrary content across mobile close and reopen', async () => {
-  viewport(false);
+it('opens from the saved preference collapsed', () => {
+  viewport(1024);
+  localStorage.setItem('nocobase:sidebar:collapsed', 'true');
+  render(<Shell />);
+  expect(
+    screen
+      .getByRole('complementary', { name: 'Tools' })
+      .closest('[data-slot=sidebar]'),
+  ).toHaveAttribute('data-state', 'collapsed');
+});
+
+it('leaves Cmd+B to the page', () => {
+  viewport(1024);
+  render(<Shell />);
+  fireEvent.keyDown(window, { key: 'b', metaKey: true });
+  fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
+  expect(
+    screen
+      .getByRole('complementary', { name: 'Tools' })
+      .closest('[data-slot=sidebar]'),
+  ).toHaveAttribute('data-state', 'expanded');
+});
+
+it('opens a named sheet on mobile and closes it by Escape, its button and widening the window', async () => {
+  const resize = viewport(500);
   const user = userEvent.setup();
-  function Example() {
-    const [open, setOpen] = useState(false);
-    return (
-      <>
-        <button onClick={() => setOpen(true)}>Open tools</button>
-        <LayoutSidebar
-          aria-label='Tools'
-          desktopState='expanded'
-          mobileOpen={open}
-          onMobileOpenChange={setOpen}
-        >
-          <input aria-label='Draft' />
-          <button onClick={() => setOpen(false)}>Close tools</button>
-        </LayoutSidebar>
-      </>
-    );
-  }
-  render(<Example />);
-  await user.click(screen.getByRole('button', { name: 'Open tools' }));
-  await user.type(
-    screen.getByRole('textbox', { name: 'Draft' }),
-    'Saved locally',
+  render(<Shell />);
+  const open = await screen.findByRole('button', { name: 'Open navigation' });
+  expect(open).not.toHaveAttribute('aria-pressed');
+
+  await user.click(open);
+  expect(await screen.findByRole('dialog', { name: 'Tools' })).toBeVisible();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+  await user.click(open);
+  await user.click(
+    await screen.findByRole('button', { name: 'Close navigation' }),
   );
-  await user.click(screen.getByRole('button', { name: 'Close tools' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Open tools' })).toHaveFocus(),
-  );
-  expect(screen.queryByRole('textbox')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Open tools' }));
-  expect(screen.getByRole('textbox')).toHaveValue('Saved locally');
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(open).toHaveFocus());
+
+  await user.click(open);
+  expect(await screen.findByRole('dialog', { name: 'Tools' })).toBeVisible();
+  act(() => resize(1024));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  act(() => resize(500));
+  expect(screen.queryByRole('dialog')).toBeNull();
 });

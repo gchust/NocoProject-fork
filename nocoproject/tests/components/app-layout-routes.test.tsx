@@ -1,7 +1,7 @@
 import type { AppClientRegisteredRoute } from '@nocobase/app-client/plugins';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '../../client/layouts/app-layout.js';
 import { Breadcrumbs } from '../../client/components/breadcrumbs.js';
@@ -28,14 +28,28 @@ vi.mock('../../client/routing/route-navigation.js', async (original) => ({
   >()),
   useRouteNavigation: () => ({ items: [], denied: new Set(), loading: false }),
 }));
-vi.mock('../../client/layouts/components/layout-sidebar.js', () => ({
-  LayoutSidebar: () => null,
-}));
+vi.mock(
+  '../../client/layouts/components/layout-sidebar.js',
+  async (original) => ({
+    ...(await original<
+      typeof import('../../client/layouts/components/layout-sidebar.js')
+    >()),
+    LayoutSidebar: () => null,
+  }),
+);
 vi.mock('../../client/layouts/components/header-actions.js', () => ({
   HeaderActions: () => null,
 }));
 
+afterEach(() => vi.unstubAllGlobals());
+
 it('provides business route breadcrumbs to its outlet without an outer provider', () => {
+  // The shell's sidebar provider (shadcn `useIsMobile`) listens to the viewport.
+  vi.stubGlobal('matchMedia', () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
   const child: AppClientRegisteredRoute = {
     id: 'detail',
     name: 'detail',

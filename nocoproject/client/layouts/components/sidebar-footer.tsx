@@ -3,11 +3,9 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { ShieldCheck } from 'lucide-react';
 import type { ReactElement } from 'react';
 
-export function SidebarFooter({
-  collapsed,
-}: {
-  readonly collapsed: boolean;
-}): ReactElement {
+import { SidebarFooter as SidebarFooterSlot } from '@/components/ui/sidebar';
+
+export function SidebarFooter(): ReactElement {
   const { t } = useTranslation();
   const templateName =
     typeof __PORTAL_TEMPLATE_NAME__ === 'string'
@@ -30,15 +28,14 @@ export function SidebarFooter({
   );
 
   return (
-    <footer className='shrink-0 border-t border-sidebar-border/70'>
+    // NP-236: the shadcn sidebar's footer slot; the icon mode keeps only the shield.
+    <SidebarFooterSlot className='shrink-0 gap-0 border-t border-sidebar-border/70 p-0'>
       <div
-        className={`flex min-h-20 items-center gap-3 px-5 py-3 ${collapsed ? 'md:min-h-16 md:justify-center md:px-2' : ''}`}
+        className='flex min-h-20 items-center gap-3 px-5 py-3 group-data-[collapsible=icon]:min-h-16 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2'
         title={templateLabel}
       >
         <ShieldCheck className='size-4 shrink-0 text-sidebar-foreground/80' />
-        <div
-          className={`min-w-0 text-xs leading-4 ${collapsed ? 'md:hidden' : ''}`}
-        >
+        <div className='min-w-0 text-xs leading-4 group-data-[collapsible=icon]:hidden'>
           <div className='font-semibold text-sidebar-foreground'>
             {t('shell.buildFreely', { defaultValue: 'AI builds freely.' })}
           </div>
@@ -59,6 +56,6 @@ export function SidebarFooter({
           </div>
         </div>
       </div>
-    </footer>
+    </SidebarFooterSlot>
   );
 }

@@ -190,11 +190,11 @@ describe('settings centre', () => {
     renderSettings('/settings/authorization/default-access');
     await screen.findByText('Default Access page');
 
-    const group = screen.getByText('Authorization').closest('details');
-    expect(group).toHaveAttribute('open');
+    const group = screen.getByRole('button', { name: 'Authorization' });
+    expect(group).toHaveAttribute('aria-expanded', 'true');
 
-    fireEvent.click(screen.getByText('Authorization'));
-    expect(group).not.toHaveAttribute('open');
+    fireEvent.click(group);
+    expect(group).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('renders an ungrouped page as a flat row rather than a disclosure', async () => {
@@ -203,7 +203,7 @@ describe('settings centre', () => {
 
     const link = screen.getAllByRole('link', { name: 'Workflow General' })[0];
     expect(link).toHaveAttribute('aria-current', 'page');
-    expect(link.closest('details')).toBeNull();
+    expect(link.closest('li')?.querySelector('[aria-expanded]')).toBeNull();
   });
 
   it('renders a nested detail route inside settings and keeps its parent selected', async () => {
@@ -487,9 +487,8 @@ describe('settings centre', () => {
 
     expect(
       screen
-        .getByText('Authorization')
-        .closest('summary')
-        ?.querySelector('[data-testid="setting-icon"]'),
+        .getByRole('button', { name: 'Authorization' })
+        .querySelector('[data-testid="setting-icon"]'),
     ).toBeInTheDocument();
   });
 

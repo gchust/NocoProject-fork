@@ -2,6 +2,12 @@ import { useTranslation } from '@nocobase/i18n/client';
 import type { ReactElement } from 'react';
 
 import {
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarSeparator,
+} from '@/components/ui/sidebar';
+import {
   routeKey,
   type RouteNavigationItem,
 } from '../../routing/route-navigation.js';
@@ -14,17 +20,14 @@ import { NavigationTree } from './navigation-tree.js';
  * top-level group without a page of its own (Work, Agent team) is not a collapsible disclosure but a small grey section
  * label with its entries listed under it. Ungrouped entries between two groups form an unlabelled section. Groups
  * that have a page, nested groups and the Settings / Dev layouts keep `NavigationTree`'s disclosure behaviour.
- * In the desktop icon mode a label becomes a hairline so the icons stay grouped.
+ * In the desktop icon mode a label becomes a hairline so the icons stay grouped. A section is a shadcn `SidebarGroup`
+ * (NP-236) whose label keeps the standard's typography.
  */
 export function NavigationSections({
   items,
-  collapsed,
-  onNavigate,
   selectedKey,
 }: {
   readonly items: readonly RouteNavigationItem[];
-  readonly collapsed: boolean;
-  readonly onNavigate: () => void;
   readonly selectedKey: string | undefined;
 }): ReactElement {
   const sections: {
@@ -54,9 +57,9 @@ export function NavigationSections({
   return (
     <div className='flex flex-col gap-5'>
       {sections.map((section) => (
-        <div
+        <SidebarGroup
           key={section.key}
-          className='flex flex-col gap-1'
+          className='gap-1 p-0'
           role={section.group ? 'group' : undefined}
           aria-labelledby={
             section.group ? sectionLabelId(section.key) : undefined
@@ -66,19 +69,18 @@ export function NavigationSections({
             <SectionLabel
               id={sectionLabelId(section.key)}
               item={section.group}
-              collapsed={collapsed}
             />
           ) : null}
-          {section.items.map((item) => (
-            <NavigationTree
-              collapsed={collapsed}
-              item={item}
-              key={routeKey(item.route)}
-              onNavigate={onNavigate}
-              selectedKey={selectedKey}
-            />
-          ))}
-        </div>
+          <SidebarMenu className='gap-1'>
+            {section.items.map((item) => (
+              <NavigationTree
+                item={item}
+                key={routeKey(item.route)}
+                selectedKey={selectedKey}
+              />
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
       ))}
     </div>
   );
@@ -91,29 +93,25 @@ function sectionLabelId(key: string): string {
 function SectionLabel({
   id,
   item,
-  collapsed,
 }: {
   readonly id: string;
   readonly item: RouteNavigationItem;
-  readonly collapsed: boolean;
 }): ReactElement {
   const { t } = useTranslation(item.route.packageName);
   const title = item.route.navigation?.title ?? '';
   const label = t(title, { defaultValue: title });
   return (
     <>
-      <div
+      <SidebarGroupLabel
         id={id}
-        className={`px-3 pt-1 pb-1.5 text-xs font-medium tracking-wider text-muted-foreground uppercase ${collapsed ? 'md:hidden' : ''}`}
+        className='h-auto px-3 pt-1 pb-1.5 tracking-wider text-muted-foreground uppercase group-data-[collapsible=icon]:hidden'
       >
         {label}
-      </div>
-      {collapsed ? (
-        <div
-          aria-hidden='true'
-          className='mx-2 my-1 hidden h-px bg-sidebar-border md:block'
-        />
-      ) : null}
+      </SidebarGroupLabel>
+      <SidebarSeparator
+        aria-hidden='true'
+        className='my-1 hidden group-data-[collapsible=icon]:block'
+      />
     </>
   );
 }

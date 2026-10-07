@@ -78,14 +78,15 @@ export function NpInboxNavIcon({
   }, [pending.data, chime]);
 
   // The count is a pill at the right end of the navigation row (the row is `relative`), amber because it means
-  // "needs you" (nocosolution/guidelines/frontend-standard.md §2.1); in the desktop icon mode it moves to the icon's corner.
+  // "needs you" (nocosolution/guidelines/frontend-standard.md §2.1); in the desktop icon mode (the shadcn sidebar's
+  // `data-collapsible=icon`) it moves to the icon's corner.
   // A hover/focus tooltip states the pending-vs-unread definition, since a bare number badge otherwise reads as an
   // unread count by the common mailbox mental model.
   const badge = text ? (
     <span
       className={cn(
         'absolute top-1/2 right-2 flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full bg-attention px-1 text-xs leading-none font-semibold text-attention-foreground tabular-nums',
-        'md:group-data-[collapsed=true]/nav:top-0.5 md:group-data-[collapsed=true]/nav:right-0.5 md:group-data-[collapsed=true]/nav:h-3.5 md:group-data-[collapsed=true]/nav:min-w-3.5 md:group-data-[collapsed=true]/nav:translate-y-0 md:group-data-[collapsed=true]/nav:px-0.5',
+        'group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:h-3.5 group-data-[collapsible=icon]:min-w-3.5 group-data-[collapsible=icon]:translate-y-0 group-data-[collapsible=icon]:px-0.5',
       )}
       data-testid='np-inbox-badge'
     >

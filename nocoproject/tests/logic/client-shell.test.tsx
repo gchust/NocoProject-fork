@@ -48,17 +48,19 @@ describe('application shell', () => {
       'aria-current',
       'page',
     );
+    // NP-236: the shadcn sidebar, its selected entry in the shell's sidebar-primary.
     expect(
-      screen.getByRole('complementary', { name: 'Application navigation' }),
-    ).toHaveClass(
-      'bg-sidebar',
-      'text-sidebar-foreground',
-      'border-sidebar-border',
+      screen
+        .getByRole('complementary', { name: 'Application navigation' })
+        .closest('[data-slot=sidebar]'),
+    ).toHaveClass('text-sidebar-foreground');
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'data-active',
     );
     expect(screen.getByRole('link', { name: 'Home' })).toHaveClass(
-      'bg-sidebar-primary',
-      'text-sidebar-primary-foreground',
-      'focus-visible:ring-sidebar-ring',
+      'data-active:bg-sidebar-primary',
+      'data-active:text-sidebar-primary-foreground',
+      'ring-sidebar-ring',
     );
     // The account menu exposes user details in its panel without a native tooltip.
     expect(
@@ -234,20 +236,22 @@ describe('application shell', () => {
   it('collapses and expands the desktop navigation', async () => {
     renderApplication('/', true);
 
-    const sidebar = await screen.findByRole('complementary', {
-      name: 'Application navigation',
-    });
+    const sidebar = (
+      await screen.findByRole('complementary', {
+        name: 'Application navigation',
+      })
+    ).closest('[data-slot=sidebar]');
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Collapse navigation' }),
     );
-    expect(sidebar).toHaveClass('w-16');
+    expect(sidebar).toHaveAttribute('data-collapsible', 'icon');
     expect(
       screen.getByRole('button', { name: 'Expand navigation' }),
     ).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand navigation' }));
-    expect(sidebar).toHaveClass('w-64');
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
   });
 
   it('opens and closes the mobile navigation without changing the route', async () => {
@@ -261,17 +265,31 @@ describe('application shell', () => {
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }));
-    renderApplication('/', true);
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Open navigation' }),
-    );
-    expect(
-      await screen.findByRole('dialog', { name: 'Application navigation' }),
-    ).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Close navigation' }));
-    expect(
-      screen.queryByRole('dialog', { name: 'Application navigation' }),
-    ).toBeNull();
+    // shadcn's `useIsMobile` reads the window width.
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 500,
+    });
+    try {
+      renderApplication('/', true);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Open navigation' }),
+      );
+      expect(
+        await screen.findByRole('dialog', { name: 'Application navigation' }),
+      ).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'Close navigation' }));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: 'Application navigation' }),
+        ).toBeNull(),
+      );
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value: 1024,
+      });
+    }
   });
 
   it('keeps guest pages outside the application shell', async () => {
